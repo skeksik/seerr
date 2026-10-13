@@ -17,6 +17,13 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store CI=true pnpm install --prod --
 # Remove large native modules for linux-x64-gnu platform (we use alpine which is musl-based)
 # not supported in pnpm for now due to this bug: https://github.com/pnpm/pnpm/issues/9654
 RUN du -shL ./node_modules/.pnpm/* | grep '[0-9]M.*' | grep 'linux-x64-gnu@' | awk '{print $2}' | xargs rm -rf
+# @next/swc is only for next build and for next.config.ts
+# ts-node, @swc/core, and typescript are only needed for build-time type checking and compilation
+RUN rm -rf \
+  node_modules/.pnpm/@next+swc-* \
+  node_modules/.pnpm/@swc+core* \
+  node_modules/.pnpm/ts-node@* \
+  node_modules/.pnpm/typescript@*
 # Remove large module files not needed for production
 RUN if [ -d node_modules/.pnpm ]; then \
   find node_modules/.pnpm -type d \( \
@@ -29,6 +36,8 @@ RUN if [ -d node_modules/.pnpm ]; then \
   -path "*@heroicons/react/16" \
   \) -exec rm -rf {} + || true; \
   fi
+# Remove source map files not needed for production
+RUN find node_modules/.pnpm -type f -name '*.map' -delete
 
 FROM base AS build
 
@@ -49,6 +58,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store CYPRESS_INSTALL_BINARY=0 pnpm 
 RUN pnpm build
 
 RUN rm -rf .next/cache
+# Remove source map files not needed for production
+RUN find .next -type f -name '*.map' -delete
 
 FROM node:22.23.2-alpine3.23@sha256:46825fbbd4e996a78b7a2cdc08d75e38a5a505bdab95dcda55605359bf124bc6
 ARG SOURCE_DATE_EPOCH
@@ -62,7 +73,7 @@ USER node:node
 
 WORKDIR /app
 
-COPY --chown=node:node . .
+COPY --chown=node:node --exclude=src --exclude=server . .
 COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/.next ./.next
 COPY --chown=node:node --from=build /app/dist ./dist
