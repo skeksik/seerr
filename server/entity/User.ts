@@ -136,6 +136,12 @@ export class User {
   @Column({ nullable: true })
   public tvQuotaDays?: number;
 
+  @Column({ nullable: true })
+  public sceneQuotaLimit?: number;
+
+  @Column({ nullable: true })
+  public sceneQuotaDays?: number;
+
   @OneToOne(() => UserSettings, (settings) => settings.user, {
     cascade: true,
     eager: true,
@@ -291,30 +297,54 @@ export class User {
       type: 'or',
     });
 
+    // Movies and scenes count one per request; series count seasons below
+    const countRequests = async (
+      type: MediaType.MOVIE | MediaType.SCENE,
+      limit: number | undefined,
+      days: number | undefined
+    ): Promise<number> => {
+      if (!limit) {
+        return 0;
+      }
+
+      const since = new Date();
+      if (days) {
+        since.setDate(since.getDate() - days);
+      }
+
+      return requestRepository.count({
+        where: {
+          requestedBy: {
+            id: this.id,
+          },
+          ...(days ? { createdAt: AfterDate(since) } : {}),
+          type,
+          status: Not(MediaRequestStatus.DECLINED),
+          ignoreQuota: false,
+        },
+      });
+    };
+
     const movieQuotaLimit = !canBypass
       ? (this.movieQuotaLimit ?? defaultQuotas.movie.quotaLimit)
       : 0;
     const movieQuotaDays = this.movieQuotaDays ?? defaultQuotas.movie.quotaDays;
+    const movieQuotaUsed = await countRequests(
+      MediaType.MOVIE,
+      movieQuotaLimit,
+      movieQuotaDays
+    );
 
-    // Count movie requests made during quota period
-    const movieDate = new Date();
-    if (movieQuotaDays) {
-      movieDate.setDate(movieDate.getDate() - movieQuotaDays);
-    }
-
-    const movieQuotaUsed = movieQuotaLimit
-      ? await requestRepository.count({
-          where: {
-            requestedBy: {
-              id: this.id,
-            },
-            ...(movieQuotaDays ? { createdAt: AfterDate(movieDate) } : {}),
-            type: MediaType.MOVIE,
-            status: Not(MediaRequestStatus.DECLINED),
-            ignoreQuota: false,
-          },
-        })
+    const sceneQuotaLimit = !canBypass
+      ? (this.sceneQuotaLimit ?? defaultQuotas.scene?.quotaLimit)
       : 0;
+    const sceneQuotaDays =
+      this.sceneQuotaDays ?? defaultQuotas.scene?.quotaDays;
+    const sceneQuotaUsed = await countRequests(
+      MediaType.SCENE,
+      sceneQuotaLimit,
+      sceneQuotaDays
+    );
 
     const tvQuotaLimit = !canBypass
       ? (this.tvQuotaLimit ?? defaultQuotas.tv.quotaLimit)
@@ -383,6 +413,17 @@ export class User {
           ? Math.max(0, tvQuotaLimit - tvQuotaUsed)
           : undefined,
         restricted: !!(tvQuotaLimit && tvQuotaLimit - tvQuotaUsed <= 0),
+      },
+      scene: {
+        days: sceneQuotaDays,
+        limit: sceneQuotaLimit,
+        used: sceneQuotaUsed,
+        remaining: sceneQuotaLimit
+          ? Math.max(0, sceneQuotaLimit - sceneQuotaUsed)
+          : undefined,
+        restricted: !!(
+          sceneQuotaLimit && sceneQuotaLimit - sceneQuotaUsed <= 0
+        ),
       },
     };
   }

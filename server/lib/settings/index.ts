@@ -155,6 +155,8 @@ export interface MainSettings {
   defaultQuotas: {
     movie: Quota;
     tv: Quota;
+    // Optional so settings files from before scenes still type-check
+    scene?: Quota;
   };
   hideAvailable: boolean;
   hideBlocklisted: boolean;
@@ -440,6 +442,7 @@ class Settings {
         defaultQuotas: {
           movie: {},
           tv: {},
+          scene: {},
         },
         hideAvailable: false,
         hideBlocklisted: false,

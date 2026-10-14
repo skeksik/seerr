@@ -38,6 +38,7 @@ const messages = defineMessages('components.Settings.SettingsUsers', {
     'Allow {mediaServerName} users to sign in without first being imported',
   movieRequestLimitLabel: 'Global Movie Request Limit',
   tvRequestLimitLabel: 'Global Series Request Limit',
+  sceneRequestLimitLabel: 'Global Scene Request Limit',
   defaultPermissions: 'Default Permissions',
   defaultPermissionsTip: 'Initial permissions assigned to new users',
   disabledMediaServerLoginWarning:
@@ -114,6 +115,8 @@ const SettingsUsers = () => {
             movieQuotaDays: data?.defaultQuotas.movie.quotaDays ?? 7,
             tvQuotaLimit: data?.defaultQuotas.tv.quotaLimit ?? 0,
             tvQuotaDays: data?.defaultQuotas.tv.quotaDays ?? 7,
+            sceneQuotaLimit: data?.defaultQuotas.scene?.quotaLimit ?? 0,
+            sceneQuotaDays: data?.defaultQuotas.scene?.quotaDays ?? 7,
             defaultPermissions: data?.defaultPermissions ?? 0,
           }}
           validationSchema={schema}
@@ -132,6 +135,10 @@ const SettingsUsers = () => {
                   tv: {
                     quotaLimit: values.tvQuotaLimit,
                     quotaDays: values.tvQuotaDays,
+                  },
+                  scene: {
+                    quotaLimit: values.sceneQuotaLimit,
+                    quotaDays: values.sceneQuotaDays,
                   },
                 },
                 defaultPermissions: values.defaultPermissions,
@@ -276,6 +283,23 @@ const SettingsUsers = () => {
                     />
                   </div>
                 </div>
+                {data?.enableAdult && (
+                  <div className="form-row">
+                    <label htmlFor="applicationTitle" className="text-label">
+                      {intl.formatMessage(messages.sceneRequestLimitLabel)}
+                    </label>
+                    <div className="form-input-area">
+                      <QuotaSelector
+                        onChange={setFieldValue}
+                        dayFieldName="sceneQuotaDays"
+                        limitFieldName="sceneQuotaLimit"
+                        mediaType="scene"
+                        defaultDays={values.sceneQuotaDays}
+                        defaultLimit={values.sceneQuotaLimit}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div
                   role="group"
                   aria-labelledby="group-label"

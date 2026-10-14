@@ -15,6 +15,7 @@ import Media from '@server/entity/Media';
 import {
   DuplicateMediaRequestError,
   MediaRequest,
+  QuotaRestrictedError,
   RequestPermissionError,
 } from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
@@ -193,6 +194,84 @@ describe('Scene requests', () => {
       where: { id: request.id },
     });
     assert.strictEqual(saved.status, MediaRequestStatus.FAILED);
+  });
+});
+
+describe('Scene quotas', () => {
+  const OTHER_ID = '019d06d3-7924-7c2f-add1-c182b1549318';
+
+  afterEach(() => {
+    getSettings().main.defaultQuotas.scene = {};
+  });
+
+  it('counts scene requests against the scene quota', async () => {
+    const user = await createUser(
+      'quota@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    user.sceneQuotaLimit = 1;
+    await getRepository(User).save(user);
+
+    await requestScene(user);
+
+    const quota = await user.getQuota();
+    assert.strictEqual(quota.scene.used, 1);
+    assert.strictEqual(quota.scene.restricted, true);
+    assert.strictEqual(quota.movie.used, 0);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: OTHER_ID },
+          user
+        ),
+      QuotaRestrictedError
+    );
+  });
+
+  it('applies the default scene quota to users without their own', async () => {
+    getSettings().main.defaultQuotas.scene = { quotaLimit: 1, quotaDays: 7 };
+    const user = await createUser(
+      'default-quota@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    await requestScene(user);
+
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: OTHER_ID },
+          user
+        ),
+      QuotaRestrictedError
+    );
+  });
+
+  it('lets request managers bypass the scene quota', async () => {
+    const requester = await createUser(
+      'limited@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    requester.sceneQuotaLimit = 1;
+    await getRepository(User).save(requester);
+    const manager = await createUser(
+      'manager@seerr.dev',
+      Permission.MANAGE_USERS | Permission.MANAGE_REQUESTS | Permission.ADULT
+    );
+    await requestScene(requester);
+
+    const request = await MediaRequest.request(
+      {
+        mediaType: MediaType.SCENE,
+        stashId: OTHER_ID,
+        userId: requester.id,
+        ignoreQuota: true,
+      },
+      manager
+    );
+
+    assert.strictEqual(request.ignoreQuota, true);
+    assert.strictEqual((await requester.getQuota()).scene.used, 1);
   });
 });
 

@@ -129,6 +129,21 @@ export class MediaRequest {
       );
     }
 
+    const quotas = await requestUser.getQuota();
+    const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
+    const ignoreQuota =
+      requestBody.ignoreQuota === true &&
+      canBypassQuota &&
+      (quotas.scene.limit ?? 0) > 0;
+
+    if (requestBody.ignoreQuota && !canBypassQuota) {
+      throw new RequestPermissionError(
+        'You do not have permission to bypass user quota limits.'
+      );
+    } else if (!ignoreQuota && quotas.scene.restricted) {
+      throw new QuotaRestrictedError('Scene Quota exceeded.');
+    }
+
     const scene = await StashDbAPI.fromSettings().getScene(requestBody.stashId);
 
     if (!scene || scene.deleted) {
@@ -197,7 +212,7 @@ export class MediaRequest {
       rootFolder: requestBody.rootFolder,
       tags: requestBody.tags,
       isAutoRequest: false,
-      ignoreQuota: false,
+      ignoreQuota,
     });
 
     await requestRepository.save(request);

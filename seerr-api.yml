@@ -186,6 +186,16 @@ components:
           nullable: true
           description: 'Time period in days for TV quota'
           example: 14
+        sceneQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Maximum number of scene requests allowed'
+          example: 5
+        sceneQuotaDays:
+          type: number
+          nullable: true
+          description: 'Time period in days for scene quota'
+          example: 7
         globalMovieQuotaDays:
           type: number
           nullable: true
@@ -206,6 +216,16 @@ components:
           nullable: true
           description: 'Global TV quota days setting'
           example: 14
+        globalSceneQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Global scene quota limit setting'
+          example: 5
+        globalSceneQuotaDays:
+          type: number
+          nullable: true
+          description: 'Global scene quota days setting'
+          example: 7
         watchlistSyncMovies:
           type: boolean
           nullable: true
@@ -5200,6 +5220,24 @@ paths:
                         type: boolean
                         example: false
                   tv:
+                    type: object
+                    properties:
+                      days:
+                        type: number
+                        example: 7
+                      limit:
+                        type: number
+                        example: 10
+                      used:
+                        type: number
+                        example: 6
+                      remaining:
+                        type: number
+                        example: 4
+                      restricted:
+                        type: boolean
+                        example: false
+                  scene:
                     type: object
                     properties:
                       days:

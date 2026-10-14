@@ -58,6 +58,7 @@ const messages = defineMessages(
     streamingRegionTip: 'Show streaming sites by regional availability',
     movierequestlimit: 'Movie Request Limit',
     seriesrequestlimit: 'Series Request Limit',
+    scenerequestlimit: 'Scene Request Limit',
     enableOverride: 'Override Global Limit',
     applanguage: 'Display Language',
     languageDefault: 'Default ({language})',
@@ -78,6 +79,7 @@ const UserGeneralSettings = () => {
   const { locale, setLocale } = useLocale();
   const [movieQuotaEnabled, setMovieQuotaEnabled] = useState(false);
   const [tvQuotaEnabled, setTvQuotaEnabled] = useState(false);
+  const [sceneQuotaEnabled, setSceneQuotaEnabled] = useState(false);
   const router = useRouter();
   const {
     user,
@@ -124,6 +126,9 @@ const UserGeneralSettings = () => {
     setTvQuotaEnabled(
       data?.tvQuotaLimit != undefined && data?.tvQuotaDays != undefined
     );
+    setSceneQuotaEnabled(
+      data?.sceneQuotaLimit != undefined && data?.sceneQuotaDays != undefined
+    );
   }, [data]);
 
   if (!data && !error) {
@@ -159,6 +164,8 @@ const UserGeneralSettings = () => {
           movieQuotaDays: data?.movieQuotaDays,
           tvQuotaLimit: data?.tvQuotaLimit,
           tvQuotaDays: data?.tvQuotaDays,
+          sceneQuotaLimit: data?.sceneQuotaLimit,
+          sceneQuotaDays: data?.sceneQuotaDays,
           watchlistSyncMovies: data?.watchlistSyncMovies,
           watchlistSyncTv: data?.watchlistSyncTv,
         }}
@@ -180,6 +187,10 @@ const UserGeneralSettings = () => {
               movieQuotaDays: movieQuotaEnabled ? values.movieQuotaDays : null,
               tvQuotaLimit: tvQuotaEnabled ? values.tvQuotaLimit : null,
               tvQuotaDays: tvQuotaEnabled ? values.tvQuotaDays : null,
+              sceneQuotaLimit: sceneQuotaEnabled
+                ? values.sceneQuotaLimit
+                : null,
+              sceneQuotaDays: sceneQuotaEnabled ? values.sceneQuotaDays : null,
               watchlistSyncMovies: values.watchlistSyncMovies,
               watchlistSyncTv: values.watchlistSyncTv,
             });
@@ -501,6 +512,48 @@ const UserGeneralSettings = () => {
                         </div>
                       </div>
                     </div>
+                    {currentSettings.enableAdult && (
+                      <div className="form-row">
+                        <label htmlFor="sceneQuotaLimit" className="text-label">
+                          <span>
+                            {intl.formatMessage(messages.scenerequestlimit)}
+                          </span>
+                        </label>
+                        <div className="form-input-area">
+                          <div className="flex flex-col">
+                            <div className="mb-4 flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={sceneQuotaEnabled}
+                                onChange={() => setSceneQuotaEnabled((s) => !s)}
+                              />
+                              <span className="ml-2 text-gray-300">
+                                {intl.formatMessage(messages.enableOverride)}
+                              </span>
+                            </div>
+                            <QuotaSelector
+                              isDisabled={!sceneQuotaEnabled}
+                              dayFieldName="sceneQuotaDays"
+                              limitFieldName="sceneQuotaLimit"
+                              mediaType="scene"
+                              onChange={setFieldValue}
+                              defaultDays={values.sceneQuotaDays}
+                              defaultLimit={values.sceneQuotaLimit}
+                              dayOverride={
+                                !sceneQuotaEnabled
+                                  ? data?.globalSceneQuotaDays
+                                  : undefined
+                              }
+                              limitOverride={
+                                !sceneQuotaEnabled
+                                  ? data?.globalSceneQuotaLimit
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               {hasPermission(

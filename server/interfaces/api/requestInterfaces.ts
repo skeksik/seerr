@@ -39,4 +39,5 @@ export type SceneRequestBody = {
   rootFolder?: string;
   userId?: number;
   tags?: number[];
+  ignoreQuota?: boolean;
 };
