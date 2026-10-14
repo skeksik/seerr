@@ -2,6 +2,7 @@ import Slider from '@app/components/Slider';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
+import { isTmdbMedia } from '@server/constants/media';
 import type { MediaResultsResponse } from '@server/interfaces/api/mediaInterfaces';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
@@ -37,7 +38,7 @@ const RecentlyAddedSlider = () => {
       <Slider
         sliderKey="media"
         isLoading={!media}
-        items={(media?.results ?? []).map((item) => (
+        items={(media?.results ?? []).filter(isTmdbMedia).map((item) => (
           <TmdbTitleCard
             key={`media-slider-item-${item.id}`}
             id={item.id}

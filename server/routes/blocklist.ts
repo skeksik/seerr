@@ -15,7 +15,7 @@ const blocklistRoutes = Router();
 
 export const blocklistAdd = z.object({
   tmdbId: z.coerce.number(),
-  mediaType: z.nativeEnum(MediaType),
+  mediaType: z.enum([MediaType.MOVIE, MediaType.TV]),
   title: z.coerce.string().optional(),
   user: z.coerce.number(),
   blocklistedTags: z.string().optional(),

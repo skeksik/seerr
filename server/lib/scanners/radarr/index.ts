@@ -141,7 +141,11 @@ class RadarrScanner
           ? this.processing4kTmdbIds
           : this.processingTmdbIds;
 
-        return scanComplete && !processingIds.has(media.tmdbId);
+        return (
+          scanComplete &&
+          media.tmdbId !== null &&
+          !processingIds.has(media.tmdbId)
+        );
       });
 
       await this.cleanupOrphanedMovies();
@@ -231,7 +235,7 @@ class RadarrScanner
       });
 
       for (const media of processingMovies) {
-        if (!this.scannedTmdbIds.has(media.tmdbId)) {
+        if (media.tmdbId !== null && !this.scannedTmdbIds.has(media.tmdbId)) {
           if (await this.existsInAnyServer(media.tmdbId, false)) {
             continue;
           }
@@ -262,7 +266,7 @@ class RadarrScanner
       });
 
       for (const media of processing4kMovies) {
-        if (!this.scanned4kTmdbIds.has(media.tmdbId)) {
+        if (media.tmdbId !== null && !this.scanned4kTmdbIds.has(media.tmdbId)) {
           if (await this.existsInAnyServer(media.tmdbId, true)) {
             continue;
           }

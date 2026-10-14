@@ -25,6 +25,7 @@ import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
   mediaKey,
   mediaLock,
@@ -244,6 +245,10 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 ?.profiles?.find((profile) => profile.id === r.profileId)?.name,
             };
           }
+          case MediaType.SCENE: {
+            // TODO(whisparr): resolve profile names from Whisparr servers
+            return { ...r, profileName: undefined };
+          }
         }
       });
 
@@ -272,6 +277,10 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                     (r.is4k ? r.media.serviceId4k : r.media.serviceId)
                 ),
               };
+            }
+            case MediaType.SCENE: {
+              // TODO(whisparr): check against configured Whisparr servers
+              return { ...r, canRemove: false };
             }
           }
         });
@@ -570,12 +579,12 @@ requestRoutes.put<{ requestId: string }>(
             // Same key as create, so an edit cannot claim a season that a new
             // request is taking at the same moment
             return mediaLock.dispatch(
-              mediaKey(MediaType.TV, request.media.tmdbId),
+              mediaKey(MediaType.TV, requireTmdbId(request.media)),
               async () => {
                 // Get existing media so we can work with all the requests
                 const media = await mediaRepository.findOneOrFail({
                   where: {
-                    tmdbId: request.media.tmdbId,
+                    tmdbId: requireTmdbId(request.media),
                     mediaType: MediaType.TV,
                   },
                   relations: { requests: true },

@@ -6,7 +6,7 @@ import type {
   TmdbSearchMovieResponse,
   TmdbSearchTvResponse,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, type TmdbMediaType } from '@server/constants/media';
 import dataSource from '@server/datasource';
 import { Blocklist } from '@server/entity/Blocklist';
 import Media from '@server/entity/Media';
@@ -138,7 +138,7 @@ class BlocklistedTagProcessor implements RunnableScanner<StatusBase> {
   }
 
   private async processTagForType<S extends string>(
-    type: MediaType,
+    type: TmdbMediaType,
     tag: string,
     em: EntityManager,
     getDiscover: (options: {
@@ -191,7 +191,7 @@ class BlocklistedTagProcessor implements RunnableScanner<StatusBase> {
   private async processResults(
     response: TmdbSearchMovieResponse | TmdbSearchTvResponse,
     keywordId: string,
-    mediaType: MediaType,
+    mediaType: TmdbMediaType,
     em: EntityManager
   ) {
     const blocklistRepository = em.getRepository(Blocklist);

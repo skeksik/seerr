@@ -114,15 +114,38 @@ class Media {
     }
   }
 
+  public static async getMediaByStashId(
+    stashId: string
+  ): Promise<Media | undefined> {
+    const mediaRepository = getRepository(Media);
+
+    try {
+      const media = await mediaRepository.findOne({
+        where: { stashId, mediaType: MediaType.SCENE },
+        relations: { requests: true, issues: true },
+      });
+
+      return media ?? undefined;
+    } catch (e) {
+      logger.error(e.message);
+      return undefined;
+    }
+  }
+
   @PrimaryGeneratedColumn()
   public id: number;
 
   @Column({ type: 'varchar' })
   public mediaType: MediaType;
 
-  @Column()
+  // Null for scenes, which are keyed by stashId instead
+  @Column({ type: 'int', nullable: true })
   @Index()
-  public tmdbId: number;
+  public tmdbId: number | null;
+
+  // stash-box (StashDB) scene UUID, shared by Whisparr and Stash
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  public stashId?: string | null;
 
   @Column({ unique: true, nullable: true })
   @Index()

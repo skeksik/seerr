@@ -7,6 +7,7 @@ import { User } from '@server/entity/User';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import { sortBy } from 'lodash';
 import type {
   EntityManager,
@@ -46,14 +47,14 @@ export class IssueCommentSubscriber implements EntitySubscriberInterface<IssueCo
       });
 
       if (media.mediaType === MediaType.MOVIE) {
-        const movie = await tmdb.getMovie({ movieId: media.tmdbId });
+        const movie = await tmdb.getMovie({ movieId: requireTmdbId(media) });
 
         title = `${movie.title}${
           movie.release_date ? ` (${movie.release_date.slice(0, 4)})` : ''
         }`;
         image = `https://image.tmdb.org/t/p/w600_and_h900_bestv2${movie.poster_path}`;
       } else {
-        const tvshow = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const tvshow = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
 
         title = `${tvshow.name}${
           tvshow.first_air_date ? ` (${tvshow.first_air_date.slice(0, 4)})` : ''

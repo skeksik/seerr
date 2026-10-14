@@ -10,6 +10,7 @@ import { Permission, UserType, useUser } from '@app/hooks/useUser';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
+import { isTmdbMedia } from '@server/constants/media';
 import type { WatchlistResponse } from '@server/interfaces/api/discoverInterfaces';
 import type {
   QuotaResponse,
@@ -389,15 +390,17 @@ const UserProfile = () => {
             <Slider
               sliderKey="media"
               isLoading={!watchData}
-              items={watchData?.recentlyWatched?.map((item) => (
-                <TmdbTitleCard
-                  key={`media-slider-item-${item.id}`}
-                  id={item.id}
-                  tmdbId={item.tmdbId}
-                  tvdbId={item.tvdbId}
-                  type={item.mediaType}
-                />
-              ))}
+              items={watchData?.recentlyWatched
+                ?.filter(isTmdbMedia)
+                .map((item) => (
+                  <TmdbTitleCard
+                    key={`media-slider-item-${item.id}`}
+                    id={item.id}
+                    tmdbId={item.tmdbId}
+                    tvdbId={item.tvdbId}
+                    type={item.mediaType}
+                  />
+                ))}
             />
           </>
         )}

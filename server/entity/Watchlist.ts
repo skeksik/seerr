@@ -1,5 +1,5 @@
 import TheMovieDb from '@server/api/themoviedb';
-import { MediaType } from '@server/constants/media';
+import { MediaType, type TmdbMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
@@ -35,7 +35,7 @@ export class Watchlist implements WatchlistItem {
   public ratingKey = '';
 
   @Column({ type: 'varchar' })
-  public mediaType: MediaType;
+  public mediaType: TmdbMediaType;
 
   @Column({ type: 'varchar' })
   title = '';
@@ -76,7 +76,7 @@ export class Watchlist implements WatchlistItem {
     user,
   }: {
     watchlistRequest: {
-      mediaType: MediaType;
+      mediaType: TmdbMediaType;
       ratingKey?: ZodOptional<ZodString>['_output'];
       title?: ZodOptional<ZodString>['_output'];
       tmdbId: ZodNumber['_output'];
@@ -142,7 +142,7 @@ export class Watchlist implements WatchlistItem {
 
   public static async deleteWatchlist(
     tmdbId: Watchlist['tmdbId'],
-    mediaType: MediaType,
+    mediaType: TmdbMediaType,
     user: User
   ): Promise<Watchlist | null> {
     const watchlistRepository = getRepository(this);

@@ -16,7 +16,7 @@ import {
   UserIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { MediaRequestStatus } from '@server/constants/media';
+import { MediaRequestStatus, isTmdbMedia } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import axios from 'axios';
 import Link from 'next/link';
@@ -78,20 +78,22 @@ const RequestBlock = ({ request, onUpdate }: RequestBlockProps) => {
 
   return (
     <div className="block">
-      <RequestModal
-        show={showEditModal}
-        tmdbId={request.media.tmdbId}
-        type={request.type}
-        is4k={request.is4k}
-        editRequest={request}
-        onCancel={() => setShowEditModal(false)}
-        onComplete={() => {
-          if (onUpdate) {
-            onUpdate();
-          }
-          setShowEditModal(false);
-        }}
-      />
+      {isTmdbMedia(request.media) && (
+        <RequestModal
+          show={showEditModal}
+          tmdbId={request.media.tmdbId}
+          type={request.media.mediaType}
+          is4k={request.is4k}
+          editRequest={request}
+          onCancel={() => setShowEditModal(false)}
+          onComplete={() => {
+            if (onUpdate) {
+              onUpdate();
+            }
+            setShowEditModal(false);
+          }}
+        />
+      )}
       <div className="px-4 py-3 text-gray-300">
         <div className="flex items-center justify-between">
           <div className="mr-6 min-w-0 flex-1 flex-col items-center text-sm leading-5">

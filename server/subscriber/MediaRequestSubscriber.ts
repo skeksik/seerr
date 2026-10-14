@@ -20,6 +20,7 @@ import SeasonRequest from '@server/entity/SeasonRequest';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import { withNestedTransaction } from '@server/utils/nestedTransaction';
 import { isEqual, truncate } from 'lodash';
 import type {
@@ -73,7 +74,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
 
     try {
       const movie = await tmdb.getMovie({
-        movieId: entity.media.tmdbId,
+        movieId: requireTmdbId(entity.media),
       });
 
       notificationManager.sendNotification(Notification.MEDIA_AVAILABLE, {
@@ -145,7 +146,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     const tmdb = new TheMovieDb();
 
     try {
-      const tv = await tmdb.getTvShow({ tvId: entity.media.tmdbId });
+      const tv = await tmdb.getTvShow({ tvId: requireTmdbId(entity.media) });
 
       notificationManager.sendNotification(Notification.MEDIA_AVAILABLE, {
         event: `${entity.is4k ? '4K ' : ''}Series Request Now Available`,
@@ -317,7 +318,9 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
           apiKey: radarrSettings.apiKey,
           url: RadarrAPI.buildUrl(radarrSettings, '/api/v3'),
         });
-        const movie = await tmdb.getMovie({ movieId: entity.media.tmdbId });
+        const movie = await tmdb.getMovie({
+          movieId: requireTmdbId(entity.media),
+        });
 
         if (radarrSettings.tagRequests) {
           const radarrTags = await radarr.getTags();
@@ -572,7 +575,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
           apiKey: sonarrSettings.apiKey,
           url: SonarrAPI.buildUrl(sonarrSettings, '/api/v3'),
         });
-        const series = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const series = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
         const tvdbId = series.external_ids.tvdb_id ?? media.tvdbId;
 
         if (!tvdbId) {

@@ -22,7 +22,11 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { MediaRequestStatus, MediaStatus } from '@server/constants/media';
+import {
+  MediaRequestStatus,
+  MediaStatus,
+  isTmdbMedia,
+} from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties } from '@server/interfaces/api/common';
 import type { MovieDetails } from '@server/models/Movie';
@@ -334,18 +338,20 @@ const RequestCard = ({ request, onTitleData }: RequestCardProps) => {
 
   return (
     <>
-      <RequestModal
-        show={showEditModal}
-        tmdbId={request.media.tmdbId}
-        type={request.type}
-        is4k={request.is4k}
-        editRequest={request}
-        onCancel={() => setShowEditModal(false)}
-        onComplete={() => {
-          revalidate();
-          setShowEditModal(false);
-        }}
-      />
+      {isTmdbMedia(request.media) && (
+        <RequestModal
+          show={showEditModal}
+          tmdbId={request.media.tmdbId}
+          type={request.media.mediaType}
+          is4k={request.is4k}
+          editRequest={request}
+          onCancel={() => setShowEditModal(false)}
+          onComplete={() => {
+            revalidate();
+            setShowEditModal(false);
+          }}
+        />
+      )}
       <div
         className="relative flex w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:w-96"
         data-testid="request-card"

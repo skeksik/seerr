@@ -21,7 +21,11 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
-import { MediaRequestStatus, MediaStatus } from '@server/constants/media';
+import {
+  MediaRequestStatus,
+  MediaStatus,
+  isTmdbMedia,
+} from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties } from '@server/interfaces/api/common';
 import type { RequestResultsResponse } from '@server/interfaces/api/requestInterfaces';
@@ -423,18 +427,20 @@ const RequestItem = ({ request, revalidateList }: RequestItemProps) => {
 
   return (
     <>
-      <RequestModal
-        show={showEditModal}
-        tmdbId={request.media.tmdbId}
-        type={request.type}
-        is4k={request.is4k}
-        editRequest={request}
-        onCancel={() => setShowEditModal(false)}
-        onComplete={() => {
-          revalidateList();
-          setShowEditModal(false);
-        }}
-      />
+      {isTmdbMedia(request.media) && (
+        <RequestModal
+          show={showEditModal}
+          tmdbId={request.media.tmdbId}
+          type={request.media.mediaType}
+          is4k={request.is4k}
+          editRequest={request}
+          onCancel={() => setShowEditModal(false)}
+          onComplete={() => {
+            revalidateList();
+            setShowEditModal(false);
+          }}
+        />
+      )}
       <div className="relative flex w-full flex-col justify-between overflow-hidden rounded-xl bg-gray-800 py-2 text-gray-400 shadow-md ring-1 ring-gray-700 xl:h-28 xl:flex-row">
         {title.backdropPath && (
           <div className="absolute inset-0 z-0 w-full bg-cover bg-center xl:w-2/3">

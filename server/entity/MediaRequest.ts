@@ -12,6 +12,7 @@ import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
   mediaKey,
   mediaLock,
@@ -751,7 +752,7 @@ export class MediaRequest {
       }
 
       if (entity.type === MediaType.MOVIE) {
-        const movie = await tmdb.getMovie({ movieId: media.tmdbId });
+        const movie = await tmdb.getMovie({ movieId: requireTmdbId(media) });
         notificationManager.sendNotification(type, {
           media,
           request: entity,
@@ -770,7 +771,7 @@ export class MediaRequest {
           image: `https://image.tmdb.org/t/p/w600_and_h900_bestv2${movie.poster_path}`,
         });
       } else if (entity.type === MediaType.TV) {
-        const tv = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const tv = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
         notificationManager.sendNotification(type, {
           media,
           request: entity,

@@ -15,6 +15,7 @@ import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import { Router } from 'express';
 import type { FindOneOptions } from 'typeorm';
 import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
@@ -271,10 +272,10 @@ mediaRoutes.delete(
       }
 
       if (isMovie) {
-        await (service as RadarrAPI).removeMovie(media.tmdbId);
+        await (service as RadarrAPI).removeMovie(requireTmdbId(media));
       } else {
         const tmdb = new TheMovieDb();
-        const series = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const series = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
         const tvdbId = series.external_ids.tvdb_id ?? media.tvdbId;
         if (!tvdbId) {
           throw new Error('TVDB ID not found');
