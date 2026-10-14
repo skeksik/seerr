@@ -2240,6 +2240,9 @@ components:
               type: string
             director:
               type: string
+            stashDbUrl:
+              type: string
+              example: https://stashdb.org/scenes/01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
             urls:
               type: array
               items:
@@ -2259,6 +2262,18 @@ components:
                     format: uuid
                   name:
                     type: string
+    SceneFilterDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
     SceneList:
       type: object
       properties:
@@ -7274,6 +7289,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneList'
+  /scene/studio/{studioId}:
+    get:
+      summary: Get StashDB studio
+      description: Returns the name of a StashDB studio for scene browsing.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: studioId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Studio details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/performer/{performerId}:
+    get:
+      summary: Get StashDB performer
+      description: Returns the name of a StashDB performer for scene browsing.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: performerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Performer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/tag/{tagId}:
+    get:
+      summary: Get StashDB tag
+      description: Returns the name of a StashDB tag for scene browsing.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: tagId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tag details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFilterDetails'
   /scene/{sceneId}:
     get:
       summary: Get scene details

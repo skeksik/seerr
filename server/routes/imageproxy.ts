@@ -1,4 +1,5 @@
 import ImageProxy from '@server/lib/imageproxy';
+import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { Router } from 'express';
 
@@ -30,6 +31,26 @@ function initTvdbImageProxy() {
   return _tvdbImageProxy;
 }
 
+// The stash-box endpoint is configurable, so rebuild the proxy when it moves
+let _stashDbImageProxy: { origin: string; proxy: ImageProxy } | undefined;
+function initStashDbImageProxy() {
+  const origin = new URL(getSettings().stashdb.endpoint).origin;
+  if (_stashDbImageProxy?.origin !== origin) {
+    _stashDbImageProxy = {
+      origin,
+      proxy: new ImageProxy('stashdb', origin, {
+        rateLimitOptions: {
+          maxRequests: 4,
+          maxRPS: 4,
+        },
+      }),
+    };
+  }
+  return _stashDbImageProxy.proxy;
+}
+
+const stashDbImageSizes = ['300', '600', '1280'];
+
 router.get<{
   type: string;
   path: string[];
@@ -47,6 +68,16 @@ router.get<{
       imageData = await initTmdbImageProxy().getImage(imagePath);
     } else if (req.params.type === 'tvdb') {
       imageData = await initTvdbImageProxy().getImage(imagePath);
+    } else if (
+      req.params.type === 'stashdb' &&
+      /^\/images\/[0-9a-f-]+$/.test(imagePath)
+    ) {
+      const size = String(req.query.size ?? '');
+      imageData = await initStashDbImageProxy().getImage(
+        stashDbImageSizes.includes(size)
+          ? `${imagePath}?size=${size}`
+          : imagePath
+      );
     } else {
       logger.error('Unsupported image type', {
         imagePath,

@@ -4,8 +4,12 @@ import type {
   StashDbSceneSort,
 } from '@server/api/stashdb/interfaces';
 import Media from '@server/entity/Media';
+import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
-import type { SceneListResponse } from '@server/models/Scene';
+import type {
+  SceneFilterDetails,
+  SceneListResponse,
+} from '@server/models/Scene';
 import { mapSceneDetails, mapSceneResult } from '@server/models/Scene';
 import type { NextFunction } from 'express';
 import { Router } from 'express';
@@ -125,6 +129,61 @@ sceneRoutes.get('/search', async (req, res, next) => {
   }
 });
 
+sceneRoutes.get<{ type: string; id: string }>(
+  '/:type/:id',
+  async (req, res, next) => {
+    const parsed = sceneId.safeParse(req.params.id);
+
+    if (
+      !parsed.success ||
+      !['studio', 'performer', 'tag'].includes(req.params.type)
+    ) {
+      return next({ status: 404, message: 'Not found.' });
+    }
+
+    try {
+      const stashDb = StashDbAPI.fromSettings();
+      let details: SceneFilterDetails | null;
+
+      if (req.params.type === 'studio') {
+        const studio = await stashDb.getStudio(parsed.data);
+        details = studio && {
+          id: studio.id,
+          name: studio.name,
+          imageUrl: studio.images[0]?.url,
+        };
+      } else if (req.params.type === 'performer') {
+        const performer = await stashDb.getPerformer(parsed.data);
+        details = performer && {
+          id: performer.id,
+          name: performer.disambiguation
+            ? `${performer.name} (${performer.disambiguation})`
+            : performer.name,
+          imageUrl: performer.images[0]?.url,
+        };
+      } else {
+        const tag = await stashDb.getTag(parsed.data);
+        details = tag && {
+          id: tag.id,
+          name: tag.name,
+          description: tag.description ?? undefined,
+        };
+      }
+
+      if (!details) {
+        return next({ status: 404, message: 'Not found.' });
+      }
+
+      return res.status(200).json(details);
+    } catch (e) {
+      return handleError(e, next, 'Unable to retrieve scene filter.', {
+        type: req.params.type,
+        id: parsed.data,
+      });
+    }
+  }
+);
+
 sceneRoutes.get('/:sceneId', async (req, res, next) => {
   const parsed = sceneId.safeParse(req.params.sceneId);
 
@@ -143,7 +202,13 @@ sceneRoutes.get('/:sceneId', async (req, res, next) => {
 
     return res
       .status(200)
-      .json(mapSceneDetails(scene, media?.filter(req.user)));
+      .json(
+        mapSceneDetails(
+          scene,
+          new URL(getSettings().stashdb.endpoint).origin,
+          media?.filter(req.user)
+        )
+      );
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene.', {
       sceneId: parsed.data,

@@ -44,6 +44,16 @@ export interface SceneDetails extends SceneResult {
   director?: string;
   urls: { url: string; site: string }[];
   tags: { id: string; name: string }[];
+  // Scene page on the configured stash-box instance
+  stashDbUrl: string;
+}
+
+// Names a studio, performer or tag filter on the browse page
+export interface SceneFilterDetails {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
 }
 
 export interface SceneListResponse {
@@ -99,6 +109,7 @@ export const mapSceneResult = (
 
 export const mapSceneDetails = (
   scene: StashDbScene,
+  stashDbOrigin: string,
   media?: Media
 ): SceneDetails => ({
   ...mapSceneResult(scene, media),
@@ -108,4 +119,5 @@ export const mapSceneDetails = (
   director: scene.director ?? undefined,
   urls: scene.urls.map(({ url, site }) => ({ url, site: site.name })),
   tags: scene.tags.map(({ id, name }) => ({ id, name })),
+  stashDbUrl: `${stashDbOrigin}/scenes/${scene.id}`,
 });

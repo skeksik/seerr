@@ -242,3 +242,30 @@ describe('GET /scene/search', () => {
     assert.strictEqual((await agent.get('/scene/search')).status, 400);
   });
 });
+
+describe('GET /scene/:type/:id', () => {
+  it('names a studio filter', async () => {
+    mock.method(StashDbAPI.prototype, 'getStudio', async () => ({
+      id: 'studio',
+      name: 'Studio',
+      aliases: [],
+      urls: [],
+      images: [],
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/scene/studio/${SCENE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, { id: 'studio', name: 'Studio' });
+  });
+
+  it('returns 404 for unknown filter types', async () => {
+    const agent = await loginAs('admin@seerr.dev');
+
+    assert.strictEqual(
+      (await agent.get(`/scene/network/${SCENE_ID}`)).status,
+      404
+    );
+  });
+});

@@ -7,6 +7,7 @@ import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { Watchlist } from '@server/entity/Watchlist';
 import logger from '@server/logger';
+import { canViewAdult } from '@server/middleware/adult';
 import { mapMovieDetails } from '@server/models/Movie';
 import { mapMovieResult } from '@server/models/Search';
 import { Router } from 'express';
@@ -21,6 +22,10 @@ movieRoutes.get('/:id', async (req, res, next) => {
       movieId: Number(req.params.id),
       language: (req.query.language as string) ?? req.locale,
     });
+
+    if (tmdbMovie.adult && !canViewAdult(req.user)) {
+      return next({ status: 404, message: 'Movie not found.' });
+    }
 
     const media = await Media.getMedia(tmdbMovie.id, MediaType.MOVIE);
 
