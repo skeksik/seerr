@@ -37,6 +37,8 @@ interface ModalProps {
   backgroundClickable?: boolean;
   loading?: boolean;
   backdrop?: string;
+  // Where the backdrop comes from, so it goes through the right image cache
+  backdropType?: 'tmdb' | 'stashdb';
   children?: React.ReactNode;
   dialogClass?: string;
 }
@@ -66,6 +68,7 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
       loading = false,
       onTertiary,
       backdrop,
+      backdropType = 'tmdb',
       dialogClass,
       okButtonProps,
       cancelButtonProps,
@@ -136,7 +139,7 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
           {backdrop && (
             <div className="absolute left-0 right-0 top-0 z-0 h-64 max-h-full w-full">
               <CachedImage
-                type="tmdb"
+                type={backdropType}
                 alt=""
                 src={backdrop}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}

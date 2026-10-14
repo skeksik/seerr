@@ -2,6 +2,7 @@ import ImageProxy from '@server/lib/imageproxy';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { Router } from 'express';
+import mime from 'mime';
 
 const router = Router();
 
@@ -87,7 +88,15 @@ router.get<{
     }
 
     res.writeHead(200, {
-      'Content-Type': `image/${imageData.meta.extension}`,
+      // svg needs its full type (image/svg+xml) for browsers to render it
+      'Content-Type':
+        mime.getType(imageData.meta.extension ?? '') ??
+        `image/${imageData.meta.extension}`,
+      // Studio logos are user-uploaded SVGs; never let one run script when
+      // opened directly on this origin
+      'Content-Security-Policy':
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      'X-Content-Type-Options': 'nosniff',
       'Content-Length': imageData.imageBuffer.length,
       'Cache-Control': `public, max-age=${imageData.meta.curRevalidate}`,
       'OS-Cache-Key': imageData.meta.cacheKey,

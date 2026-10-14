@@ -104,6 +104,7 @@ const SceneRequestModal = ({
       }
       okButtonType="primary"
       backdrop={stashImageUrl(scene.imageUrl, 1280)}
+      backdropType="stashdb"
     >
       {hasAutoApprove && !quota?.scene.restricted && (
         <div className="mt-6">
