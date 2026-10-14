@@ -31,6 +31,6 @@ Use **Test** to check the connection before saving.
 ## How It Works
 
 - The **Stash Scan** job (every 15 minutes, see **Settings &rarr; Jobs & Cache**) reads every Stash scene that is linked to your stash-box endpoint and marks it available in Seerr. Pending requests for those scenes are completed.
-- Only scenes that Stash has identified against the same stash-box instance as Seerr (for example StashDB) can be matched. Run Stash's **Identify** or **Scene Tagger** first if scenes are missing.
+- Scenes that Stash has identified against the same stash-box instance as Seerr (for example StashDB) are matched on their stash id. Scenes Stash has not identified yet are matched on the StashDB id that Whisparr puts in brackets in their folder name. Stash has to scan a new download before Seerr can find it; run Stash's **Identify** or **Scene Tagger** for scenes stored without that id.
 - Available scenes get a **Play on Stash** button on their page, request rows and request cards.
 - **Availability Sync** marks a scene as deleted only when it is gone from Stash and its file is gone from Whisparr. If Stash cannot be reached, nothing is changed.

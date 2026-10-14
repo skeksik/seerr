@@ -3,7 +3,12 @@ import SonarrAPI from '@server/api/servarr/sonarr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import TautulliAPI from '@server/api/tautulli';
 import TheMovieDb from '@server/api/themoviedb';
-import { isTmdbMedia, MediaStatus, MediaType } from '@server/constants/media';
+import {
+  isAdultMediaType,
+  isTmdbMedia,
+  MediaStatus,
+  MediaType,
+} from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import Season from '@server/entity/Season';
@@ -24,7 +29,7 @@ import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
 import type { FindOneOptions, FindOptionsWhere } from 'typeorm';
-import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
+import { EntityNotFoundError, In, IsNull, Not, Raw } from 'typeorm';
 
 const mediaRoutes = Router();
 
@@ -91,28 +96,58 @@ mediaRoutes.get('/', async (req, res, next) => {
           )
       : [];
 
-  if (mediaTypes.length > 0) {
-    whereClause = {
-      ...(whereClause as FindOptionsWhere<Media> | undefined),
-      mediaType: In(mediaTypes),
-    };
+  // Each clause is one media type group; a row matches any of them
+  const base = (whereClause ?? {}) as FindOptionsWhere<Media>;
+  const allowAdult = canViewAdult(req.user);
+  // Recently Added only lists adult titles someone requested through Seerr
+  const requestedAdultOnly = req.query.adultRequested === 'true';
+  const wanted = mediaTypes.length > 0 ? mediaTypes : Object.values(MediaType);
+  const tmdbTypes = wanted.filter(
+    (type) => type === MediaType.MOVIE || type === MediaType.TV
+  );
+  const adultTypes = allowAdult ? wanted.filter(isAdultMediaType) : [];
+  // A subquery: joining requests in one clause would filter every clause
+  const requested = {
+    id: Raw((alias) => `${alias} IN (SELECT "mediaId" FROM media_request)`),
+  };
+  const clauses: FindOptionsWhere<Media>[] = [];
+
+  if (tmdbTypes.length > 0) {
+    if (!allowAdult || requestedAdultOnly) {
+      clauses.push({ ...base, mediaType: In(tmdbTypes), isAdult: false });
+    }
+    if (allowAdult && requestedAdultOnly) {
+      clauses.push({
+        ...base,
+        mediaType: In(tmdbTypes),
+        isAdult: true,
+        ...requested,
+      });
+    }
+    if (allowAdult && !requestedAdultOnly) {
+      clauses.push({ ...base, mediaType: In(tmdbTypes) });
+    }
   }
 
-  if (!canViewAdult(req.user)) {
-    const tmdbTypes = [MediaType.MOVIE, MediaType.TV].filter(
-      (type) => mediaTypes.length === 0 || mediaTypes.includes(type)
-    );
-    whereClause = {
-      ...(whereClause as FindOptionsWhere<Media> | undefined),
-      mediaType: In(tmdbTypes),
-      isAdult: false,
-    };
+  if (adultTypes.length > 0) {
+    clauses.push({
+      ...base,
+      mediaType: In(adultTypes),
+      ...(requestedAdultOnly ? requested : {}),
+    });
+  }
+
+  if (clauses.length === 0) {
+    return res.status(200).json({
+      pageInfo: { pages: 0, pageSize, results: 0, page: 1 },
+      results: [],
+    } as MediaResultsResponse);
   }
 
   try {
     const [media, mediaCount] = await mediaRepository.findAndCount({
       order: sortFilter,
-      where: whereClause,
+      where: clauses,
       take: pageSize,
       skip,
     });

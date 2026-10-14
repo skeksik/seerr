@@ -28,6 +28,7 @@ beforeEach(() => {
   const settings = getSettings();
   settings.stash = { url: 'http://stash.test', apiKey: 'key' };
   settings.stashdb = { endpoint: 'https://stashdb.org/graphql', apiKey: 'k' };
+  mock.method(StashAPI.prototype, 'getUnidentifiedScenes', async () => []);
 });
 
 afterEach(() => {
@@ -37,6 +38,33 @@ afterEach(() => {
 });
 
 describe('StashScanner', () => {
+  it('matches unidentified scenes on the StashDB id in their folder', async () => {
+    mock.method(StashAPI.prototype, 'getLinkedScenes', async () => []);
+    mock.method(StashAPI.prototype, 'getUnidentifiedScenes', async () => [
+      stashScene({
+        id: '27',
+        stash_ids: [],
+        files: [
+          {
+            path: `/data/scenes/Evil Angel/2026-09-16 - My Fantasy [${SCENE_ID.toUpperCase()}]/scene.mp4`,
+          },
+        ],
+      }),
+      stashScene({
+        id: '25',
+        stash_ids: [],
+        files: [{ path: '/data/movies/Evil Angel/Movie (2026)/movie.mp4' }],
+      }),
+    ]);
+
+    await stashScanner.run();
+
+    const media = await Media.getMediaByStashId(SCENE_ID);
+    assert.strictEqual(media?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(media?.stashMediaId, '27');
+    assert.strictEqual(await getRepository(Media).count(), 1);
+  });
+
   it('marks matched scenes available and builds the Stash play link', async () => {
     mock.method(StashAPI.prototype, 'getLinkedScenes', async () => [
       stashScene(),

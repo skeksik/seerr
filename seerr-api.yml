@@ -7815,9 +7815,9 @@ paths:
             type: number
         - in: query
           name: performer
-          description: ThePornDB performer id (ThePornDB only)
+          description: Comma-separated ThePornDB performer ids, all must match (ThePornDB only)
           schema:
-            type: number
+            type: string
         - in: query
           name: tags
           description: Comma-separated ThePornDB tag ids (ThePornDB only)
@@ -8550,6 +8550,12 @@ paths:
                 pending,
                 deleted,
               ]
+        - in: query
+          name: adultRequested
+          description: Only include adult titles that were requested through Seerr
+          schema:
+            type: string
+            enum: ['true', 'false']
         - in: query
           name: mediaType
           description: Comma-separated media types to include

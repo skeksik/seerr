@@ -11,8 +11,17 @@ import BaseScanner from '@server/lib/scanners/baseScanner';
 import { getSettings } from '@server/lib/settings';
 
 // Marks scenes that Stash has matched to the configured stash-box as
-// available and links them to their Stash page. Scenes without a stash id
-// (not yet identified in Stash) cannot be matched and are ignored.
+// available and links them to their Stash page. Scenes Stash has not
+// identified yet match on the StashDB id Whisparr puts in their folder name.
+
+// Whisparr names scene folders "... [<StashDB id>]"
+const PATH_STASH_ID =
+  /\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i;
+
+const stashIdFromPath = (scene: StashScene): string | undefined =>
+  (scene.files ?? [])
+    .map((file) => file.path.match(PATH_STASH_ID)?.[1]?.toLowerCase())
+    .find(Boolean);
 class StashScanner
   extends BaseScanner<StashScene>
   implements RunnableScanner<StatusBase>
@@ -41,9 +50,14 @@ class StashScanner
 
     try {
       this.endpoint = normalizeEndpoint(getSettings().stashdb.endpoint);
-      this.items = await StashAPI.fromSettings().getLinkedScenes();
+      const stash = StashAPI.fromSettings();
+      const linked = await stash.getLinkedScenes();
+      const unidentified = (await stash.getUnidentifiedScenes()).filter(
+        (scene) => stashIdFromPath(scene)
+      );
+      this.items = [...linked, ...unidentified];
       this.log(
-        `Found ${this.items.length} scene(s) linked to a stash-box`,
+        `Found ${linked.length} scene(s) linked to a stash-box and ${unidentified.length} named after one`,
         'info'
       );
 
@@ -57,9 +71,11 @@ class StashScanner
   }
 
   private async processScene(scene: StashScene): Promise<void> {
-    const stashId = scene.stash_ids.find(
-      (id) => normalizeEndpoint(id.endpoint) === this.endpoint
-    )?.stash_id;
+    const stashId =
+      scene.stash_ids.find(
+        (id) => normalizeEndpoint(id.endpoint) === this.endpoint
+      )?.stash_id ??
+      (scene.stash_ids.length === 0 ? stashIdFromPath(scene) : undefined);
 
     if (!stashId) {
       return;
@@ -92,7 +108,7 @@ class StashScanner
         media.mediaAddedAt ??= new Date(scene.created_at);
 
         await mediaRepository.save(media);
-        this.log(`Scene available in Stash: ${scene.title ?? stashId}`);
+        this.log(`Scene available in Stash: ${scene.title || stashId}`);
       });
     } catch (e) {
       this.log('Failed to process Stash scene', 'error', {
