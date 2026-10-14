@@ -1,5 +1,6 @@
 import Badge from '@app/components/Common/Badge';
 import { menuMessages } from '@app/components/Layout/Sidebar';
+import useAdult from '@app/hooks/useAdult';
 import useClickOutside from '@app/hooks/useClickOutside';
 import { Permission, useUser } from '@app/hooks/useUser';
 import { Transition } from '@headlessui/react';
@@ -13,6 +14,7 @@ import {
   SparklesIcon,
   TvIcon,
   UsersIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import {
   ClockIcon as FilledClockIcon,
@@ -23,6 +25,7 @@ import {
   SparklesIcon as FilledSparklesIcon,
   TvIcon as FilledTvIcon,
   UsersIcon as FilledUsersIcon,
+  VideoCameraIcon as FilledVideoCameraIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
 import Link from 'next/link';
@@ -46,6 +49,7 @@ interface MenuLink {
   as?: string;
   requiredPermission?: Permission | Permission[];
   permissionType?: 'and' | 'or';
+  requiresAdult?: boolean;
   dataTestId?: string;
 }
 
@@ -59,6 +63,7 @@ const MobileMenu = ({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const { hasPermission } = useUser();
+  const canViewAdult = useAdult();
   const router = useRouter();
   useClickOutside(ref, () => {
     setTimeout(() => {
@@ -91,6 +96,14 @@ const MobileMenu = ({
       svgIcon: <TvIcon className="h-6 w-6" />,
       svgIconSelected: <FilledTvIcon className="h-6 w-6" />,
       activeRegExp: /^\/discover\/tv$/,
+    },
+    {
+      href: '/scenes',
+      content: intl.formatMessage(menuMessages.browsescenes),
+      svgIcon: <VideoCameraIcon className="h-6 w-6" />,
+      svgIconSelected: <FilledVideoCameraIcon className="h-6 w-6" />,
+      activeRegExp: /^\/scenes?(\/|$)/,
+      requiresAdult: true,
     },
     {
       href: '/requests',
@@ -146,10 +159,11 @@ const MobileMenu = ({
 
   const filteredLinks = menuLinks.filter(
     (link) =>
-      !link.requiredPermission ||
-      hasPermission(link.requiredPermission, {
-        type: link.permissionType ?? 'and',
-      })
+      (!link.requiresAdult || canViewAdult) &&
+      (!link.requiredPermission ||
+        hasPermission(link.requiredPermission, {
+          type: link.permissionType ?? 'and',
+        }))
   );
 
   useEffect(() => {

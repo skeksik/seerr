@@ -6,7 +6,7 @@ const imageLoader: ImageLoader = ({ src }) => src;
 
 export type CachedImageProps = ImageProps & {
   src: string;
-  type: 'tmdb' | 'avatar' | 'tvdb';
+  type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb';
 };
 
 /**
@@ -30,6 +30,14 @@ const CachedImage = ({ src, type, ...props }: CachedImageProps) => {
         ? src.replace(
             /^https:\/\/artworks\.thetvdb\.com\//,
             '/imageproxy/tvdb/'
+          )
+        : src;
+  } else if (type === 'stashdb') {
+    imageUrl =
+      currentSettings.cacheImages && !src.startsWith('/')
+        ? src.replace(
+            /^https?:\/\/[^/]+\/images\//,
+            '/imageproxy/stashdb/images/'
           )
         : src;
   } else if (type === 'avatar') {

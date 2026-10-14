@@ -1,7 +1,10 @@
 import Header from '@app/components/Common/Header';
 import ListView from '@app/components/Common/ListView';
 import PageTitle from '@app/components/Common/PageTitle';
-import useDiscover from '@app/hooks/useDiscover';
+import SceneSlider from '@app/components/Scenes/SceneSlider';
+import useAdult from '@app/hooks/useAdult';
+import useDiscover, { encodeURIExtraParams } from '@app/hooks/useDiscover';
+import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import type {
@@ -20,6 +23,9 @@ const messages = defineMessages('components.Search', {
 const Search = () => {
   const intl = useIntl();
   const router = useRouter();
+  const canViewAdult = useAdult();
+  const query =
+    typeof router.query.query === 'string' ? router.query.query : '';
 
   const {
     isLoadingInitialData,
@@ -47,6 +53,16 @@ const Search = () => {
       <div className="mb-5 mt-1">
         <Header>{intl.formatMessage(messages.searchresults)}</Header>
       </div>
+      {canViewAdult && query && (
+        <div className="mb-6">
+          <SceneSlider
+            sliderKey="search-scenes"
+            title={intl.formatMessage(globalMessages.scenes)}
+            url={`/api/v1/scene/search?query=${encodeURIExtraParams(query)}&page=1`}
+            hideWhenEmpty
+          />
+        </div>
+      )}
       <ListView
         items={titles}
         isEmpty={isEmpty}
