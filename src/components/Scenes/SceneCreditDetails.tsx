@@ -4,8 +4,10 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import Modal from '@app/components/Common/Modal';
 import PageTitle from '@app/components/Common/PageTitle';
 import SceneList from '@app/components/Scenes/SceneList';
+import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
+import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
@@ -60,6 +62,7 @@ const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   sortDate: 'Release Date',
   sortPopularity: 'Popularity',
   sortTitle: 'Title',
+  xxxMovies: 'XXX Movies',
 });
 
 const sortOptions = [
@@ -217,8 +220,14 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
   const router = useRouter();
   const id = router.query.id as string;
   const [sort, setSort] = useState('date');
+  const { currentSettings } = useSettings();
   const { data, error, mutate } = useSWR<CreditDetails>(
     id ? `/api/v1/scene/${type}/${id}` : null
+  );
+  // Movies come from ThePornDB, where performers and studios have own ids
+  const { data: tpdbMatch } = useSWR<{ id: number }>(
+    id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
+    { shouldRetryOnError: false }
   );
   const {
     isLoadingInitialData,
@@ -366,6 +375,20 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           </div>
         </div>
       </div>
+      {tpdbMatch && (
+        <XxxMovieSlider
+          sliderKey={`xxx-${type}-${tpdbMatch.id}`}
+          title={intl.formatMessage(messages.xxxMovies)}
+          url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&${type}=${tpdbMatch.id}`}
+          // The XXX Movies tab lists TMDB movies with the TMDB source
+          linkUrl={
+            currentSettings.xxxMovieSource === 'tpdb'
+              ? `/xxxmovies?${type}=${tpdbMatch.id}`
+              : undefined
+          }
+          hideWhenEmpty
+        />
+      )}
       <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
         <div className="slider-header">
           <div className="slider-title">

@@ -5,6 +5,7 @@ import PageTitle from '@app/components/Common/PageTitle';
 import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
+import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import StatusBadge from '@app/components/StatusBadge';
 import useAdult from '@app/hooks/useAdult';
@@ -18,7 +19,6 @@ import {
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
   PlayIcon,
-  UserIcon,
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { SceneDetails as SceneDetailsType } from '@server/models/Scene';
@@ -223,50 +223,15 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           <p className="whitespace-pre-line">
             {data.details || intl.formatMessage(messages.overviewunavailable)}
           </p>
-          {data.performers.length > 0 && (
-            <>
-              <h2 className="mt-6">
-                {intl.formatMessage(messages.performers)}
-              </h2>
-              <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                {data.performers.map((performer) => (
-                  <li key={performer.id}>
-                    <Link
-                      href={`/scenes/performer/${performer.id}`}
-                      className="group flex items-center space-x-3 rounded-lg p-1 transition duration-300 hover:bg-gray-800"
-                    >
-                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gray-700 ring-1 ring-gray-600">
-                        {performer.imageUrl ? (
-                          <CachedImage
-                            type="stashdb"
-                            src={stashImageUrl(performer.imageUrl, 300) ?? ''}
-                            alt=""
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                            fill
-                          />
-                        ) : (
-                          <UserIcon className="m-3 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-gray-200 group-hover:text-white">
-                          {performer.name}
-                        </div>
-                        {(performer.as || performer.disambiguation) && (
-                          <div className="truncate text-xs text-gray-400">
-                            {performer.as ?? performer.disambiguation}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
+          {data.director && (
+            <ul className="media-crew">
+              <li>
+                <span>{intl.formatMessage(messages.director)}</span>
+                <span className="font-normal text-gray-400">
+                  {data.director}
+                </span>
+              </li>
+            </ul>
           )}
           {data.tags.length > 0 && (
             <div className="mt-6">
@@ -358,12 +323,6 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
                 <span className="media-fact-value">{data.code}</span>
               </div>
             )}
-            {data.director && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.director)}</span>
-                <span className="media-fact-value">{data.director}</span>
-              </div>
-            )}
             {data.urls.length > 0 && (
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
@@ -384,6 +343,20 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           </div>
         </div>
       </div>
+      {data.performers.length > 0 && (
+        <PerformerSlider
+          sliderKey="scene-performers"
+          title={intl.formatMessage(messages.performers)}
+          imageType="stashdb"
+          performers={data.performers.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            subName: performer.as ?? performer.disambiguation,
+            href: `/scenes/performer/${performer.id}`,
+            imageUrl: stashImageUrl(performer.imageUrl, 300),
+          }))}
+        />
+      )}
       {data.studio && (
         <SceneSlider
           sliderKey={`scene-studio-${data.studio.id}`}

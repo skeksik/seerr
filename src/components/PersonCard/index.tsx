@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 interface PersonCardProps {
-  personId: number;
+  personId: number | string;
   name: string;
   subName?: string;
   profilePath?: string;
+  // Performers live outside TMDB, on their own pages and image hosts
+  href?: string;
+  image?: { src: string; type: 'stashdb' | 'tpdb' };
   canExpand?: boolean;
 }
 
@@ -16,14 +19,17 @@ const PersonCard = ({
   name,
   subName,
   profilePath,
+  href,
+  image,
   canExpand = false,
 }: PersonCardProps) => {
   const [isHovered, setHovered] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <Link
-      href={`/person/${personId}`}
-      className={canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}
+      href={href ?? `/person/${personId}`}
+      className={`group ${canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}`}
       onMouseEnter={() => {
         setHovered(true);
       }}
@@ -48,7 +54,23 @@ const PersonCard = ({
         <div style={{ paddingBottom: '150%' }}>
           <div className="absolute inset-0 flex h-full w-full flex-col items-center p-2">
             <div className="relative mb-4 mt-2 flex h-1/2 w-full justify-center">
-              {profilePath ? (
+              {image && !imageFailed ? (
+                <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
+                  <CachedImage
+                    type={image.type}
+                    src={image.src}
+                    alt=""
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'top',
+                    }}
+                    fill
+                    onError={() => setImageFailed(true)}
+                  />
+                </div>
+              ) : profilePath ? (
                 <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
                   <CachedImage
                     type="tmdb"

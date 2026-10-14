@@ -4,6 +4,7 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
+import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
@@ -15,7 +16,6 @@ import { Transition } from '@headlessui/react';
 import {
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
-  UserIcon,
 } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import type { XxxMovieDetails as XxxMovieDetailsType } from '@server/models/XxxMovie';
@@ -33,7 +33,7 @@ const messages = defineMessages('components.XxxMovieDetails', {
   duration: 'Duration',
   studio: 'Studio',
   network: 'Network',
-  directors: 'Directed By',
+  director: 'Director',
   links: 'Links',
   studioSite: 'Studio Site',
   viewontpdb: 'View on ThePornDB',
@@ -201,44 +201,15 @@ const XxxMovieDetailsContent = () => {
           <p className="whitespace-pre-line">
             {data.overview || intl.formatMessage(messages.overviewunavailable)}
           </p>
-          {data.performers.length > 0 && (
-            <>
-              <h2 className="mt-6">
-                {intl.formatMessage(messages.performers)}
-              </h2>
-              <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                {data.performers.map((performer) => (
-                  <li key={performer.id}>
-                    <Link
-                      href={`/xxxmovies?performer=${performer.tpdbId}`}
-                      className="group flex items-center space-x-3 rounded-lg p-1 transition duration-300 hover:bg-gray-800"
-                    >
-                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gray-700 ring-1 ring-gray-600">
-                        {performer.imageUrl ? (
-                          <CachedImage
-                            type="tpdb"
-                            src={performer.imageUrl}
-                            alt=""
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              objectPosition: 'top',
-                            }}
-                            fill
-                          />
-                        ) : (
-                          <UserIcon className="m-3 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0 truncate font-semibold text-gray-200 group-hover:text-white">
-                        {performer.name}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
+          {data.directors.length > 0 && (
+            <ul className="media-crew">
+              {data.directors.map((director) => (
+                <li key={`director-${director}`}>
+                  <span>{intl.formatMessage(messages.director)}</span>
+                  <span className="font-normal text-gray-400">{director}</span>
+                </li>
+              ))}
+            </ul>
           )}
           {data.tags.length > 0 && (
             <div className="mt-6">
@@ -310,14 +281,6 @@ const XxxMovieDetailsContent = () => {
                 </span>
               </div>
             )}
-            {data.directors.length > 0 && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.directors)}</span>
-                <span className="media-fact-value">
-                  {data.directors.join(', ')}
-                </span>
-              </div>
-            )}
             {data.url && (
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
@@ -331,6 +294,22 @@ const XxxMovieDetailsContent = () => {
           </div>
         </div>
       </div>
+      {data.performers.length > 0 && (
+        <PerformerSlider
+          sliderKey="xxx-movie-performers"
+          title={intl.formatMessage(messages.performers)}
+          imageType="tpdb"
+          performers={data.performers.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            // Performer pages come from StashDB; the rest get their movies
+            href: performer.stashDbId
+              ? `/scenes/performer/${performer.stashDbId}`
+              : `/xxxmovies?performer=${performer.tpdbId}`,
+            imageUrl: performer.imageUrl,
+          }))}
+        />
+      )}
       {data.studio && (
         <XxxMovieSlider
           sliderKey={`xxx-studio-${data.studio.id}`}

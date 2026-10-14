@@ -128,7 +128,8 @@
   }
 
   .media-page-bg-image {
-    @apply absolute inset-0 h-full w-full;
+    /* Blurred artwork bleeds past its box, leaving a seam at its edge */
+    @apply absolute inset-0 h-full w-full overflow-hidden;
     z-index: -10;
   }
 
