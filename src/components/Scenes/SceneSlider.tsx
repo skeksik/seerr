@@ -11,6 +11,8 @@ interface SceneSliderProps {
   url: string;
   linkUrl?: string;
   hideWhenEmpty?: boolean;
+  // The title the page is about, left out of its own "More from" row
+  excludeId?: string;
 }
 
 const SceneSlider = ({
@@ -19,10 +21,14 @@ const SceneSlider = ({
   url,
   linkUrl,
   hideWhenEmpty = false,
+  excludeId,
 }: SceneSliderProps) => {
   const { data, error } = useSWR<SceneListResponse>(url);
+  const results = data?.results.filter(
+    (result) => String(result.id) !== excludeId
+  );
 
-  if (hideWhenEmpty && (error || data?.results.length === 0)) {
+  if (hideWhenEmpty && (error || results?.length === 0)) {
     return null;
   }
 
@@ -43,9 +49,9 @@ const SceneSlider = ({
       <Slider
         sliderKey={sliderKey}
         isLoading={!data && !error}
-        isEmpty={!!data && data.results.length === 0}
+        isEmpty={!!results && results.length === 0}
         placeholder={<SceneCard.Placeholder />}
-        items={data?.results.map((scene) => (
+        items={results?.map((scene) => (
           <SceneCard key={`${sliderKey}-${scene.id}`} scene={scene} />
         ))}
       />

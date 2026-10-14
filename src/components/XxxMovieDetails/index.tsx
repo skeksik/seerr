@@ -335,9 +335,10 @@ const XxxMovieDetailsContent = () => {
           title={intl.formatMessage(messages.moreFromStudio, {
             studio: data.studio.name,
           })}
-          url={`/api/v1/xxxmovie/discover?page=1&studio=${data.studio.id}`}
+          url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&studio=${data.studio.id}`}
           linkUrl={`/xxxmovies?studio=${data.studio.id}`}
           hideWhenEmpty
+          excludeId={data.id}
         />
       )}
       <div className="extra-bottom-space relative" />

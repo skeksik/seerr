@@ -384,6 +384,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           url={`/api/v1/scene/discover?sort=date&page=1&studio=${data.studio.id}`}
           linkUrl={`/scenes/studio/${data.studio.id}`}
           hideWhenEmpty
+          excludeId={data.id}
         />
       )}
       <div className="extra-bottom-space relative" />

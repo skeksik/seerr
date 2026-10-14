@@ -12,6 +12,8 @@ interface XxxMovieSliderProps {
   url: string;
   linkUrl?: string;
   hideWhenEmpty?: boolean;
+  // The title the page is about, left out of its own "More from" row
+  excludeId?: string;
 }
 
 // Renders ThePornDB movies, or adult TMDB movies with the TMDB source
@@ -21,10 +23,14 @@ const XxxMovieSlider = ({
   url,
   linkUrl,
   hideWhenEmpty = false,
+  excludeId,
 }: XxxMovieSliderProps) => {
   const { data, error } = useSWR<XxxMovieListResponse>(url);
+  const results = data?.results.filter(
+    (result) => String(result.id) !== excludeId
+  );
 
-  if (hideWhenEmpty && (error || data?.results.length === 0)) {
+  if (hideWhenEmpty && (error || results?.length === 0)) {
     return null;
   }
 
@@ -45,8 +51,8 @@ const XxxMovieSlider = ({
       <Slider
         sliderKey={sliderKey}
         isLoading={!data && !error}
-        isEmpty={!!data && data.results.length === 0}
-        items={data?.results.map((movie) =>
+        isEmpty={!!results && results.length === 0}
+        items={results?.map((movie) =>
           movie.mediaType === 'xxxmovie' ? (
             <XxxMovieCard key={`${sliderKey}-${movie.id}`} movie={movie} />
           ) : (
