@@ -4,7 +4,10 @@ import TheMovieDb from '@server/api/themoviedb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
 import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
 import type { TpdbMovieSort } from '@server/api/tpdb/interfaces';
+import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
+import type { User } from '@server/entity/User';
+import { isOnWatchlist } from '@server/lib/adultMedia';
 import { getSettings, XxxMovieSource } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapMovieResult } from '@server/models/Search';
@@ -91,7 +94,8 @@ const tpdbSorts: Record<(typeof xxxMovieSorts)[number], TpdbMovieSort> = {
 };
 
 const discoverTpdb = async (
-  query: DiscoverQuery
+  query: DiscoverQuery,
+  user?: User
 ): Promise<XxxMovieListResponse> => {
   // ThePornDB takes one date bound; future dates are often placeholders
   // like 3024, so released lists stop at today
@@ -114,7 +118,10 @@ const discoverTpdb = async (
     year: query.year,
     date: dateBound,
   });
-  const media = await Media.getRelatedXxxMovies(list.data.map((m) => m.id));
+  const media = await Media.getRelatedXxxMovies(
+    list.data.map((m) => m.id),
+    user
+  );
 
   return {
     page: query.page,
@@ -216,7 +223,7 @@ xxxMovieRoutes.get('/discover', async (req, res, next) => {
       (parsed.data.source ?? getSettings().xxxMovies.source) ===
       XxxMovieSource.TMDB
         ? await discoverTmdb(req, parsed.data)
-        : await discoverTpdb(parsed.data);
+        : await discoverTpdb(parsed.data, req.user);
 
     return res.status(200).json(list);
   } catch (e) {
@@ -241,7 +248,10 @@ xxxMovieRoutes.get('/search', async (req, res, next) => {
       page,
       perPage: PAGE_SIZE,
     });
-    const media = await Media.getRelatedXxxMovies(list.data.map((m) => m.id));
+    const media = await Media.getRelatedXxxMovies(
+      list.data.map((m) => m.id),
+      req.user
+    );
 
     return res.status(200).json({
       page,
@@ -417,9 +427,14 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
 
     const media = await Media.getMediaByTpdbId(movie.id);
 
-    return res
-      .status(200)
-      .json(mapXxxMovieDetails(movie, media?.filter(req.user)));
+    return res.status(200).json({
+      ...mapXxxMovieDetails(movie, media?.filter(req.user)),
+      onUserWatchlist: await isOnWatchlist(
+        MediaType.XXX_MOVIE,
+        movie.id,
+        req.user
+      ),
+    });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve movie.', {
       id: parsed.data,

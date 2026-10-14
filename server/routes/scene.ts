@@ -5,7 +5,10 @@ import type {
   StashDbSceneList,
   StashDbSceneSort,
 } from '@server/api/stashdb/interfaces';
+import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
+import type { User } from '@server/entity/User';
+import { isOnWatchlist } from '@server/lib/adultMedia';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { getWhisparrServer } from '@server/lib/whisparrMedia';
@@ -134,9 +137,13 @@ const getMonitorStatus = async (
 
 const mapSceneList = async (
   list: StashDbSceneList,
-  page: number
+  page: number,
+  user?: User
 ): Promise<SceneListResponse> => {
-  const media = await Media.getRelatedScenes(list.scenes.map((s) => s.id));
+  const media = await Media.getRelatedScenes(
+    list.scenes.map((s) => s.id),
+    user
+  );
 
   return {
     page,
@@ -210,7 +217,7 @@ sceneRoutes.get('/discover', async (req, res, next) => {
           : undefined,
     });
 
-    return res.status(200).json(await mapSceneList(list, page));
+    return res.status(200).json(await mapSceneList(list, page, req.user));
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {
       query: req.query,
@@ -234,7 +241,7 @@ sceneRoutes.get('/search', async (req, res, next) => {
       perPage: PAGE_SIZE,
     });
 
-    return res.status(200).json(await mapSceneList(list, page));
+    return res.status(200).json(await mapSceneList(list, page, req.user));
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene search results.', {
       query,
@@ -438,9 +445,10 @@ sceneRoutes.get('/:sceneId', async (req, res, next) => {
 
     const media = await Media.getMediaByStashId(scene.id);
 
-    return res
-      .status(200)
-      .json(mapSceneDetails(scene, stashDbOrigin(), media?.filter(req.user)));
+    return res.status(200).json({
+      ...mapSceneDetails(scene, stashDbOrigin(), media?.filter(req.user)),
+      onUserWatchlist: await isOnWatchlist(MediaType.SCENE, scene.id, req.user),
+    });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene.', {
       sceneId: parsed.data,

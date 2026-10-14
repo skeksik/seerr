@@ -1,9 +1,15 @@
 import TheMovieDb from '@server/api/themoviedb';
-import { MediaStatus, MediaType } from '@server/constants/media';
+import {
+  isAdultMediaType,
+  MediaStatus,
+  MediaType,
+} from '@server/constants/media';
 import dataSource, { getRepository } from '@server/datasource';
 import { Blocklist } from '@server/entity/Blocklist';
 import Media from '@server/entity/Media';
 import type { BlocklistResultsResponse } from '@server/interfaces/api/blocklistInterfaces';
+import { canViewAdult } from '@server/lib/adult';
+import { adultIdField, lookupAdultTitle } from '@server/lib/adultMedia';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
@@ -20,6 +26,23 @@ export const blocklistAdd = z.object({
   user: z.coerce.number(),
   blocklistedTags: z.string().optional(),
 });
+
+// Scenes and XXX movies are keyed by their StashDB or ThePornDB UUID
+const adultBlocklistAdd = z.object({
+  externalId: z.string().uuid(),
+  mediaType: z.enum([MediaType.SCENE, MediaType.XXX_MOVIE]),
+});
+
+const parseMediaType = (value: unknown): MediaType | undefined =>
+  Object.values(MediaType).includes(value as MediaType)
+    ? (value as MediaType)
+    : undefined;
+
+// Where clause for one blocklisted title by its route id
+const itemWhere = (id: string, mediaType: MediaType) =>
+  isAdultMediaType(mediaType)
+    ? { externalId: id, mediaType }
+    : { tmdbId: Number(id), mediaType };
 
 const blocklistGet = z.object({
   take: z.coerce.number().int().positive().default(25),
@@ -49,6 +72,12 @@ blocklistRoutes.get(
         case 'blocklistedTags':
           query = query.andWhere('blocklist.blocklistedTags IS NOT NULL');
           break;
+      }
+
+      if (!canViewAdult(req.user)) {
+        query = query.andWhere('blocklist.mediaType IN (:...tmdbTypes)', {
+          tmdbTypes: [MediaType.MOVIE, MediaType.TV],
+        });
       }
 
       if (search) {
@@ -91,8 +120,8 @@ blocklistRoutes.get(
     type: 'or',
   }),
   async (req, res, next) => {
-    const mediaType = req.query.mediaType;
-    if (mediaType !== MediaType.MOVIE && mediaType !== MediaType.TV) {
+    const mediaType = parseMediaType(req.query.mediaType);
+    if (!mediaType) {
       return next({
         status: 400,
         message: 'Invalid or missing mediaType query parameter.',
@@ -103,10 +132,7 @@ blocklistRoutes.get(
       const blocklisteRepository = getRepository(Blocklist);
 
       const blocklistItem = await blocklisteRepository.findOneOrFail({
-        where: {
-          tmdbId: Number(req.params.id),
-          mediaType,
-        },
+        where: itemWhere(req.params.id, mediaType),
       });
 
       return res.status(200).send(blocklistItem);
@@ -129,6 +155,45 @@ blocklistRoutes.post(
   }),
   async (req, res, next) => {
     try {
+      if (isAdultMediaType(req.body?.mediaType)) {
+        if (!canViewAdult(req.user)) {
+          return next({ status: 403, message: 'Adult content is disabled.' });
+        }
+
+        const values = adultBlocklistAdd.parse(req.body);
+        const found = await lookupAdultTitle(
+          values.mediaType,
+          values.externalId
+        );
+
+        if (!found) {
+          return next({ status: 404, message: 'Title not found.' });
+        }
+
+        const existing = await getRepository(Blocklist).findOneBy({
+          externalId: found.id,
+          mediaType: values.mediaType,
+        });
+
+        if (existing) {
+          return next({ status: 412, message: 'Item already blocklisted' });
+        }
+
+        await dataSource.transaction((em) =>
+          Blocklist.addAdultToBlocklist(
+            {
+              mediaType: values.mediaType,
+              externalId: found.id,
+              title: found.title,
+              user: req.user,
+            },
+            em
+          )
+        );
+
+        return res.status(201).send();
+      }
+
       const values = blocklistAdd.parse(req.body);
 
       await Blocklist.addToBlocklist({
@@ -139,6 +204,10 @@ blocklistRoutes.post(
     } catch (error) {
       if (!(error instanceof Error)) {
         return;
+      }
+
+      if (error instanceof z.ZodError) {
+        return next({ status: 400, message: 'Invalid blocklist item.' });
       }
 
       if (error instanceof QueryFailedError) {
@@ -267,8 +336,8 @@ blocklistRoutes.delete(
     type: 'or',
   }),
   async (req, res, next) => {
-    const mediaType = req.query.mediaType;
-    if (mediaType !== MediaType.MOVIE && mediaType !== MediaType.TV) {
+    const mediaType = parseMediaType(req.query.mediaType);
+    if (!mediaType) {
       return next({
         status: 400,
         message: 'Invalid or missing mediaType query parameter.',
@@ -279,10 +348,7 @@ blocklistRoutes.delete(
       const blocklisteRepository = getRepository(Blocklist);
 
       const blocklistItem = await blocklisteRepository.findOneOrFail({
-        where: {
-          tmdbId: Number(req.params.id),
-          mediaType,
-        },
+        where: itemWhere(req.params.id, mediaType),
       });
 
       await blocklisteRepository.remove(blocklistItem);
@@ -290,10 +356,9 @@ blocklistRoutes.delete(
       const mediaRepository = getRepository(Media);
 
       const mediaItem = await mediaRepository.findOneOrFail({
-        where: {
-          tmdbId: Number(req.params.id),
-          mediaType: req.query.mediaType as MediaType,
-        },
+        where: isAdultMediaType(mediaType)
+          ? { [adultIdField(mediaType)]: req.params.id, mediaType }
+          : { tmdbId: Number(req.params.id), mediaType },
       });
 
       await mediaRepository.remove(mediaItem);

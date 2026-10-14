@@ -23,7 +23,6 @@ import {
   AfterLoad,
   Column,
   Entity,
-  In,
   Index,
   OneToMany,
   OneToOne,
@@ -117,34 +116,48 @@ class Media {
     }
   }
 
-  public static async getRelatedScenes(stashIds: string[]): Promise<Media[]> {
-    if (stashIds.length === 0) {
+  // Scenes and XXX movies by external id, with the viewer's watchlist entry
+  private static async getRelatedAdultMedia(
+    mediaType: MediaType.SCENE | MediaType.XXX_MOVIE,
+    ids: string[],
+    user?: User
+  ): Promise<Media[]> {
+    if (ids.length === 0) {
       return [];
     }
 
+    const idField = mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
+
     try {
-      return await getRepository(Media).find({
-        where: { mediaType: MediaType.SCENE, stashId: In(stashIds) },
-      });
+      return await getRepository(Media)
+        .createQueryBuilder('media')
+        .leftJoinAndSelect(
+          'media.watchlists',
+          'watchlist',
+          'media.id = watchlist.media and watchlist.requestedBy = :userId',
+          { userId: user?.id ?? null }
+        )
+        .where(`media.${idField} IN (:...ids)`, { ids })
+        .andWhere('media.mediaType = :mediaType', { mediaType })
+        .getMany();
     } catch (e) {
       logger.error(e.message);
       return [];
     }
   }
 
-  public static async getRelatedXxxMovies(tpdbIds: string[]): Promise<Media[]> {
-    if (tpdbIds.length === 0) {
-      return [];
-    }
+  public static async getRelatedScenes(
+    stashIds: string[],
+    user?: User
+  ): Promise<Media[]> {
+    return this.getRelatedAdultMedia(MediaType.SCENE, stashIds, user);
+  }
 
-    try {
-      return await getRepository(Media).find({
-        where: { mediaType: MediaType.XXX_MOVIE, tpdbId: In(tpdbIds) },
-      });
-    } catch (e) {
-      logger.error(e.message);
-      return [];
-    }
+  public static async getRelatedXxxMovies(
+    tpdbIds: string[],
+    user?: User
+  ): Promise<Media[]> {
+    return this.getRelatedAdultMedia(MediaType.XXX_MOVIE, tpdbIds, user);
   }
 
   public static async getMediaByTpdbId(

@@ -18,6 +18,8 @@ export interface XxxMovieResult {
 }
 
 export interface XxxMovieDetails extends XxxMovieResult {
+  // Set by the details routes for the viewer
+  onUserWatchlist?: boolean;
   overview?: string;
   backCoverUrl?: string;
   network?: { id: number; name: string };

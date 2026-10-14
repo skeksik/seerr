@@ -40,6 +40,8 @@ export interface SceneResult {
 }
 
 export interface SceneDetails extends SceneResult {
+  // Set by the details routes for the viewer
+  onUserWatchlist?: boolean;
   details?: string;
   productionDate?: string;
   code?: string;

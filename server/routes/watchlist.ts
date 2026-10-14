@@ -6,9 +6,14 @@ import {
 import logger from '@server/logger';
 import { Router } from 'express';
 import { QueryFailedError } from 'typeorm';
+import { ZodError } from 'zod';
 
-import { MediaType } from '@server/constants/media';
-import { watchlistCreate } from '@server/interfaces/api/watchlistCreate';
+import { isAdultMediaType, MediaType } from '@server/constants/media';
+import {
+  adultWatchlistCreate,
+  watchlistCreate,
+} from '@server/interfaces/api/watchlistCreate';
+import { canViewAdult } from '@server/lib/adult';
 
 const watchlistRoutes = Router();
 
@@ -22,6 +27,21 @@ watchlistRoutes.post<never, Watchlist, Watchlist>(
           message: 'You must be logged in to add watchlist.',
         });
       }
+      if (isAdultMediaType(req.body?.mediaType)) {
+        if (!canViewAdult(req.user)) {
+          return next({ status: 403, message: 'Adult content is disabled.' });
+        }
+
+        const values = adultWatchlistCreate.parse(req.body);
+
+        return res.status(201).json(
+          await Watchlist.createAdultWatchlist({
+            ...values,
+            user: req.user,
+          })
+        );
+      }
+
       const values = watchlistCreate.parse(req.body);
 
       const request = await Watchlist.createWatchlist({
@@ -43,6 +63,10 @@ watchlistRoutes.post<never, Watchlist, Watchlist>(
           return next({ status: 409, message: 'Something wrong' });
         case DuplicateWatchlistRequestError:
           return next({ status: 409, message: error.message });
+        case NotFoundError:
+          return next({ status: 404, message: error.message });
+        case ZodError:
+          return next({ status: 400, message: 'Invalid watchlist item.' });
         default:
           return next({ status: 500, message: error.message });
       }
@@ -58,16 +82,19 @@ watchlistRoutes.delete('/:tmdbId', async (req, res, next) => {
     });
   }
   try {
-    const mediaType = req.query.mediaType;
-    if (mediaType !== MediaType.MOVIE && mediaType !== MediaType.TV) {
+    const mediaType = req.query.mediaType as MediaType;
+    if (!Object.values(MediaType).includes(mediaType)) {
       return next({
         status: 400,
         message: 'Invalid mediaType query parameter.',
       });
     }
 
+    // Scenes and XXX movies are keyed by their external UUID
     await Watchlist.deleteWatchlist(
-      Number(req.params.tmdbId),
+      isAdultMediaType(mediaType)
+        ? req.params.tmdbId
+        : Number(req.params.tmdbId),
       mediaType,
       req.user
     );

@@ -17,6 +17,7 @@ import type {
   UserResultsResponse,
   UserWatchDataResponse,
 } from '@server/interfaces/api/userInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import { Permission, hasPermission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -961,7 +962,13 @@ router.get<{ id: string }, WatchlistResponse>(
 
     if (user) {
       const [result, total] = await getRepository(Watchlist).findAndCount({
-        where: { requestedBy: { id: user?.id } },
+        where: {
+          requestedBy: { id: user?.id },
+          // Scenes and XXX movies only for viewers who may see them
+          ...(canViewAdult(req.user)
+            ? {}
+            : { mediaType: In([MediaType.MOVIE, MediaType.TV]) }),
+        },
         relations: {
           /*requestedBy: true,media:true*/
         },
