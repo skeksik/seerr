@@ -8551,6 +8551,12 @@ paths:
                 deleted,
               ]
         - in: query
+          name: mediaType
+          description: Comma-separated media types to include
+          schema:
+            type: string
+            example: movie,tv
+        - in: query
           name: sort
           schema:
             type: string

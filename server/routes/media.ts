@@ -81,10 +81,30 @@ mediaRoutes.get('/', async (req, res, next) => {
       whereClause.mediaAddedAt = Not(IsNull());
   }
 
-  if (!canViewAdult(req.user)) {
+  // Comma-separated, e.g. scene for the recently added scenes row
+  const mediaTypes =
+    typeof req.query.mediaType === 'string'
+      ? req.query.mediaType
+          .split(',')
+          .filter((type): type is MediaType =>
+            Object.values(MediaType).includes(type as MediaType)
+          )
+      : [];
+
+  if (mediaTypes.length > 0) {
     whereClause = {
       ...(whereClause as FindOptionsWhere<Media> | undefined),
-      mediaType: In([MediaType.MOVIE, MediaType.TV]),
+      mediaType: In(mediaTypes),
+    };
+  }
+
+  if (!canViewAdult(req.user)) {
+    const tmdbTypes = [MediaType.MOVIE, MediaType.TV].filter(
+      (type) => mediaTypes.length === 0 || mediaTypes.includes(type)
+    );
+    whereClause = {
+      ...(whereClause as FindOptionsWhere<Media> | undefined),
+      mediaType: In(tmdbTypes),
       isAdult: false,
     };
   }

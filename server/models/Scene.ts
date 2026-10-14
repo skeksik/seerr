@@ -26,10 +26,20 @@ export interface ScenePerformer {
   imageUrl?: string;
 }
 
+// StashDB performer in the common search results
+export interface PerformerResult {
+  id: string;
+  mediaType: 'performer';
+  name: string;
+  disambiguation?: string;
+  imageUrl?: string;
+}
+
 export interface SceneResult {
   id: string;
   mediaType: 'scene';
   title: string;
+  overview?: string;
   releaseDate?: string;
   duration?: number;
   // Landscape cover art; stash-box serves smaller sizes with ?size=300|600|1280
@@ -129,6 +139,7 @@ export const mapSceneResult = (
   id: scene.id,
   mediaType: 'scene',
   title: scene.title ?? '',
+  overview: scene.details || undefined,
   releaseDate: scene.release_date ?? undefined,
   duration: scene.duration ?? undefined,
   imageUrl: pickImage(scene.images),

@@ -18,6 +18,7 @@ const IMAGE_FIELDS = 'id url width height';
 const SCENE_SUMMARY_FIELDS = `
   id
   title
+  details
   release_date
   duration
   images { ${IMAGE_FIELDS} }
@@ -30,7 +31,6 @@ const SCENE_SUMMARY_FIELDS = `
 
 const SCENE_FIELDS = `
   ${SCENE_SUMMARY_FIELDS}
-  details
   production_date
   code
   director

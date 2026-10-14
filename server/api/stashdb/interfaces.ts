@@ -65,6 +65,7 @@ export interface StashDbTag {
 export interface StashDbSceneSummary {
   id: string;
   title?: string | null;
+  details?: string | null;
   release_date?: string | null;
   duration?: number | null;
   images: StashDbImage[];
@@ -73,7 +74,6 @@ export interface StashDbSceneSummary {
 }
 
 export interface StashDbScene extends StashDbSceneSummary {
-  details?: string | null;
   production_date?: string | null;
   code?: string | null;
   director?: string | null;

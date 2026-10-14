@@ -8,11 +8,14 @@ export interface XxxMovieResult {
   id: string;
   mediaType: 'xxxmovie';
   title: string;
+  overview?: string;
   releaseDate?: string;
   // Seconds
   duration?: number;
   // Portrait front cover
   posterUrl?: string;
+  // Landscape still, when ThePornDB has one
+  backdropUrl?: string;
   studio?: { id: number; name: string };
   mediaInfo?: Media;
 }
@@ -20,7 +23,6 @@ export interface XxxMovieResult {
 export interface XxxMovieDetails extends XxxMovieResult {
   // Set by the details routes for the viewer
   onUserWatchlist?: boolean;
-  overview?: string;
   backCoverUrl?: string;
   network?: { id: number; name: string };
   performers: {
@@ -65,7 +67,9 @@ export const mapXxxMovieResult = (
   title: movie.title,
   releaseDate: movie.date ?? undefined,
   duration: movie.duration ?? undefined,
+  overview: movie.description || undefined,
   posterUrl: pickPoster(movie),
+  backdropUrl: movie.background?.large ?? movie.background?.full ?? undefined,
   studio: movie.site ? { id: movie.site.id, name: movie.site.name } : undefined,
   mediaInfo: media,
 });
@@ -75,7 +79,6 @@ export const mapXxxMovieDetails = (
   media?: Media
 ): XxxMovieDetails => ({
   ...mapXxxMovieResult(movie, media),
-  overview: movie.description || undefined,
   backCoverUrl: movie.back_image ?? undefined,
   network:
     movie.site?.network && movie.site.network.id !== movie.site.id
