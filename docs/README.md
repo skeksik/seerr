@@ -15,6 +15,7 @@ Welcome to the Seerr Documentation.
 - **Syncs to your Jellyfin/Emby/Plex library** to show what titles you already have.
 - Supports Movies, Shows and Mixed Libraries.
 - **Integrates with Sonarr and Radarr**. With more services to come in the future.
+- Optional **adult content** support with StashDB, Whisparr and Stash.
 - Optionally set **Override rules** for requests to match with your defined conditions.
 - **Easy to use request system** allowing users to request individual seasons or movies in a friendly, clean UI.
 - **Simple request management UI**. Don't dig through the app to approve recent requests.
