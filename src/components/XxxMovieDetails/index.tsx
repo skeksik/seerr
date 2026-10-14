@@ -1,4 +1,5 @@
 import AdultMediaActions from '@app/components/AdultMediaActions';
+import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -7,7 +8,6 @@ import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
-import WhisparrButton from '@app/components/WhisparrButton';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -176,7 +176,6 @@ const XxxMovieDetailsContent = () => {
               <span>{intl.formatMessage(messages.viewontpdb)}</span>
             </Button>
           </a>
-          <WhisparrButton serviceUrl={data.mediaInfo?.serviceUrl} />
           {canRequest && (
             <Button
               buttonType="primary"
@@ -187,6 +186,11 @@ const XxxMovieDetailsContent = () => {
               <span>{intl.formatMessage(globalMessages.request)}</span>
             </Button>
           )}
+          <AdultManageButton
+            mediaType="xxxmovie"
+            data={data}
+            revalidate={() => mutate()}
+          />
         </div>
         <Transition
           as="div"

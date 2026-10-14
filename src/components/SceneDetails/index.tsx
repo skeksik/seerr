@@ -1,4 +1,5 @@
 import AdultMediaActions from '@app/components/AdultMediaActions';
+import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -9,7 +10,6 @@ import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import StatusBadge from '@app/components/StatusBadge';
-import WhisparrButton from '@app/components/WhisparrButton';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -197,7 +197,6 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <span>{intl.formatMessage(messages.viewonstashdb)}</span>
             </Button>
           </a>
-          <WhisparrButton serviceUrl={data.mediaInfo?.serviceUrl} />
           {canRequest && (
             <Button
               buttonType="primary"
@@ -208,6 +207,11 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <span>{intl.formatMessage(globalMessages.request)}</span>
             </Button>
           )}
+          <AdultManageButton
+            mediaType="scene"
+            data={data}
+            revalidate={() => mutate()}
+          />
         </div>
         <Transition
           as="div"
