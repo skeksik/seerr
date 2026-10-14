@@ -46,12 +46,14 @@ import notificationRoutes from './notifications';
 import radarrRoutes from './radarr';
 import sonarrRoutes from './sonarr';
 import stashDbRoutes from './stashdb';
+import whisparrRoutes from './whisparr';
 
 const settingsRoutes = Router();
 
 settingsRoutes.use('/notifications', notificationRoutes);
 settingsRoutes.use('/radarr', radarrRoutes);
 settingsRoutes.use('/sonarr', sonarrRoutes);
+settingsRoutes.use('/whisparr', whisparrRoutes);
 settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
 settingsRoutes.use('/stashdb', stashDbRoutes);

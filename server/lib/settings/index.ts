@@ -96,6 +96,9 @@ export interface RadarrSettings extends DVRSettings {
   minimumAvailability: string;
 }
 
+// Whisparr v3 handles both scenes and adult TMDB movies
+export type WhisparrSettings = DVRSettings;
+
 export interface SonarrSettings extends DVRSettings {
   seriesType: 'standard' | 'daily' | 'anime';
   animeSeriesType: 'standard' | 'daily' | 'anime';
@@ -374,6 +377,7 @@ export type JobId =
   | 'plex-refresh-token'
   | 'radarr-scan'
   | 'sonarr-scan'
+  | 'whisparr-scan'
   | 'download-sync'
   | 'download-sync-reset'
   | 'jellyfin-recently-added-scan'
@@ -393,6 +397,7 @@ export interface AllSettings {
   tautulli: TautulliSettings;
   stashdb: StashDbSettings;
   radarr: RadarrSettings[];
+  whisparr: WhisparrSettings[];
   sonarr: SonarrSettings[];
   public: PublicSettings;
   notifications: NotificationSettings;
@@ -476,6 +481,7 @@ class Settings {
         anime: MetadataProviderType.TMDB,
       },
       radarr: [],
+      whisparr: [],
       sonarr: [],
       public: {
         initialized: false,
@@ -607,6 +613,9 @@ class Settings {
         'sonarr-scan': {
           schedule: '0 30 4 * * *',
         },
+        'whisparr-scan': {
+          schedule: '0 0 5 * * *',
+        },
         'availability-sync': {
           schedule: '0 0 5 * * *',
         },
@@ -714,6 +723,14 @@ class Settings {
 
   set radarr(data: RadarrSettings[]) {
     this.data.radarr = data;
+  }
+
+  get whisparr(): WhisparrSettings[] {
+    return this.data.whisparr;
+  }
+
+  set whisparr(data: WhisparrSettings[]) {
+    this.data.whisparr = data;
   }
 
   get sonarr(): SonarrSettings[] {

@@ -1,5 +1,6 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import TheMovieDb from '@server/api/themoviedb';
 import type {
   ServiceCommonServer,
@@ -63,6 +64,74 @@ serviceRoutes.get<{ radarrId: string }>(
         activeDirectory: radarrSettings.activeDirectory,
         activeProfileId: radarrSettings.activeProfileId,
         activeTags: radarrSettings.tags,
+      },
+      profiles: profiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+      })),
+      rootFolders: rootFolders.map((folder) => ({
+        id: folder.id,
+        freeSpace: folder.freeSpace,
+        path: folder.path,
+        totalSpace: folder.totalSpace,
+      })),
+      tags,
+    } as ServiceCommonServerWithDetails);
+  }
+);
+
+serviceRoutes.get('/whisparr', async (req, res) => {
+  const settings = getSettings();
+
+  const filteredWhisparrServers: ServiceCommonServer[] = settings.whisparr.map(
+    (whisparr) => ({
+      id: whisparr.id,
+      name: whisparr.name,
+      is4k: whisparr.is4k,
+      isDefault: whisparr.isDefault,
+      activeDirectory: whisparr.activeDirectory,
+      activeProfileId: whisparr.activeProfileId,
+      activeTags: whisparr.tags ?? [],
+    })
+  );
+
+  return res.status(200).json(filteredWhisparrServers);
+});
+
+serviceRoutes.get<{ whisparrId: string }>(
+  '/whisparr/:whisparrId',
+  async (req, res, next) => {
+    const settings = getSettings();
+
+    const whisparrSettings = settings.whisparr.find(
+      (whisparr) => whisparr.id === Number(req.params.whisparrId)
+    );
+
+    if (!whisparrSettings) {
+      return next({
+        status: 404,
+        message: 'Whisparr server with provided ID  does not exist.',
+      });
+    }
+
+    const whisparr = new WhisparrAPI({
+      apiKey: whisparrSettings.apiKey,
+      url: WhisparrAPI.buildUrl(whisparrSettings, '/api/v3'),
+    });
+
+    const profiles = await whisparr.getProfiles();
+    const rootFolders = await whisparr.getRootFolders();
+    const tags = await whisparr.getTags();
+
+    return res.status(200).json({
+      server: {
+        id: whisparrSettings.id,
+        name: whisparrSettings.name,
+        is4k: whisparrSettings.is4k,
+        isDefault: whisparrSettings.isDefault,
+        activeDirectory: whisparrSettings.activeDirectory,
+        activeProfileId: whisparrSettings.activeProfileId,
+        activeTags: whisparrSettings.tags,
       },
       profiles: profiles.map((profile) => ({
         id: profile.id,

@@ -5,6 +5,7 @@ export type AvailableCacheIds =
   | 'tmdbscan'
   | 'radarr'
   | 'sonarr'
+  | 'whisparr'
   | 'rt'
   | 'imdb'
   | 'github'
@@ -29,6 +30,7 @@ const TMDB_SCAN_MAX_KEYS = 2000;
 // these tiers, and keys are prefixed by server url, so this is a few keys per server.
 const RADARR_MAX_KEYS = 64;
 const SONARR_MAX_KEYS = 64;
+const WHISPARR_MAX_KEYS = 64;
 
 // One key per searched title, each holding twenty search hits.
 const RT_MAX_KEYS = 500;
@@ -231,6 +233,9 @@ class CacheManager {
     }),
     radarr: new Cache('radarr', 'Radarr API', { max: RADARR_MAX_KEYS }),
     sonarr: new Cache('sonarr', 'Sonarr API', { max: SONARR_MAX_KEYS }),
+    whisparr: new Cache('whisparr', 'Whisparr API', {
+      max: WHISPARR_MAX_KEYS,
+    }),
     rt: new Cache('rt', 'Rotten Tomatoes API', {
       stdTtl: 43200,
       max: RT_MAX_KEYS,

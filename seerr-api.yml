@@ -623,6 +623,65 @@ components:
         - is4k
         - minimumAvailability
         - isDefault
+    WhisparrSettings:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 0
+          readOnly: true
+        name:
+          type: string
+          example: 'Whisparr Main'
+        hostname:
+          type: string
+          example: '127.0.0.1'
+        port:
+          type: number
+          example: 6969
+        apiKey:
+          type: string
+          example: 'exampleapikey'
+        useSsl:
+          type: boolean
+          example: false
+        baseUrl:
+          type: string
+        activeProfileId:
+          type: number
+          example: 1
+        activeProfileName:
+          type: string
+          example: 720p/1080p
+        activeDirectory:
+          type: string
+          example: '/movies'
+        is4k:
+          type: boolean
+          example: false
+        isDefault:
+          type: boolean
+          example: false
+        externalUrl:
+          type: string
+          example: http://whisparr.example.com
+        syncEnabled:
+          type: boolean
+          example: false
+        preventSearch:
+          type: boolean
+          example: false
+      required:
+        - name
+        - hostname
+        - port
+        - apiKey
+        - useSsl
+        - activeProfileId
+        - activeProfileName
+        - activeDirectory
+        - is4k
+        - isDefault
     SonarrSettings:
       type: object
       properties:
@@ -3017,6 +3076,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RadarrSettings'
+  /settings/whisparr:
+    get:
+      summary: Get Whisparr settings
+      description: Returns all Whisparr settings in a JSON array.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: 'Values were returned'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhisparrSettings'
+    post:
+      summary: Create Whisparr instance
+      description: Creates a new Whisparr instance from the request body.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhisparrSettings'
+      responses:
+        '201':
+          description: 'New Whisparr instance created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
   /settings/radarr/test:
     post:
       summary: Test Radarr configuration
@@ -3052,6 +3144,50 @@ paths:
       responses:
         '200':
           description: Succesfully connected to Radarr instance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profiles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceProfile'
+  /settings/whisparr/test:
+    post:
+      summary: Test Whisparr configuration
+      description: Tests if the Whisparr configuration is valid. Returns profiles and root folders on success.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                  example: '127.0.0.1'
+                port:
+                  type: number
+                  example: 7878
+                apiKey:
+                  type: string
+                  example: yourapikey
+                useSsl:
+                  type: boolean
+                  example: false
+                baseUrl:
+                  type: string
+              required:
+                - hostname
+                - port
+                - apiKey
+                - useSsl
+      responses:
+        '200':
+          description: Succesfully connected to Whisparr instance
           content:
             application/json:
               schema:
@@ -3106,6 +3242,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RadarrSettings'
+  /settings/whisparr/{whisparrId}:
+    put:
+      summary: Update Whisparr instance
+      description: Updates an existing Whisparr instance with the provided values.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhisparrSettings'
+      responses:
+        '200':
+          description: 'Whisparr instance updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
+    delete:
+      summary: Delete Whisparr instance
+      description: Deletes an existing Whisparr instance based on the whisparrId parameter.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
+      responses:
+        '200':
+          description: 'Whisparr instance updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
   /settings/radarr/{radarrId}/profiles:
     get:
       summary: Get available Radarr profiles
@@ -3119,6 +3300,28 @@ paths:
           schema:
             type: integer
           description: Radarr instance ID
+      responses:
+        '200':
+          description: Returned list of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceProfile'
+  /settings/whisparr/{whisparrId}/profiles:
+    get:
+      summary: Get available Whisparr profiles
+      description: Returns a list of profiles available on the Whisparr server instance in a JSON array.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
       responses:
         '200':
           description: Returned list of profiles
@@ -7837,6 +8040,21 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RadarrSettings'
+  /service/whisparr:
+    get:
+      summary: Get non-sensitive Whisparr server list
+      description: Returns a list of Whisparr server IDs and names in a JSON object.
+      tags:
+        - service
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhisparrSettings'
   /service/radarr/{radarrId}:
     get:
       summary: Get Radarr server quality profiles and root folders
@@ -7860,6 +8078,31 @@ paths:
                 properties:
                   server:
                     $ref: '#/components/schemas/RadarrSettings'
+                  profiles:
+                    $ref: '#/components/schemas/ServiceProfile'
+  /service/whisparr/{whisparrId}:
+    get:
+      summary: Get Whisparr server quality profiles and root folders
+      description: Returns a Whisparr server's quality profile and root folder details in a JSON object.
+      tags:
+        - service
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: number
+            example: 0
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    $ref: '#/components/schemas/WhisparrSettings'
                   profiles:
                     $ref: '#/components/schemas/ServiceProfile'
   /service/sonarr:
