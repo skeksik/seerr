@@ -231,9 +231,9 @@ describe('GET /xxxmovie/discover', () => {
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.results[0].mediaType, 'xxxmovie');
-    assert.strictEqual(
-      getMovies.mock.calls[0].arguments[0]?.performerId,
-      99899
+    assert.deepStrictEqual(
+      getMovies.mock.calls[0].arguments[0]?.performerIds,
+      [99899]
     );
   });
 

@@ -37,7 +37,8 @@ export interface TpdbMovieQuery {
   query?: string;
   sort?: TpdbMovieSort;
   siteId?: number;
-  performerId?: number;
+  // A movie must feature every one of them
+  performerIds?: number[];
   tagIds?: number[];
   year?: number;
   // ThePornDB takes a single date bound per query
@@ -83,7 +84,7 @@ class TpdbAPI extends ExternalAPI {
     query,
     sort,
     siteId,
-    performerId,
+    performerIds,
     tagIds,
     year,
     date,
@@ -99,7 +100,11 @@ class TpdbAPI extends ExternalAPI {
           site_id: siteId,
           // Networks and parent sites take in the movies of their sites
           site_operation: siteId ? 'Site/Parent/Network' : undefined,
-          performer_id: performerId,
+          // Keyed by id like tags; the name is ignored
+          ...Object.fromEntries(
+            (performerIds ?? []).map((id) => [`performers[${id}]`, id])
+          ),
+          performer_and: (performerIds ?? []).length > 1 ? 1 : undefined,
           // Tags are keyed by id; the name is ignored
           ...Object.fromEntries(
             (tagIds ?? []).map((id) => [`tags[${id}]`, id])

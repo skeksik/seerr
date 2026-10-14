@@ -22,7 +22,6 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   studios: 'Studios',
   studio: 'Studio',
   performers: 'Performers',
-  performer: 'Performer',
   tags: 'Tags',
   search: 'Search…',
   clearfilters: 'Clear Active Filters',
@@ -253,6 +252,7 @@ const AdultFilterSlideover = ({
           </div>
         </div>
         <span className="text-lg font-semibold">
+          {/* ThePornDB and TMDB filter on a single studio */}
           {intl.formatMessage(isScene ? messages.studios : messages.studio)}
         </span>
         {kind === 'tmdb' ? (
@@ -280,13 +280,11 @@ const AdultFilterSlideover = ({
         {kind !== 'tmdb' && (
           <>
             <span className="text-lg font-semibold">
-              {intl.formatMessage(
-                isScene ? messages.performers : messages.performer
-              )}
+              {intl.formatMessage(messages.performers)}
             </span>
             <LookupSelect
               inputId="performerFilter"
-              isMulti={isScene}
+              isMulti
               ids={performer?.split(',') ?? []}
               searchUrl={`${lookupBase}/performers`}
               resolveName={resolveName('performer')}

@@ -34,7 +34,7 @@ describe('TpdbAPI', () => {
     await new TpdbAPI('key').getMovies({
       page: 2,
       siteId: 4611,
-      performerId: 82918,
+      performerIds: [82918, 1815349],
       tagIds: [70, 1139],
       date: { value: '2026-10-14', operation: '<=' },
     });
@@ -48,7 +48,9 @@ describe('TpdbAPI', () => {
       orderBy: 'recently_released',
       site_id: 4611,
       site_operation: 'Site/Parent/Network',
-      performer_id: 82918,
+      'performers[82918]': 82918,
+      'performers[1815349]': 1815349,
+      performer_and: 1,
       'tags[70]': 70,
       'tags[1139]': 1139,
       year: undefined,

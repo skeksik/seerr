@@ -42,7 +42,8 @@ const discoverQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
   sort: z.enum(xxxMovieSorts).default('released'),
   studio: z.coerce.number().int().positive().optional(),
-  performer: z.coerce.number().int().positive().optional(),
+  // ThePornDB takes one site but any number of performers
+  performer: ids.optional(),
   tags: ids.optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   // ThePornDB takes one date bound, so both sources use one here
@@ -113,7 +114,7 @@ const discoverTpdb = async (
     perPage: PAGE_SIZE,
     sort: query.upcoming ? 'former_released' : tpdbSorts[query.sort],
     siteId: query.studio,
-    performerId: query.performer,
+    performerIds: query.performer,
     tagIds: query.tags,
     year: query.year,
     date: dateBound,
