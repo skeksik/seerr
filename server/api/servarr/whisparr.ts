@@ -58,7 +58,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   // Whisparr also holds every scene of the performers and studios it follows,
   // usually tens of thousands of unmonitored entries. Only monitored items can
   // belong to Seerr requests, so the scan pages through those alone.
-  public getMonitoredItems = async (): Promise<WhisparrItem[]> => {
+  public async getMonitoredItems(): Promise<WhisparrItem[]> {
     const items: WhisparrItem[] = [];
     let page = 1;
 
@@ -86,9 +86,9 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         cause: e,
       });
     }
-  };
+  }
 
-  public getItem = async ({ id }: { id: number }): Promise<WhisparrItem> => {
+  public async getItem({ id }: { id: number }): Promise<WhisparrItem> {
     try {
       const response = await this.axios.get<WhisparrItem>(`/movie/${id}`);
 
@@ -98,11 +98,11 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         cause: e,
       });
     }
-  };
+  }
 
-  public getLibraryItemsByStashId = async (
+  public async getLibraryItemsByStashId(
     stashId: string
-  ): Promise<WhisparrItem[]> => {
+  ): Promise<WhisparrItem[]> {
     try {
       const response = await this.axios.get<WhisparrItem[]>('/movie', {
         params: { stashId },
@@ -115,11 +115,11 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         { cause: e }
       );
     }
-  };
+  }
 
-  public getLibraryItemsByTmdbId = async (
+  public async getLibraryItemsByTmdbId(
     tmdbId: number
-  ): Promise<WhisparrItem[]> => {
+  ): Promise<WhisparrItem[]> {
     try {
       const response = await this.axios.get<WhisparrItem[]>('/movie', {
         params: { tmdbId },
@@ -132,7 +132,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         { cause: e }
       );
     }
-  };
+  }
 
   // Lookup results carry the library id and state when the item already exists
   public lookupScene(stashId: string): Promise<WhisparrItem> {
@@ -277,7 +277,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
   }
 
-  public removeItem = async (item: WhisparrItem): Promise<void> => {
+  public async removeItem(item: WhisparrItem): Promise<void> {
     if (!item.id) {
       logger.info('[Whisparr] Item not in library, nothing to remove', {
         foreignId: item.foreignId,
@@ -299,7 +299,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
       }
       throw e;
     }
-  };
+  }
 }
 
 export default WhisparrAPI;

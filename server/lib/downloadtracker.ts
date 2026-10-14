@@ -1,5 +1,6 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import { MediaType } from '@server/constants/media';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -27,6 +28,7 @@ export interface DownloadingItem {
 class DownloadTracker {
   private radarrServers: Record<number, DownloadingItem[]> = {};
   private sonarrServers: Record<number, DownloadingItem[]> = {};
+  private whisparrServers: Record<number, DownloadingItem[]> = {};
 
   public getMovieProgress(
     serverId: number,
@@ -37,6 +39,15 @@ class DownloadTracker {
     }
 
     return this.radarrServers[serverId].filter(
+      (item) => item.externalId === externalServiceId
+    );
+  }
+
+  public getWhisparrProgress(
+    serverId: number,
+    externalServiceId: number
+  ): DownloadingItem[] {
+    return (this.whisparrServers[serverId] ?? []).filter(
       (item) => item.externalId === externalServiceId
     );
   }
@@ -57,11 +68,51 @@ class DownloadTracker {
   public async resetDownloadTracker() {
     this.radarrServers = {};
     this.sonarrServers = {};
+    this.whisparrServers = {};
   }
 
   public updateDownloads() {
     this.updateRadarrDownloads();
     this.updateSonarrDownloads();
+    this.updateWhisparrDownloads();
+  }
+
+  private async updateWhisparrDownloads() {
+    const settings = getSettings();
+
+    await Promise.all(
+      settings.whisparr
+        .filter((server) => server.syncEnabled)
+        .map(async (server) => {
+          const whisparr = new WhisparrAPI({
+            apiKey: server.apiKey,
+            url: WhisparrAPI.buildUrl(server, '/api/v3'),
+          });
+
+          try {
+            await whisparr.refreshMonitoredDownloads();
+            const queueItems = await whisparr.getQueue();
+
+            // Scenes and movies share Whisparr's movie id space
+            this.whisparrServers[server.id] = queueItems.map((item) => ({
+              externalId: item.movieId,
+              estimatedCompletionTime: new Date(item.estimatedCompletionTime),
+              mediaType: MediaType.MOVIE,
+              size: item.size,
+              sizeLeft: item.sizeleft,
+              status: item.status,
+              timeLeft: item.timeleft,
+              title: item.title,
+              downloadId: item.downloadId,
+            }));
+          } catch {
+            logger.error(
+              `Unable to get queue from Whisparr server: ${server.name}`,
+              { label: 'Download Tracker' }
+            );
+          }
+        })
+    );
   }
 
   private async updateRadarrDownloads() {

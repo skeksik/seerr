@@ -10,13 +10,13 @@ import type {
   MediaRequestBody,
   SceneRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { getWhisparrServer } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
-import { canViewAdult } from '@server/middleware/adult';
 import { mapSceneResult } from '@server/models/Scene';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { requireTmdbId } from '@server/utils/mediaIds';

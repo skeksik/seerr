@@ -19,6 +19,7 @@ import type Season from '@server/entity/Season';
 import { User } from '@server/entity/User';
 import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
+import { mediaExistsInWhisparr } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { getHostname } from '@server/utils/getHostname';
 
@@ -149,8 +150,13 @@ class AvailabilitySync {
           //   await this.mediaExistsInJellyfin(media, false);
           // }
 
-          const existsInRadarr = await this.mediaExistsInRadarr(media, false);
-          const existsInRadarr4k = await this.mediaExistsInRadarr(media, true);
+          // Adult movies live in Whisparr; the name is kept to limit churn
+          const existsInRadarr = media.isAdult
+            ? await mediaExistsInWhisparr(media, false)
+            : await this.mediaExistsInRadarr(media, false);
+          const existsInRadarr4k = media.isAdult
+            ? await mediaExistsInWhisparr(media, true)
+            : await this.mediaExistsInRadarr(media, true);
 
           // plex
           if (mediaServerType === MediaServerType.PLEX) {

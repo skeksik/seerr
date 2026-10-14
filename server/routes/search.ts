@@ -1,9 +1,9 @@
 import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbSearchMultiResponse } from '@server/api/themoviedb/interfaces';
 import Media from '@server/entity/Media';
+import { canViewAdult } from '@server/lib/adult';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
-import { canViewAdult } from '@server/middleware/adult';
 import { mapSearchResults } from '@server/models/Search';
 import { Router } from 'express';
 

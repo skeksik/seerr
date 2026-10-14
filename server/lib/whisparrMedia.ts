@@ -1,3 +1,4 @@
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import { MediaType } from '@server/constants/media';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
@@ -25,4 +26,36 @@ export const getWhisparrServer = (
   }
 
   return whisparr.find((server) => server.isDefault && server.is4k === is4k);
+};
+
+// Availability check counterpart of AvailabilitySync.mediaExistsInRadarr.
+// Errors other than 404 count as present so an outage never deletes media.
+export const mediaExistsInWhisparr = async (
+  media: {
+    serviceId?: number | null;
+    serviceId4k?: number | null;
+    externalServiceId?: number | null;
+    externalServiceId4k?: number | null;
+  },
+  is4k: boolean
+): Promise<boolean> => {
+  const serviceId = is4k ? media.serviceId4k : media.serviceId;
+  const externalId = is4k ? media.externalServiceId4k : media.externalServiceId;
+  const server = getSettings().whisparr.find((s) => s.id === serviceId);
+
+  if (!server || externalId == null) {
+    return false;
+  }
+
+  const whisparr = new WhisparrAPI({
+    apiKey: server.apiKey,
+    url: WhisparrAPI.buildUrl(server, '/api/v3'),
+  });
+
+  try {
+    const item = await whisparr.getItem({ id: externalId });
+    return item.hasFile;
+  } catch (e) {
+    return !e.message.includes('404');
+  }
 };

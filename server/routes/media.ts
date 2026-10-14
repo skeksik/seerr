@@ -1,5 +1,6 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import TautulliAPI from '@server/api/tautulli';
 import TheMovieDb from '@server/api/themoviedb';
 import { isTmdbMedia, MediaStatus, MediaType } from '@server/constants/media';
@@ -13,6 +14,7 @@ import type {
 } from '@server/interfaces/api/mediaInterfaces';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
@@ -211,15 +213,44 @@ mediaRoutes.delete(
         where: { id: Number(req.params.id) },
       });
 
+      const is4k = String(req.query.is4k) === 'true';
+
+      if (isWhisparrMedia(media)) {
+        const server = getWhisparrServer(
+          is4k,
+          is4k ? media.serviceId4k : media.serviceId
+        );
+
+        if (!server) {
+          return next({
+            status: 409,
+            message: 'No Whisparr server configured to delete media files',
+          });
+        }
+
+        const whisparr = new WhisparrAPI({
+          apiKey: server.apiKey,
+          url: WhisparrAPI.buildUrl(server, '/api/v3'),
+        });
+        const item =
+          media.mediaType === MediaType.SCENE && media.stashId
+            ? await whisparr.lookupScene(media.stashId)
+            : await whisparr.lookupMovie(media.tmdbId ?? 0);
+        await whisparr.removeItem(item);
+
+        media[is4k ? 'status4k' : 'status'] = MediaStatus.DELETED;
+        media.resetServiceData(is4k);
+        await mediaRepository.save(media);
+
+        return res.status(204).send();
+      }
+
       if (!isTmdbMedia(media)) {
-        // TODO(whisparr): remove scene files through Whisparr
         return next({
           status: 400,
           message: 'Removing files is not supported for this media type.',
         });
       }
-
-      const is4k = String(req.query.is4k) === 'true';
       const isMovie = media.mediaType === MediaType.MOVIE;
 
       let serviceSettings;

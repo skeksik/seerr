@@ -1029,6 +1029,7 @@
   "components.Settings.SettingsJobsCache.sonarr-scan": "Sonarr Scan",
   "components.Settings.SettingsJobsCache.unknownJob": "Unknown Job",
   "components.Settings.SettingsJobsCache.usersavatars": "Users' Avatars",
+  "components.Settings.SettingsJobsCache.whisparr-scan": "Whisparr Scan",
   "components.Settings.SettingsLogs.copiedLogMessage": "Copied log message to clipboard.",
   "components.Settings.SettingsLogs.copyToClipboard": "Copy to Clipboard",
   "components.Settings.SettingsLogs.extraData": "Additional Data",

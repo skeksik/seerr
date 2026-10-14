@@ -1,10 +1,4 @@
-import type { User } from '@server/entity/User';
-import { Permission } from '@server/lib/permissions';
-import { getSettings } from '@server/lib/settings';
-
-// Adult content needs both the global switch and the user's permission
-export const canViewAdult = (user?: User | null): boolean =>
-  getSettings().main.enableAdult && !!user?.hasPermission(Permission.ADULT);
+import { canViewAdult } from '@server/lib/adult';
 
 export const isAdultAllowed: Middleware = (req, res, next) => {
   if (!canViewAdult(req.user)) {

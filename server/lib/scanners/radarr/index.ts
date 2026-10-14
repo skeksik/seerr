@@ -34,6 +34,8 @@ class RadarrScanner
   private didScan4k = false;
   private serverReturnedEmpty = false;
   private server4kReturnedEmpty = false;
+  // Adult movies sent to Whisparr; Radarr must not claim or reset them
+  private whisparrTmdbIds: Set<number> = new Set();
 
   constructor() {
     super('Radarr Scan', { bundleSize: 50 });
@@ -62,6 +64,14 @@ class RadarrScanner
     this.server4kReturnedEmpty = false;
 
     try {
+      const whisparrMovies = await getRepository(Media).find({
+        select: { id: true, tmdbId: true },
+        where: { mediaType: MediaType.MOVIE, isAdult: true },
+      });
+      this.whisparrTmdbIds = new Set(
+        whisparrMovies.flatMap((media) => media.tmdbId ?? [])
+      );
+
       this.servers = uniqWith(settings.radarr, (radarrA, radarrB) => {
         return (
           radarrA.hostname === radarrB.hostname &&
@@ -158,6 +168,10 @@ class RadarrScanner
   }
 
   private async processRadarrMovie(radarrMovie: RadarrMovie): Promise<void> {
+    if (this.whisparrTmdbIds.has(radarrMovie.tmdbId)) {
+      return;
+    }
+
     const server4k = this.enable4kMovie && this.currentServer.is4k;
     if (server4k) {
       this.scanned4kTmdbIds.add(radarrMovie.tmdbId);
@@ -230,7 +244,11 @@ class RadarrScanner
 
     if (this.didScanStandard) {
       const processingMovies = await mediaRepository.find({
-        where: { mediaType: MediaType.MOVIE, status: MediaStatus.PROCESSING },
+        where: {
+          mediaType: MediaType.MOVIE,
+          status: MediaStatus.PROCESSING,
+          isAdult: false,
+        },
         relations: { requests: true },
       });
 
@@ -261,6 +279,7 @@ class RadarrScanner
         where: {
           mediaType: MediaType.MOVIE,
           status4k: MediaStatus.PROCESSING,
+          isAdult: false,
         },
         relations: { requests: true },
       });

@@ -439,6 +439,22 @@ class Media {
 
   @AfterLoad()
   public getDownloadingItem(): void {
+    if (isWhisparrMedia(this)) {
+      if (this.serviceId != null && this.externalServiceId != null) {
+        this.downloadStatus = downloadTracker.getWhisparrProgress(
+          this.serviceId,
+          this.externalServiceId
+        );
+      }
+      if (this.serviceId4k != null && this.externalServiceId4k != null) {
+        this.downloadStatus4k = downloadTracker.getWhisparrProgress(
+          this.serviceId4k,
+          this.externalServiceId4k
+        );
+      }
+      return;
+    }
+
     if (this.mediaType === MediaType.MOVIE) {
       if (
         this.externalServiceId !== undefined &&
