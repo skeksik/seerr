@@ -1,5 +1,6 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -14,6 +15,7 @@ import type { DownloadingItem } from '@server/lib/downloadtracker';
 import downloadTracker from '@server/lib/downloadtracker';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { getHostname } from '@server/utils/getHostname';
@@ -162,6 +164,10 @@ class Media {
   // stash-box (StashDB) scene UUID, shared by Whisparr and Stash
   @Column({ type: 'varchar', unique: true, nullable: true })
   public stashId?: string | null;
+
+  // Adult TMDB movie sent to Whisparr instead of Radarr
+  @Column({ type: 'boolean', default: false })
+  public isAdult: boolean;
 
   @Column({ unique: true, nullable: true })
   @Index()
@@ -348,6 +354,26 @@ class Media {
 
   @AfterLoad()
   public setServiceUrl(): void {
+    if (isWhisparrMedia(this)) {
+      const { whisparr } = getSettings();
+      const buildUrl = (serviceId?: number | null, slug?: string | null) => {
+        const server = whisparr.find((s) => s.id === serviceId);
+        if (!server || !slug) {
+          return undefined;
+        }
+        return server.externalUrl
+          ? `${server.externalUrl}/movie/${slug}`
+          : WhisparrAPI.buildUrl(server, `/movie/${slug}`);
+      };
+
+      this.serviceUrl = buildUrl(this.serviceId, this.externalServiceSlug);
+      this.serviceUrl4k = buildUrl(
+        this.serviceId4k,
+        this.externalServiceSlug4k
+      );
+      return;
+    }
+
     if (this.mediaType === MediaType.MOVIE) {
       if (this.serviceId !== null && this.externalServiceSlug !== null) {
         const settings = getSettings();

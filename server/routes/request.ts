@@ -1,5 +1,6 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -20,9 +21,11 @@ import { User } from '@server/entity/User';
 import type {
   MediaRequestBody,
   RequestResultsResponse,
+  SceneRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -224,8 +227,31 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
         })
       );
 
+      const whisparrServers = await Promise.all(
+        settings.whisparr.map(async (whisparrSetting) => {
+          const whisparr = new WhisparrAPI({
+            apiKey: whisparrSetting.apiKey,
+            url: WhisparrAPI.buildUrl(whisparrSetting, '/api/v3'),
+          });
+
+          return {
+            id: whisparrSetting.id,
+            profiles: await whisparr.getProfiles().catch(() => undefined),
+          };
+        })
+      );
+
       // add profile names to the media requests, with undefined if not found
       let mappedRequests = requests.map((r) => {
+        if (isWhisparrMedia(r.media)) {
+          return {
+            ...r,
+            profileName: whisparrServers
+              .find((server) => server.id === r.serverId)
+              ?.profiles?.find((profile) => profile.id === r.profileId)?.name,
+          };
+        }
+
         switch (r.type) {
           case MediaType.MOVIE: {
             const profileName = radarrServers
@@ -246,7 +272,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             };
           }
           case MediaType.SCENE: {
-            // TODO(whisparr): resolve profile names from Whisparr servers
+            // Handled above, scenes always belong to Whisparr
             return { ...r, profileName: undefined };
           }
         }
@@ -255,6 +281,17 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
       // add canRemove prop if user has permission
       if (req.user?.hasPermission(Permission.MANAGE_REQUESTS)) {
         mappedRequests = mappedRequests.map((r) => {
+          if (isWhisparrMedia(r.media)) {
+            return {
+              ...r,
+              canRemove: whisparrServers.some(
+                (server) =>
+                  server.id ===
+                  (r.is4k ? r.media.serviceId4k : r.media.serviceId)
+              ),
+            };
+          }
+
           switch (r.type) {
             case MediaType.MOVIE: {
               return {
@@ -279,7 +316,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
               };
             }
             case MediaType.SCENE: {
-              // TODO(whisparr): check against configured Whisparr servers
+              // Handled above, scenes always belong to Whisparr
               return { ...r, canRemove: false };
             }
           }
@@ -311,6 +348,14 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 settings.sonarr.find((r) => r.id === s.id)?.name ||
                 `Sonarr ${s.id}`,
             })),
+          whisparr: whisparrServers
+            .filter((s) => !s.profiles)
+            .map((s) => ({
+              id: s.id,
+              name:
+                settings.whisparr.find((r) => r.id === s.id)?.name ||
+                `Whisparr ${s.id}`,
+            })),
         },
       });
     } catch (e) {
@@ -319,7 +364,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
   }
 );
 
-requestRoutes.post<never, MediaRequest, MediaRequestBody>(
+requestRoutes.post<never, MediaRequest, MediaRequestBody | SceneRequestBody>(
   '/',
   async (req, res, next) => {
     try {
@@ -329,6 +374,17 @@ requestRoutes.post<never, MediaRequest, MediaRequestBody>(
           message: 'You must be logged in to request media.',
         });
       }
+
+      const isScene = req.body.mediaType === MediaType.SCENE;
+      if (isScene ? !('stashId' in req.body) : !('mediaId' in req.body)) {
+        return next({
+          status: 400,
+          message: isScene
+            ? 'Scene requests need a stashId.'
+            : 'Movie and series requests need a mediaId.',
+        });
+      }
+
       const request = await MediaRequest.request(req.body, req.user);
 
       return res.status(201).json(request);
@@ -540,8 +596,16 @@ requestRoutes.put<{ requestId: string }>(
         const ownerChanging = requestUser.id !== previousOwnerId;
 
         return requestLock.dispatch(userKey(requestUser.id), async () => {
-          if (req.body.mediaType === MediaType.MOVIE) {
-            if (ownerChanging && !request.ignoreQuota) {
+          // Scenes have no quota and share the movie edit fields
+          if (
+            req.body.mediaType === MediaType.MOVIE ||
+            req.body.mediaType === MediaType.SCENE
+          ) {
+            if (
+              req.body.mediaType === MediaType.MOVIE &&
+              ownerChanging &&
+              !request.ignoreQuota
+            ) {
               const quotas = await requestUser.getQuota();
 
               if (quotas.movie.restricted) {

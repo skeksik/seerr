@@ -135,11 +135,13 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   };
 
   // Lookup results carry the library id and state when the item already exists
-  public lookupScene = (stashId: string): Promise<WhisparrItem> =>
-    this.lookup(`stash:${stashId}`, 'scene');
+  public lookupScene(stashId: string): Promise<WhisparrItem> {
+    return this.lookup(`stash:${stashId}`, 'scene');
+  }
 
-  public lookupMovie = (tmdbId: number): Promise<WhisparrItem> =>
-    this.lookup(`tmdb:${tmdbId}`, 'movie');
+  public lookupMovie(tmdbId: number): Promise<WhisparrItem> {
+    return this.lookup(`tmdb:${tmdbId}`, 'movie');
+  }
 
   private async lookup(
     term: string,
@@ -168,10 +170,10 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     return items[0];
   }
 
-  public addItem = async (
+  public async addItem(
     item: WhisparrItem,
     options: WhisparrAddOptions
-  ): Promise<WhisparrItem> => {
+  ): Promise<WhisparrItem> {
     try {
       if (item.id && item.hasFile) {
         logger.info('Item already exists in Whisparr with a file', {
@@ -256,7 +258,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
       });
       throw new Error('Failed to add item to Whisparr', { cause: e });
     }
-  };
+  }
 
   public async searchItem(itemId: number): Promise<void> {
     logger.info('Executing Whisparr search command', {

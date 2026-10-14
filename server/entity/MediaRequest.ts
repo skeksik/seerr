@@ -1,3 +1,4 @@
+import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
 import {
   MediaRequestStatus,
@@ -5,12 +6,18 @@ import {
   MediaType,
 } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
-import type { MediaRequestBody } from '@server/interfaces/api/requestInterfaces';
+import type {
+  MediaRequestBody,
+  SceneRequestBody,
+} from '@server/interfaces/api/requestInterfaces';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { getWhisparrServer } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
+import { canViewAdult } from '@server/middleware/adult';
+import { mapSceneResult } from '@server/models/Scene';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
@@ -49,10 +56,28 @@ type MediaRequestOptions = {
 @Entity()
 export class MediaRequest {
   public static async request(
-    requestBody: MediaRequestBody,
+    requestBody: MediaRequestBody | SceneRequestBody,
     user: User,
     options: MediaRequestOptions = {}
   ): Promise<MediaRequest> {
+    if (requestBody.mediaType === MediaType.SCENE) {
+      const sceneBody = requestBody;
+      const sceneLockUserId =
+        sceneBody.userId &&
+        user.hasPermission([
+          Permission.MANAGE_USERS,
+          Permission.MANAGE_REQUESTS,
+        ])
+          ? sceneBody.userId
+          : user.id;
+
+      return requestLock.dispatch(userKey(sceneLockUserId), () =>
+        mediaLock.dispatch(mediaKey(MediaType.SCENE, sceneBody.stashId), () =>
+          MediaRequest.createSceneRequest(sceneBody, user)
+        )
+      );
+    }
+
     // is4k is optional, and an undefined one binds as null in the duplicate query
     const body = { ...requestBody, is4k: !!requestBody.is4k };
 
@@ -70,6 +95,113 @@ export class MediaRequest {
         MediaRequest.createRequest(body, user, options)
       )
     );
+  }
+
+  private static async createSceneRequest(
+    requestBody: SceneRequestBody,
+    user: User
+  ): Promise<MediaRequest> {
+    const mediaRepository = getRepository(Media);
+    const requestRepository = getRepository(MediaRequest);
+
+    let requestUser = user;
+
+    if (
+      requestBody.userId &&
+      !user.hasPermission([Permission.MANAGE_USERS, Permission.MANAGE_REQUESTS])
+    ) {
+      throw new RequestPermissionError(
+        'You do not have permission to modify the request user.'
+      );
+    } else if (requestBody.userId) {
+      requestUser = await getRepository(User).findOneOrFail({
+        where: { id: requestBody.userId },
+      });
+    }
+
+    // Scenes have no type-specific request permissions; REQUEST covers them
+    if (
+      !canViewAdult(requestUser) ||
+      !requestUser.hasPermission(Permission.REQUEST)
+    ) {
+      throw new RequestPermissionError(
+        'You do not have permission to make scene requests.'
+      );
+    }
+
+    const scene = await StashDbAPI.fromSettings().getScene(requestBody.stashId);
+
+    if (!scene || scene.deleted) {
+      throw new Error('Scene not found on StashDB.');
+    }
+
+    let media = await mediaRepository.findOne({
+      where: { stashId: scene.id, mediaType: MediaType.SCENE },
+      relations: ['requests'],
+    });
+
+    if (!media) {
+      media = new Media({
+        mediaType: MediaType.SCENE,
+        stashId: scene.id,
+        tmdbId: null,
+        status: MediaStatus.PENDING,
+      });
+    } else {
+      if (media.status === MediaStatus.BLOCKLISTED) {
+        throw new BlocklistedMediaError('This media is blocklisted.');
+      }
+
+      const active = (media.requests ?? []).find(
+        (r) =>
+          r.status !== MediaRequestStatus.DECLINED &&
+          r.status !== MediaRequestStatus.COMPLETED
+      );
+
+      if (active) {
+        logger.warn('Duplicate request for scene blocked', {
+          stashId: scene.id,
+          label: 'Media Request',
+        });
+        throw new DuplicateMediaRequestError(
+          'Request for this media already exists.'
+        );
+      }
+
+      if (
+        media.status === MediaStatus.UNKNOWN ||
+        media.status === MediaStatus.DELETED
+      ) {
+        media.status = MediaStatus.PENDING;
+      }
+    }
+
+    await mediaRepository.save(media);
+
+    const autoApprove = user.hasPermission(
+      [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
+      { type: 'or' }
+    );
+
+    const request = new MediaRequest({
+      type: MediaType.SCENE,
+      media,
+      requestedBy: requestUser,
+      status: autoApprove
+        ? MediaRequestStatus.APPROVED
+        : MediaRequestStatus.PENDING,
+      modifiedBy: autoApprove ? user : undefined,
+      is4k: false,
+      serverId: requestBody.serverId,
+      profileId: requestBody.profileId,
+      rootFolder: requestBody.rootFolder,
+      tags: requestBody.tags,
+      isAutoRequest: false,
+      ignoreQuota: false,
+    });
+
+    await requestRepository.save(request);
+    return request;
   }
 
   private static async createRequest(
@@ -171,6 +303,12 @@ export class MediaRequest {
       requestBody.mediaType === MediaType.MOVIE
         ? await tmdb.getMovie({ movieId: requestBody.mediaId })
         : await tmdb.getTvShow({ tvId: requestBody.mediaId });
+
+    if ('adult' in tmdbMedia && tmdbMedia.adult && !canViewAdult(requestUser)) {
+      throw new RequestPermissionError(
+        'You do not have permission to request adult movies.'
+      );
+    }
 
     let media = await mediaRepository.findOne({
       where: {
@@ -307,6 +445,18 @@ export class MediaRequest {
     }
 
     if (requestBody.mediaType === MediaType.MOVIE) {
+      // Adult movies go to Whisparr when one is configured, unless Radarr
+      // already handles this title
+      if (
+        'adult' in tmdbMedia &&
+        tmdbMedia.adult &&
+        getWhisparrServer(!!requestBody.is4k, requestBody.serverId) &&
+        media.serviceId == null &&
+        media.serviceId4k == null
+      ) {
+        media.isAdult = true;
+      }
+
       await mediaRepository.save(media);
 
       const request = new MediaRequest({
@@ -713,7 +863,12 @@ export class MediaRequest {
     const tmdb = new TheMovieDb();
 
     try {
-      const mediaType = entity.type === MediaType.MOVIE ? 'Movie' : 'Series';
+      const mediaType =
+        entity.type === MediaType.MOVIE
+          ? 'Movie'
+          : entity.type === MediaType.SCENE
+            ? 'Scene'
+            : 'Series';
       let event: string | undefined;
       let notifyAdmin = true;
       let notifySystem = true;
@@ -796,6 +951,34 @@ export class MediaRequest {
                 .join(', '),
             },
           ],
+        });
+      } else if (entity.type === MediaType.SCENE && media.stashId) {
+        const scene = await StashDbAPI.fromSettings().getScene(media.stashId);
+
+        if (!scene) {
+          throw new Error(`Scene ${media.stashId} not found on StashDB`);
+        }
+
+        const details = mapSceneResult(scene);
+        notificationManager.sendNotification(type, {
+          media,
+          request: entity,
+          notifyAdmin,
+          notifySystem,
+          notifyUser: notifyAdmin ? undefined : entity.requestedBy,
+          event,
+          subject: `${details.title}${
+            details.releaseDate ? ` (${details.releaseDate.slice(0, 4)})` : ''
+          }`,
+          message: truncate(scene.details ?? '', {
+            length: 500,
+            separator: /\s/,
+            omission: '…',
+          }),
+          image: details.imageUrl ? `${details.imageUrl}?size=600` : undefined,
+          extra: details.studio
+            ? [{ name: 'Studio', value: details.studio.name }]
+            : [],
         });
       }
     } catch (e) {

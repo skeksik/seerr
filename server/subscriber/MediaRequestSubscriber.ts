@@ -19,6 +19,8 @@ import Season from '@server/entity/Season';
 import SeasonRequest from '@server/entity/SeasonRequest';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { getSettings } from '@server/lib/settings';
+import { isWhisparrMedia } from '@server/lib/whisparrMedia';
+import { sendToWhisparr } from '@server/lib/whisparrRequest';
 import logger from '@server/logger';
 import { requireTmdbId } from '@server/utils/mediaIds';
 import { withNestedTransaction } from '@server/utils/nestedTransaction';
@@ -100,6 +102,23 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         errorMessage: e.message,
         mediaId: entity.id,
       });
+    }
+  }
+
+  private async notifyAvailableScene(
+    entity: MediaRequest,
+    event: UpdateEvent<MediaRequest>
+  ) {
+    const latestMedia = await event.manager.findOne(Media, {
+      where: { id: entity.media.id },
+    });
+
+    if (latestMedia?.status === MediaStatus.AVAILABLE) {
+      await MediaRequest.sendNotification(
+        entity,
+        latestMedia,
+        Notification.MEDIA_AVAILABLE
+      );
     }
   }
 
@@ -188,7 +207,8 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
   ): Promise<void> {
     if (
       entity.status === MediaRequestStatus.APPROVED &&
-      entity.type === MediaType.MOVIE
+      entity.type === MediaType.MOVIE &&
+      !isWhisparrMedia(entity.media)
     ) {
       try {
         const mediaRepository = manager.getRepository(Media);
@@ -1063,6 +1083,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     try {
       await this.sendToRadarr(event.entity as MediaRequest, event.manager);
       await this.sendToSonarr(event.entity as MediaRequest, event.manager);
+      await sendToWhisparr(event.entity as MediaRequest, event.manager);
     } catch (e) {
       logger.error('Error while sending to *arr in afterUpdate subscriber', {
         label: 'Media Request',
@@ -1082,6 +1103,9 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         }
         if (event.entity.media.mediaType === MediaType.TV) {
           await this.notifyAvailableSeries(event.entity as MediaRequest, event);
+        }
+        if (event.entity.media.mediaType === MediaType.SCENE) {
+          await this.notifyAvailableScene(event.entity as MediaRequest, event);
         }
       }
     } catch (e) {
@@ -1104,6 +1128,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     try {
       await this.sendToRadarr(event.entity as MediaRequest, event.manager);
       await this.sendToSonarr(event.entity as MediaRequest, event.manager);
+      await sendToWhisparr(event.entity as MediaRequest, event.manager);
     } catch (e) {
       logger.error('Error while sending to *arr in afterInsert subscriber', {
         label: 'Media Request',

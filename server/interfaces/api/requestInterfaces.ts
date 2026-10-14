@@ -1,4 +1,4 @@
-import type { TmdbMediaType } from '@server/constants/media';
+import type { MediaType, TmdbMediaType } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties, PaginatedResponse } from './common';
 
@@ -10,6 +10,7 @@ export interface RequestResultsResponse extends PaginatedResponse {
   serviceErrors: {
     radarr: { id: number; name: string }[];
     sonarr: { id: number; name: string }[];
+    whisparr: { id: number; name: string }[];
   };
 }
 
@@ -27,4 +28,15 @@ export type MediaRequestBody = {
   userId?: number;
   tags?: number[];
   ignoreQuota?: boolean;
+};
+
+// Scenes have no TMDB id, seasons or 4K tier
+export type SceneRequestBody = {
+  mediaType: MediaType.SCENE;
+  stashId: string;
+  serverId?: number;
+  profileId?: number;
+  rootFolder?: string;
+  userId?: number;
+  tags?: number[];
 };
