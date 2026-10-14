@@ -41,6 +41,26 @@ export interface WhisparrAddOptions {
   searchNow?: boolean;
 }
 
+// Performers and studios Whisparr follows, keyed by their stash-box UUID
+export type WhisparrCreditType = 'performer' | 'studio';
+
+export interface WhisparrCredit {
+  id: number;
+  foreignId: string;
+  monitored: boolean;
+  qualityProfileId: number;
+  rootFolderPath?: string | null;
+  searchOnAdd: boolean;
+  tags: number[];
+}
+
+export interface WhisparrMonitorOptions {
+  qualityProfileId: number;
+  rootFolderPath: string;
+  tags: number[];
+  searchOnAdd: boolean;
+}
+
 interface WhisparrPage {
   page: number;
   pageSize: number;
@@ -273,6 +293,81 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         label: 'Whisparr API',
         errorMessage: e.message,
         itemId,
+      });
+    }
+  }
+
+  public async getCredit(
+    type: WhisparrCreditType,
+    foreignId: string
+  ): Promise<WhisparrCredit | null> {
+    try {
+      const response = await this.axios.get<WhisparrCredit>(
+        `/${type}/${foreignId}`
+      );
+      return response.data;
+    } catch (e) {
+      if (e?.response?.status === 404) {
+        return null;
+      }
+      throw new Error(`[Whisparr] Failed to retrieve ${type}: ${e.message}`, {
+        cause: e,
+      });
+    }
+  }
+
+  // Monitoring a performer or studio makes Whisparr add all of their scenes,
+  // and search for them when searchOnAdd is set
+  public async setCreditMonitored(
+    type: WhisparrCreditType,
+    foreignId: string,
+    monitored: boolean,
+    options: WhisparrMonitorOptions
+  ): Promise<WhisparrCredit | null> {
+    const existing = await this.getCredit(type, foreignId);
+
+    try {
+      if (!existing) {
+        if (!monitored) {
+          return null;
+        }
+
+        const response = await this.axios.post<WhisparrCredit>(`/${type}`, {
+          foreignId,
+          monitored: true,
+          ...options,
+        });
+        logger.info(`[Whisparr] Added and monitored ${type} ${foreignId}`);
+        return response.data;
+      }
+
+      const response = await this.axios.put<WhisparrCredit>(
+        `/${type}/${existing.id}`,
+        {
+          ...existing,
+          monitored,
+          searchOnAdd: monitored ? options.searchOnAdd : existing.searchOnAdd,
+          rootFolderPath: existing.rootFolderPath || options.rootFolderPath,
+        }
+      );
+
+      // Whisparr only syncs scenes on add or on its scheduled refresh
+      if (monitored) {
+        await this.runCommand(
+          type === 'performer' ? 'RefreshPerformers' : 'RefreshStudios',
+          type === 'performer'
+            ? { performerIds: [existing.id] }
+            : { studioIds: [existing.id] }
+        );
+      }
+
+      logger.info(
+        `[Whisparr] ${monitored ? 'Monitored' : 'Unmonitored'} ${type} ${foreignId}`
+      );
+      return response.data;
+    } catch (e) {
+      throw new Error(`[Whisparr] Failed to update ${type}: ${e.message}`, {
+        cause: e,
       });
     }
   }

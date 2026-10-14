@@ -49,6 +49,8 @@ export interface StashDbPerformerSummary {
 export interface StashDbPerformer extends StashDbPerformerSummary {
   aliases: string[];
   birth_date?: string | null;
+  career_start_year?: number | null;
+  career_end_year?: number | null;
   country?: string | null;
   scene_count: number;
   urls: StashDbUrl[];

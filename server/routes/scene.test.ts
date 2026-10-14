@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import StashDbAPI from '@server/api/stashdb';
-import type { StashDbScene } from '@server/api/stashdb/interfaces';
+import type {
+  StashDbPerformer,
+  StashDbScene,
+} from '@server/api/stashdb/interfaces';
 import { MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
 import { Permission } from '@server/lib/permissions';
+import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import { isAdultAllowed } from '@server/middleware/adult';
 import { checkUser } from '@server/middleware/auth';
@@ -102,8 +107,43 @@ beforeEach(() => {
 
 afterEach(() => {
   getSettings().main.enableAdult = false;
+  getSettings().whisparr = [];
   mock.restoreAll();
 });
+
+const whisparrServer: WhisparrSettings = {
+  id: 0,
+  name: 'Whisparr',
+  hostname: 'whisparr.test',
+  port: 6969,
+  apiKey: 'key',
+  useSsl: false,
+  activeProfileId: 4,
+  activeProfileName: 'HD-1080p',
+  activeDirectory: '/data/xxx',
+  tags: [2],
+  is4k: false,
+  isDefault: true,
+  syncEnabled: true,
+  preventSearch: false,
+  tagRequests: false,
+  overrideRule: [],
+};
+
+const performer: StashDbPerformer = {
+  id: SCENE_ID,
+  name: 'Performer',
+  disambiguation: null,
+  gender: 'FEMALE',
+  aliases: ['Alias'],
+  birth_date: '1990-01-01',
+  career_start_year: 2010,
+  career_end_year: null,
+  country: 'US',
+  scene_count: 12,
+  images: [],
+  urls: [],
+};
 
 async function loginAs(email: string, permissions?: number) {
   if (permissions !== undefined) {
@@ -257,7 +297,44 @@ describe('GET /scene/:type/:id', () => {
     const res = await agent.get(`/scene/studio/${SCENE_ID}`);
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.body, { id: 'studio', name: 'Studio' });
+    assert.deepStrictEqual(res.body, {
+      id: 'studio',
+      name: 'Studio',
+      aliases: [],
+      urls: [],
+      stashDbUrl: 'https://stashdb.test/studios/studio',
+    });
+  });
+
+  it('adds Whisparr monitoring status for request managers', async () => {
+    getSettings().whisparr = [whisparrServer];
+    mock.method(StashDbAPI.prototype, 'getPerformer', async () => performer);
+    mock.method(WhisparrAPI.prototype, 'getCredit', async () => ({
+      id: 1,
+      foreignId: SCENE_ID,
+      monitored: true,
+      qualityProfileId: 1,
+      searchOnAdd: false,
+      tags: [],
+    }));
+    const admin = await loginAs('admin@seerr.dev');
+
+    const res = await admin.get(`/scene/performer/${SCENE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.careerStart, 2010);
+    assert.deepStrictEqual(res.body.whisparr, {
+      monitored: true,
+      serviceUrl: `http://whisparr.test:6969/performer/${SCENE_ID}`,
+    });
+
+    const user = await loginAs(
+      'demo@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    const plain = await user.get(`/scene/performer/${SCENE_ID}`);
+    assert.strictEqual(plain.status, 200);
+    assert.strictEqual(plain.body.whisparr, undefined);
   });
 
   it('returns 404 for unknown filter types', async () => {
@@ -267,5 +344,66 @@ describe('GET /scene/:type/:id', () => {
       (await agent.get(`/scene/network/${SCENE_ID}`)).status,
       404
     );
+  });
+});
+
+describe('POST /scene/:type/:id/monitor', () => {
+  it('monitors with the default server settings and no search by default', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const monitor = mock.method(
+      WhisparrAPI.prototype,
+      'setCreditMonitored',
+      async () => ({
+        id: 1,
+        foreignId: SCENE_ID,
+        monitored: true,
+        qualityProfileId: 4,
+        searchOnAdd: false,
+        tags: [2],
+      })
+    );
+    const admin = await loginAs('admin@seerr.dev');
+
+    const res = await admin
+      .post(`/scene/studio/${SCENE_ID}/monitor`)
+      .send({ monitored: true });
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.monitored, true);
+    assert.deepStrictEqual(monitor.mock.calls[0].arguments, [
+      'studio',
+      SCENE_ID,
+      true,
+      {
+        qualityProfileId: 4,
+        rootFolderPath: '/data/xxx',
+        tags: [2],
+        searchOnAdd: false,
+      },
+    ]);
+  });
+
+  it('requires the manage requests permission', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const user = await loginAs(
+      'demo@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    const res = await user
+      .post(`/scene/performer/${SCENE_ID}/monitor`)
+      .send({ monitored: true });
+
+    assert.strictEqual(res.status, 403);
+  });
+
+  it('returns 409 without a default Whisparr server', async () => {
+    const admin = await loginAs('admin@seerr.dev');
+
+    const res = await admin
+      .post(`/scene/performer/${SCENE_ID}/monitor`)
+      .send({ monitored: true });
+
+    assert.strictEqual(res.status, 409);
   });
 });

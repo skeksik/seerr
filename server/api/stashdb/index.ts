@@ -186,6 +186,7 @@ class StashDbAPI extends ExternalAPI {
       `query ($id: ID!) {
         findPerformer(id: $id) {
           id name disambiguation gender aliases birth_date country scene_count
+          career_start_year career_end_year
           images { ${IMAGE_FIELDS} }
           urls { url site { name } }
         }

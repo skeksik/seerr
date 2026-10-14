@@ -160,3 +160,99 @@ describe('WhisparrAPI lookupScene', () => {
     await assert.rejects(() => whisparr.lookupScene(STASH_ID), /not found/);
   });
 });
+
+describe('WhisparrAPI setCreditMonitored', () => {
+  afterEach(() => mock.restoreAll());
+
+  const monitorOptions = {
+    qualityProfileId: 4,
+    rootFolderPath: '/data/xxx',
+    tags: [2],
+    searchOnAdd: false,
+  };
+
+  it('adds performers Whisparr does not follow yet', async () => {
+    const whisparr = buildWhisparr();
+    mock.method(getAxios(whisparr), 'get', async () => {
+      throw Object.assign(new Error('Not Found'), {
+        response: { status: 404 },
+      });
+    });
+    const post = mock.method(getAxios(whisparr), 'post', async () => ({
+      data: { id: 3, foreignId: STASH_ID, monitored: true },
+    }));
+
+    const credit = await whisparr.setCreditMonitored(
+      'performer',
+      STASH_ID,
+      true,
+      monitorOptions
+    );
+
+    assert.strictEqual(credit?.id, 3);
+    assert.strictEqual(post.mock.calls[0].arguments[0], '/performer');
+    assert.deepStrictEqual(post.mock.calls[0].arguments[1], {
+      foreignId: STASH_ID,
+      monitored: true,
+      ...monitorOptions,
+    });
+  });
+
+  it('updates followed studios and refreshes them', async () => {
+    const whisparr = buildWhisparr();
+    const existing = {
+      id: 7,
+      foreignId: STASH_ID,
+      monitored: false,
+      qualityProfileId: 1,
+      rootFolderPath: '/data/old',
+      searchOnAdd: false,
+      tags: [],
+    };
+    mock.method(getAxios(whisparr), 'get', async () => ({ data: existing }));
+    const put = mock.method(getAxios(whisparr), 'put', async () => ({
+      data: { ...existing, monitored: true },
+    }));
+    const post = mock.method(getAxios(whisparr), 'post', async () => ({
+      data: {},
+    }));
+
+    await whisparr.setCreditMonitored('studio', STASH_ID, true, {
+      ...monitorOptions,
+      searchOnAdd: true,
+    });
+
+    assert.strictEqual(put.mock.calls[0].arguments[0], '/studio/7');
+    assert.deepStrictEqual(put.mock.calls[0].arguments[1], {
+      ...existing,
+      monitored: true,
+      searchOnAdd: true,
+    });
+    assert.deepStrictEqual(post.mock.calls[0].arguments, [
+      '/command',
+      { name: 'RefreshStudios', studioIds: [7] },
+    ]);
+  });
+
+  it('does nothing when unmonitoring something Whisparr does not follow', async () => {
+    const whisparr = buildWhisparr();
+    mock.method(getAxios(whisparr), 'get', async () => {
+      throw Object.assign(new Error('Not Found'), {
+        response: { status: 404 },
+      });
+    });
+    const post = mock.method(getAxios(whisparr), 'post', async () => ({
+      data: {},
+    }));
+
+    const credit = await whisparr.setCreditMonitored(
+      'performer',
+      STASH_ID,
+      false,
+      monitorOptions
+    );
+
+    assert.strictEqual(credit, null);
+    assert.strictEqual(post.mock.callCount(), 0);
+  });
+});

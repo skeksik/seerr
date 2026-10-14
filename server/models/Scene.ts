@@ -1,9 +1,11 @@
 import type {
   StashDbGender,
   StashDbImage,
+  StashDbPerformer,
   StashDbPerformerSummary,
   StashDbScene,
   StashDbSceneSummary,
+  StashDbStudio,
   StashDbStudioSummary,
 } from '@server/api/stashdb/interfaces';
 import type Media from '@server/entity/Media';
@@ -54,6 +56,34 @@ export interface SceneFilterDetails {
   name: string;
   description?: string;
   imageUrl?: string;
+}
+
+// Present for request managers when a default Whisparr server is set up
+export interface WhisparrMonitorStatus {
+  monitored: boolean;
+  serviceUrl: string;
+}
+
+export interface ScenePerformerDetails extends SceneFilterDetails {
+  disambiguation?: string;
+  gender?: StashDbGender;
+  aliases: string[];
+  birthDate?: string;
+  careerStart?: number;
+  careerEnd?: number;
+  country?: string;
+  sceneCount: number;
+  urls: { url: string; site: string }[];
+  stashDbUrl: string;
+  whisparr?: WhisparrMonitorStatus;
+}
+
+export interface SceneStudioDetails extends SceneFilterDetails {
+  aliases: string[];
+  parent?: { id: string; name: string };
+  urls: { url: string; site: string }[];
+  stashDbUrl: string;
+  whisparr?: WhisparrMonitorStatus;
 }
 
 export interface SceneListResponse {
@@ -120,4 +150,38 @@ export const mapSceneDetails = (
   urls: scene.urls.map(({ url, site }) => ({ url, site: site.name })),
   tags: scene.tags.map(({ id, name }) => ({ id, name })),
   stashDbUrl: `${stashDbOrigin}/scenes/${scene.id}`,
+});
+
+export const mapPerformerDetails = (
+  performer: StashDbPerformer,
+  stashDbOrigin: string
+): ScenePerformerDetails => ({
+  id: performer.id,
+  name: performer.disambiguation
+    ? `${performer.name} (${performer.disambiguation})`
+    : performer.name,
+  imageUrl: pickImage(performer.images),
+  disambiguation: performer.disambiguation ?? undefined,
+  gender: performer.gender ?? undefined,
+  aliases: performer.aliases,
+  birthDate: performer.birth_date ?? undefined,
+  careerStart: performer.career_start_year ?? undefined,
+  careerEnd: performer.career_end_year ?? undefined,
+  country: performer.country ?? undefined,
+  sceneCount: performer.scene_count,
+  urls: performer.urls.map(({ url, site }) => ({ url, site: site.name })),
+  stashDbUrl: `${stashDbOrigin}/performers/${performer.id}`,
+});
+
+export const mapStudioDetails = (
+  studio: StashDbStudio,
+  stashDbOrigin: string
+): SceneStudioDetails => ({
+  id: studio.id,
+  name: studio.name,
+  imageUrl: pickImage(studio.images),
+  aliases: studio.aliases,
+  parent: studio.parent ?? undefined,
+  urls: studio.urls.map(({ url, site }) => ({ url, site: site.name })),
+  stashDbUrl: `${stashDbOrigin}/studios/${studio.id}`,
 });

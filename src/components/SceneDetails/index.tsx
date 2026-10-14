@@ -91,9 +91,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
 
   if (data.studio) {
     attributes.push(
-      <Link href={`/scenes/browse?studio=${data.studio.id}`}>
-        {data.studio.name}
-      </Link>
+      <Link href={`/scenes/studio/${data.studio.id}`}>{data.studio.name}</Link>
     );
   }
 
@@ -228,7 +226,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
                 {data.performers.map((performer) => (
                   <li key={performer.id}>
                     <Link
-                      href={`/scenes/browse?performer=${performer.id}`}
+                      href={`/scenes/performer/${performer.id}`}
                       className="group flex items-center space-x-3 rounded-lg p-1 transition duration-300 hover:bg-gray-800"
                     >
                       <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gray-700 ring-1 ring-gray-600">
@@ -332,7 +330,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.studio)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/scenes/browse?studio=${data.studio.id}`}>
+                  <Link href={`/scenes/studio/${data.studio.id}`}>
                     {data.studio.name}
                   </Link>
                 </span>
@@ -342,7 +340,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.network)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/scenes/browse?studio=${data.studio.parent.id}`}>
+                  <Link href={`/scenes/studio/${data.studio.parent.id}`}>
                     {data.studio.parent.name}
                   </Link>
                 </span>
@@ -387,7 +385,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             studio: data.studio.name,
           })}
           url={`/api/v1/scene/discover?sort=date&page=1&studio=${data.studio.id}`}
-          linkUrl={`/scenes/browse?sort=date&studio=${data.studio.id}`}
+          linkUrl={`/scenes/studio/${data.studio.id}`}
           hideWhenEmpty
         />
       )}

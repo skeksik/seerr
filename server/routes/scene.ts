@@ -1,17 +1,30 @@
+import type { WhisparrCreditType } from '@server/api/servarr/whisparr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
 import type {
   StashDbSceneList,
   StashDbSceneSort,
 } from '@server/api/stashdb/interfaces';
 import Media from '@server/entity/Media';
+import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { getWhisparrServer } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
+import { isAuthenticated } from '@server/middleware/auth';
 import type {
   SceneFilterDetails,
   SceneListResponse,
+  ScenePerformerDetails,
+  SceneStudioDetails,
+  WhisparrMonitorStatus,
 } from '@server/models/Scene';
-import { mapSceneDetails, mapSceneResult } from '@server/models/Scene';
-import type { NextFunction } from 'express';
+import {
+  mapPerformerDetails,
+  mapSceneDetails,
+  mapSceneResult,
+  mapStudioDetails,
+} from '@server/models/Scene';
+import type { NextFunction, Request } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -42,6 +55,65 @@ const searchQuery = z.object({
 });
 
 const sceneId = z.string().uuid();
+
+const monitorBody = z.object({
+  monitored: z.boolean(),
+  search: z.boolean().default(false),
+});
+
+const stashDbOrigin = () => new URL(getSettings().stashdb.endpoint).origin;
+
+const whisparrClient = () => {
+  const server = getWhisparrServer(false);
+
+  return server
+    ? {
+        server,
+        api: new WhisparrAPI({
+          apiKey: server.apiKey,
+          url: WhisparrAPI.buildUrl(server, '/api/v3'),
+        }),
+      }
+    : undefined;
+};
+
+const creditUrl = (
+  server: NonNullable<ReturnType<typeof getWhisparrServer>>,
+  type: WhisparrCreditType,
+  foreignId: string
+) =>
+  server.externalUrl
+    ? `${server.externalUrl.replace(/\/+$/, '')}/${type}/${foreignId}`
+    : WhisparrAPI.buildUrl(server, `/${type}/${foreignId}`);
+
+// Monitoring is a request manager tool; a Whisparr outage only hides it
+const getMonitorStatus = async (
+  req: Request,
+  type: WhisparrCreditType,
+  foreignId: string
+): Promise<WhisparrMonitorStatus | undefined> => {
+  const whisparr = whisparrClient();
+
+  if (!whisparr || !req.user?.hasPermission(Permission.MANAGE_REQUESTS)) {
+    return undefined;
+  }
+
+  try {
+    const credit = await whisparr.api.getCredit(type, foreignId);
+    return {
+      monitored: !!credit?.monitored,
+      serviceUrl: creditUrl(whisparr.server, type, foreignId),
+    };
+  } catch (e) {
+    logger.debug('Unable to retrieve Whisparr monitoring status', {
+      label: 'API',
+      type,
+      foreignId,
+      errorMessage: e.message,
+    });
+    return undefined;
+  }
+};
 
 const mapSceneList = async (
   list: StashDbSceneList,
@@ -143,23 +215,23 @@ sceneRoutes.get<{ type: string; id: string }>(
 
     try {
       const stashDb = StashDbAPI.fromSettings();
-      let details: SceneFilterDetails | null;
+      let details:
+        | SceneFilterDetails
+        | ScenePerformerDetails
+        | SceneStudioDetails
+        | null;
 
       if (req.params.type === 'studio') {
         const studio = await stashDb.getStudio(parsed.data);
         details = studio && {
-          id: studio.id,
-          name: studio.name,
-          imageUrl: studio.images[0]?.url,
+          ...mapStudioDetails(studio, stashDbOrigin()),
+          whisparr: await getMonitorStatus(req, 'studio', studio.id),
         };
       } else if (req.params.type === 'performer') {
         const performer = await stashDb.getPerformer(parsed.data);
         details = performer && {
-          id: performer.id,
-          name: performer.disambiguation
-            ? `${performer.name} (${performer.disambiguation})`
-            : performer.name,
-          imageUrl: performer.images[0]?.url,
+          ...mapPerformerDetails(performer, stashDbOrigin()),
+          whisparr: await getMonitorStatus(req, 'performer', performer.id),
         };
       } else {
         const tag = await stashDb.getTag(parsed.data);
@@ -184,6 +256,61 @@ sceneRoutes.get<{ type: string; id: string }>(
   }
 );
 
+sceneRoutes.post<{ type: string; id: string }>(
+  '/:type/:id/monitor',
+  isAuthenticated(Permission.MANAGE_REQUESTS),
+  async (req, res, next) => {
+    const parsedId = sceneId.safeParse(req.params.id);
+    const body = monitorBody.safeParse(req.body);
+    const type = req.params.type;
+
+    if (!parsedId.success || (type !== 'performer' && type !== 'studio')) {
+      return next({ status: 404, message: 'Not found.' });
+    }
+
+    if (!body.success) {
+      return next({ status: 400, message: 'Invalid monitor request.' });
+    }
+
+    const whisparr = whisparrClient();
+
+    if (!whisparr) {
+      return next({
+        status: 409,
+        message: 'No default Whisparr server is configured.',
+      });
+    }
+
+    try {
+      const { server, api } = whisparr;
+      const credit = await api.setCreditMonitored(
+        type,
+        parsedId.data,
+        body.data.monitored,
+        {
+          qualityProfileId: server.activeProfileId,
+          rootFolderPath: server.activeDirectory,
+          tags: server.tags ?? [],
+          searchOnAdd: body.data.search && !server.preventSearch,
+        }
+      );
+
+      return res.status(200).json({
+        monitored: !!credit?.monitored,
+        serviceUrl: creditUrl(server, type, parsedId.data),
+      } satisfies WhisparrMonitorStatus);
+    } catch (e) {
+      logger.error('Unable to update Whisparr monitoring', {
+        label: 'API',
+        type,
+        foreignId: parsedId.data,
+        errorMessage: e.message,
+      });
+      return next({ status: 500, message: 'Unable to update Whisparr.' });
+    }
+  }
+);
+
 sceneRoutes.get('/:sceneId', async (req, res, next) => {
   const parsed = sceneId.safeParse(req.params.sceneId);
 
@@ -202,13 +329,7 @@ sceneRoutes.get('/:sceneId', async (req, res, next) => {
 
     return res
       .status(200)
-      .json(
-        mapSceneDetails(
-          scene,
-          new URL(getSettings().stashdb.endpoint).origin,
-          media?.filter(req.user)
-        )
-      );
+      .json(mapSceneDetails(scene, stashDbOrigin(), media?.filter(req.user)));
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene.', {
       sceneId: parsed.data,

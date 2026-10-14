@@ -2371,6 +2371,66 @@ components:
           type: string
         imageUrl:
           type: string
+    WhisparrMonitorStatus:
+      type: object
+      properties:
+        monitored:
+          type: boolean
+        serviceUrl:
+          type: string
+    SceneCreditLinks:
+      type: object
+      properties:
+        aliases:
+          type: array
+          items:
+            type: string
+        urls:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              site:
+                type: string
+        stashDbUrl:
+          type: string
+        whisparr:
+          $ref: '#/components/schemas/WhisparrMonitorStatus'
+    ScenePerformerDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneFilterDetails'
+        - $ref: '#/components/schemas/SceneCreditLinks'
+        - type: object
+          properties:
+            disambiguation:
+              type: string
+            gender:
+              type: string
+            birthDate:
+              type: string
+            careerStart:
+              type: number
+            careerEnd:
+              type: number
+            country:
+              type: string
+            sceneCount:
+              type: number
+    SceneStudioDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneFilterDetails'
+        - $ref: '#/components/schemas/SceneCreditLinks'
+        - type: object
+          properties:
+            parent:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
     SceneList:
       type: object
       properties:
@@ -7609,7 +7669,7 @@ paths:
   /scene/studio/{studioId}:
     get:
       summary: Get StashDB studio
-      description: Returns the name of a StashDB studio for scene browsing.
+      description: Returns a StashDB studio. Includes Whisparr monitoring status for request managers.
       tags:
         - scenes
       parameters:
@@ -7624,11 +7684,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SceneFilterDetails'
+                $ref: '#/components/schemas/SceneStudioDetails'
   /scene/performer/{performerId}:
     get:
       summary: Get StashDB performer
-      description: Returns the name of a StashDB performer for scene browsing.
+      description: Returns a StashDB performer. Includes Whisparr monitoring status for request managers.
       tags:
         - scenes
       parameters:
@@ -7643,7 +7703,47 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SceneFilterDetails'
+                $ref: '#/components/schemas/ScenePerformerDetails'
+  /scene/{type}/{id}/monitor:
+    post:
+      summary: Monitor a performer or studio in Whisparr
+      description: |
+        Adds or updates the performer or studio on the default Whisparr server. Monitoring makes Whisparr add all of their scenes, and search for them when `search` is set. Requires the `MANAGE_REQUESTS` permission.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [performer, studio]
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - monitored
+              properties:
+                monitored:
+                  type: boolean
+                search:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Monitoring status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrMonitorStatus'
   /scene/tag/{tagId}:
     get:
       summary: Get StashDB tag

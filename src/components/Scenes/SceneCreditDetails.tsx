@@ -1,0 +1,418 @@
+import Button from '@app/components/Common/Button';
+import CachedImage from '@app/components/Common/CachedImage';
+import LoadingSpinner from '@app/components/Common/LoadingSpinner';
+import Modal from '@app/components/Common/Modal';
+import PageTitle from '@app/components/Common/PageTitle';
+import SceneList from '@app/components/Scenes/SceneList';
+import useAdult from '@app/hooks/useAdult';
+import useDiscover from '@app/hooks/useDiscover';
+import useToasts from '@app/hooks/useToasts';
+import globalMessages from '@app/i18n/globalMessages';
+import ErrorPage from '@app/pages/_error';
+import defineMessages from '@app/utils/defineMessages';
+import { stashImageUrl } from '@app/utils/stashImage';
+import { Transition } from '@headlessui/react';
+import {
+  ArrowTopRightOnSquareIcon,
+  BarsArrowDownIcon,
+  CheckIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from '@heroicons/react/24/solid';
+import type {
+  ScenePerformerDetails,
+  SceneResult,
+  SceneStudioDetails,
+  WhisparrMonitorStatus,
+} from '@server/models/Scene';
+import axios from 'axios';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { useState } from 'react';
+import { useIntl } from 'react-intl';
+import useSWR from 'swr';
+
+const messages = defineMessages('components.Scenes.SceneCreditDetails', {
+  scenes: 'Scenes',
+  sceneCount: '{count, plural, one {# scene} other {# scenes}} on StashDB',
+  born: 'Born {date}',
+  active: 'Active {start}–{end}',
+  present: 'present',
+  partOf: 'Part of {studio}',
+  alsoknownas: 'Also Known As: {names}',
+  viewonstashdb: 'View on StashDB',
+  openinwhisparr: 'Open in Whisparr',
+  monitor: 'Monitor in Whisparr',
+  monitored: 'Monitored in Whisparr',
+  unmonitor: 'Stop Monitoring',
+  monitorTitle: 'Monitor {name}',
+  monitorPerformer:
+    'Whisparr will add every scene with {name} and download new scenes as they are released.',
+  monitorStudio:
+    'Whisparr will add every scene from {name} and download new scenes as they are released.',
+  searchExisting: 'Search for existing scenes now',
+  searchExistingTip:
+    'Starts a search for every scene that is not downloaded yet. This can queue a lot of downloads.',
+  monitorSuccess: 'Whisparr is now monitoring <strong>{name}</strong>.',
+  unmonitorSuccess: 'Whisparr stopped monitoring <strong>{name}</strong>.',
+  monitorError: 'Something went wrong while updating Whisparr.',
+  sortTrending: 'Trending',
+  sortDate: 'Release Date',
+  sortPopularity: 'Popularity',
+  sortTitle: 'Title',
+});
+
+const sortOptions = [
+  ['date', messages.sortDate],
+  ['trending', messages.sortTrending],
+  ['popularity', messages.sortPopularity],
+  ['title', messages.sortTitle],
+] as const;
+
+type CreditType = 'performer' | 'studio';
+type CreditDetails = ScenePerformerDetails | SceneStudioDetails;
+
+const isPerformer = (data: CreditDetails): data is ScenePerformerDetails =>
+  'sceneCount' in data;
+
+interface MonitorControlsProps {
+  type: CreditType;
+  id: string;
+  name: string;
+  status: WhisparrMonitorStatus;
+  onChange: (status: WhisparrMonitorStatus) => void;
+}
+
+const MonitorControls = ({
+  type,
+  id,
+  name,
+  status,
+  onChange,
+}: MonitorControlsProps) => {
+  const intl = useIntl();
+  const { addToast } = useToasts();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const update = async (monitored: boolean) => {
+    setIsUpdating(true);
+
+    try {
+      const { data } = await axios.post<WhisparrMonitorStatus>(
+        `/api/v1/scene/${type}/${id}/monitor`,
+        { monitored, search: monitored && search }
+      );
+      onChange(data);
+      setShowConfirm(false);
+      addToast(
+        intl.formatMessage(
+          monitored ? messages.monitorSuccess : messages.unmonitorSuccess,
+          { name, strong: (msg: React.ReactNode) => <strong>{msg}</strong> }
+        ),
+        { appearance: 'success', autoDismiss: true }
+      );
+    } catch {
+      addToast(intl.formatMessage(messages.monitorError), {
+        appearance: 'error',
+        autoDismiss: true,
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <>
+      <Transition
+        as="div"
+        show={showConfirm}
+        enter="transition-opacity duration-300"
+        enterFrom="opacity-0"
+        enterTo="opacity-100"
+        leave="transition-opacity duration-300"
+        leaveFrom="opacity-100"
+        leaveTo="opacity-0"
+      >
+        <Modal
+          title={intl.formatMessage(messages.monitorTitle, { name })}
+          onCancel={() => setShowConfirm(false)}
+          onOk={() => update(true)}
+          okText={intl.formatMessage(messages.monitor)}
+          okButtonType="primary"
+          okDisabled={isUpdating}
+          backgroundClickable
+        >
+          <p className="text-gray-300">
+            {intl.formatMessage(
+              type === 'performer'
+                ? messages.monitorPerformer
+                : messages.monitorStudio,
+              { name }
+            )}
+          </p>
+          <div className="mt-4 flex items-start space-x-3">
+            <input
+              id="searchExisting"
+              type="checkbox"
+              className="mt-1"
+              checked={search}
+              onChange={() => setSearch((s) => !s)}
+            />
+            <label htmlFor="searchExisting">
+              <span className="text-white">
+                {intl.formatMessage(messages.searchExisting)}
+              </span>
+              <span className="block text-sm text-gray-400">
+                {intl.formatMessage(messages.searchExistingTip)}
+              </span>
+            </label>
+          </div>
+        </Modal>
+      </Transition>
+      <a href={status.serviceUrl} target="_blank" rel="noreferrer">
+        <Button buttonType="ghost">
+          <ArrowTopRightOnSquareIcon />
+          <span>{intl.formatMessage(messages.openinwhisparr)}</span>
+        </Button>
+      </a>
+      {status.monitored ? (
+        <Button
+          buttonType="success"
+          disabled={isUpdating}
+          onClick={() => update(false)}
+          className="group"
+          title={intl.formatMessage(messages.unmonitor)}
+        >
+          <CheckIcon className="group-hover:hidden" />
+          <EyeSlashIcon className="hidden group-hover:block" />
+          <span className="group-hover:hidden">
+            {intl.formatMessage(messages.monitored)}
+          </span>
+          <span className="hidden group-hover:inline">
+            {intl.formatMessage(messages.unmonitor)}
+          </span>
+        </Button>
+      ) : (
+        <Button
+          buttonType="primary"
+          disabled={isUpdating}
+          onClick={() => setShowConfirm(true)}
+        >
+          <EyeIcon />
+          <span>{intl.formatMessage(messages.monitor)}</span>
+        </Button>
+      )}
+    </>
+  );
+};
+
+interface SceneCreditDetailsProps {
+  type: CreditType;
+}
+
+const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
+  const intl = useIntl();
+  const router = useRouter();
+  const id = router.query.id as string;
+  const [sort, setSort] = useState('date');
+  const { data, error, mutate } = useSWR<CreditDetails>(
+    id ? `/api/v1/scene/${type}/${id}` : null
+  );
+  const {
+    isLoadingInitialData,
+    isEmpty,
+    isLoadingMore,
+    isReachingEnd,
+    titles,
+    fetchMore,
+  } = useDiscover<SceneResult>('/api/v1/scene/discover', {
+    sort,
+    [type]: id,
+  });
+
+  if (!data && !error) {
+    return <LoadingSpinner />;
+  }
+
+  if (!data) {
+    return <ErrorPage statusCode={404} />;
+  }
+
+  const attributes: string[] = [];
+  let partOf: React.ReactNode = null;
+
+  if (isPerformer(data)) {
+    if (data.birthDate) {
+      attributes.push(
+        intl.formatMessage(messages.born, {
+          date: intl.formatDate(data.birthDate, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+          }),
+        })
+      );
+    }
+    if (data.country) {
+      attributes.push(
+        intl.formatDisplayName(data.country, { type: 'region' }) ?? data.country
+      );
+    }
+    if (data.careerStart) {
+      attributes.push(
+        intl.formatMessage(messages.active, {
+          start: data.careerStart,
+          end: data.careerEnd ?? intl.formatMessage(messages.present),
+        })
+      );
+    }
+    attributes.push(
+      intl.formatMessage(messages.sceneCount, { count: data.sceneCount })
+    );
+  } else if (data.parent) {
+    partOf = intl.formatMessage(messages.partOf, {
+      studio: (
+        <Link
+          key="parent"
+          href={`/scenes/studio/${data.parent.id}`}
+          className="font-semibold hover:underline"
+        >
+          {data.parent.name}
+        </Link>
+      ),
+    });
+  }
+
+  const imageUrl = stashImageUrl(data.imageUrl, 600);
+
+  return (
+    <>
+      <PageTitle title={data.name} />
+      <div className="relative z-10 mb-8 mt-4 flex flex-col items-center lg:flex-row lg:items-start">
+        {imageUrl && (
+          <div
+            className={`relative mb-6 mr-0 flex-shrink-0 overflow-hidden ring-1 ring-gray-700 lg:mb-0 lg:mr-6 ${
+              type === 'performer'
+                ? 'h-36 w-36 rounded-full lg:h-44 lg:w-44'
+                : 'h-24 w-60 rounded-lg bg-gray-800 p-3'
+            }`}
+          >
+            <CachedImage
+              type="stashdb"
+              src={imageUrl}
+              alt=""
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: type === 'performer' ? 'cover' : 'contain',
+                objectPosition: type === 'performer' ? 'top' : 'center',
+              }}
+              fill
+            />
+          </div>
+        )}
+        <div className="w-full text-center text-gray-300 lg:text-left">
+          <h1 className="text-3xl text-white lg:text-4xl">{data.name}</h1>
+          <div className="mb-2 mt-2 space-y-1 text-xs text-white sm:text-sm lg:text-base">
+            {attributes.length > 0 && <div>{attributes.join(' | ')}</div>}
+            {partOf && <div>{partOf}</div>}
+            {data.aliases.length > 0 && (
+              <div>
+                {intl.formatMessage(messages.alsoknownas, {
+                  names: data.aliases.reduce((prev, curr) =>
+                    intl.formatMessage(globalMessages.delimitedlist, {
+                      a: prev,
+                      b: curr,
+                    })
+                  ),
+                })}
+              </div>
+            )}
+            {data.urls.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-x-3 lg:justify-start">
+                {data.urls.map(({ url, site }) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-gray-400 transition duration-300 hover:text-white hover:underline"
+                  >
+                    {site}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+            <a href={data.stashDbUrl} target="_blank" rel="noreferrer">
+              <Button buttonType="ghost">
+                <ArrowTopRightOnSquareIcon />
+                <span>{intl.formatMessage(messages.viewonstashdb)}</span>
+              </Button>
+            </a>
+            {data.whisparr && (
+              <MonitorControls
+                type={type}
+                id={data.id}
+                name={data.name}
+                status={data.whisparr}
+                onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
+        <div className="slider-header">
+          <div className="slider-title">
+            <span>{intl.formatMessage(messages.scenes)}</span>
+          </div>
+        </div>
+        <div className="mt-2 flex flex-grow sm:mr-2 lg:flex-grow-0">
+          <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
+            <BarsArrowDownIcon className="h-6 w-6" />
+          </span>
+          <select
+            id="sortBy"
+            name="sortBy"
+            className="rounded-r-only"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          >
+            {sortOptions.map(([value, message]) => (
+              <option key={value} value={value}>
+                {intl.formatMessage(message)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <SceneList
+        scenes={titles}
+        isEmpty={isEmpty}
+        isLoading={
+          isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
+        }
+        isReachingEnd={isReachingEnd}
+        onScrollBottom={fetchMore}
+      />
+    </>
+  );
+};
+
+// Hooks above fetch unconditionally, so gate before mounting them
+const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
+  const canViewAdult = useAdult();
+
+  if (!canViewAdult) {
+    return <ErrorPage statusCode={404} />;
+  }
+
+  return <SceneCreditDetailsContent type={type} />;
+};
+
+export default SceneCreditDetails;
