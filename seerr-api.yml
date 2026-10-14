@@ -6953,7 +6953,7 @@ paths:
           name: mediaType
           schema:
             type: string
-            enum: [movie, tv, all]
+            enum: [movie, tv, scene, all]
             nullable: true
             default: all
       responses:

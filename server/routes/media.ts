@@ -12,13 +12,14 @@ import type {
   MediaResultsResponse,
   MediaWatchDataResponse,
 } from '@server/interfaces/api/mediaInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
-import type { FindOneOptions } from 'typeorm';
+import type { FindOneOptions, FindOptionsWhere } from 'typeorm';
 import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
 
 const mediaRoutes = Router();
@@ -74,6 +75,14 @@ mediaRoutes.get('/', async (req, res, next) => {
     if (statusFilter) whereClause.status = statusFilter;
     if (req.query.sort === 'mediaAdded')
       whereClause.mediaAddedAt = Not(IsNull());
+  }
+
+  if (!canViewAdult(req.user)) {
+    whereClause = {
+      ...(whereClause as FindOptionsWhere<Media> | undefined),
+      mediaType: In([MediaType.MOVIE, MediaType.TV]),
+      isAdult: false,
+    };
   }
 
   try {

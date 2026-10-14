@@ -23,6 +23,7 @@ import type {
   RequestResultsResponse,
   SceneRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { isWhisparrMedia } from '@server/lib/whisparrMedia';
@@ -186,6 +187,18 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             type: MediaType.TV,
           });
           break;
+        case 'scene':
+          query = query.andWhere('request.type = :type', {
+            type: MediaType.SCENE,
+          });
+          break;
+      }
+
+      if (!canViewAdult(req.user)) {
+        query = query.andWhere(
+          'request.type != :sceneType AND media.isAdult = :notAdult',
+          { sceneType: MediaType.SCENE, notAdult: false }
+        );
       }
 
       const [requests, requestCount] = await query
