@@ -1,7 +1,7 @@
 ---
 title: Stash
 description: Use Stash as a companion library for scenes.
-sidebar_position: 4
+sidebar_position: 5
 ---
 
 # Stash

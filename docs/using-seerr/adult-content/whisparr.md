@@ -1,12 +1,12 @@
 ---
 title: Whisparr
 description: Send scene and adult movie requests to Whisparr.
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 # Whisparr
 
-Approved scene and adult movie requests are sent to [Whisparr](https://github.com/whisparr/whisparr-eros).
+Approved scene, XXX movie and adult movie requests are sent to [Whisparr](https://github.com/whisparr/whisparr-eros).
 
 :::warning
 **Only Whisparr v3 (Eros) is supported.** Whisparr v2 uses a different API and is rejected when you test the connection.
@@ -23,8 +23,8 @@ Go to **Settings &rarr; Services &rarr; Whisparr Settings** and add a server. Th
 
 ## What Seerr Does in Whisparr
 
-- **Requests**: Seerr looks the scene up by StashDB id (or the movie by TMDB id), then adds it monitored with the chosen quality profile, root folder and tags. If Whisparr already lists the item unmonitored, for example because it follows the performer, Seerr monitors it instead of adding a duplicate.
-- **Whisparr Scan** (daily at 05:00, see **Settings &rarr; Jobs & Cache**): marks monitored scenes and adult movies with a file as available and keeps their links up to date. Unmonitored items are skipped, since Whisparr often lists tens of thousands of them.
+- **Requests**: Seerr looks the scene up by StashDB id (or the movie by ThePornDB or TMDB id), then adds it monitored with the chosen quality profile, root folder and tags. If Whisparr already lists the item unmonitored, for example because it follows the performer, Seerr monitors it instead of adding a duplicate.
+- **Whisparr Scan** (daily at 05:00, see **Settings &rarr; Jobs & Cache**): marks monitored scenes and movies with a file as available and keeps their links up to date. Movies with a ThePornDB id become XXX movies when ThePornDB is the XXX movie source. Unmonitored items are skipped, since Whisparr often lists tens of thousands of them.
 - **Download Sync** shows Whisparr download progress on requests and title pages.
 - **Remove from Whisparr** on a request deletes the item and its files from Whisparr.
 
