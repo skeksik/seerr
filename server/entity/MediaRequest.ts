@@ -1,5 +1,6 @@
 import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
+import TpdbAPI from '@server/api/tpdb';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -7,8 +8,8 @@ import {
 } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import type {
+  AdultRequestBody,
   MediaRequestBody,
-  SceneRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
 import { canViewAdult } from '@server/lib/adult';
 import notificationManager, { Notification } from '@server/lib/notifications';
@@ -56,24 +57,31 @@ type MediaRequestOptions = {
 @Entity()
 export class MediaRequest {
   public static async request(
-    requestBody: MediaRequestBody | SceneRequestBody,
+    requestBody: MediaRequestBody | AdultRequestBody,
     user: User,
     options: MediaRequestOptions = {}
   ): Promise<MediaRequest> {
-    if (requestBody.mediaType === MediaType.SCENE) {
-      const sceneBody = requestBody;
-      const sceneLockUserId =
-        sceneBody.userId &&
+    if (
+      requestBody.mediaType === MediaType.SCENE ||
+      requestBody.mediaType === MediaType.XXX_MOVIE
+    ) {
+      const adultBody = requestBody;
+      const adultLockUserId =
+        adultBody.userId &&
         user.hasPermission([
           Permission.MANAGE_USERS,
           Permission.MANAGE_REQUESTS,
         ])
-          ? sceneBody.userId
+          ? adultBody.userId
           : user.id;
+      const externalId =
+        adultBody.mediaType === MediaType.SCENE
+          ? adultBody.stashId
+          : adultBody.tpdbId;
 
-      return requestLock.dispatch(userKey(sceneLockUserId), () =>
-        mediaLock.dispatch(mediaKey(MediaType.SCENE, sceneBody.stashId), () =>
-          MediaRequest.createSceneRequest(sceneBody, user)
+      return requestLock.dispatch(userKey(adultLockUserId), () =>
+        mediaLock.dispatch(mediaKey(adultBody.mediaType, externalId), () =>
+          MediaRequest.createAdultRequest(adultBody, user)
         )
       );
     }
@@ -97,10 +105,12 @@ export class MediaRequest {
     );
   }
 
-  private static async createSceneRequest(
-    requestBody: SceneRequestBody,
+  // Scenes and XXX movies: keyed by an external id, always sent to Whisparr
+  private static async createAdultRequest(
+    requestBody: AdultRequestBody,
     user: User
   ): Promise<MediaRequest> {
+    const isScene = requestBody.mediaType === MediaType.SCENE;
     const mediaRepository = getRepository(Media);
     const requestRepository = getRepository(MediaRequest);
 
@@ -119,47 +129,67 @@ export class MediaRequest {
       });
     }
 
-    // Scenes have no type-specific request permissions; REQUEST covers them
+    // Adult media has no type-specific request permissions; REQUEST covers it
     if (
       !canViewAdult(requestUser) ||
       !requestUser.hasPermission(Permission.REQUEST)
     ) {
       throw new RequestPermissionError(
-        'You do not have permission to make scene requests.'
+        `You do not have permission to make ${isScene ? 'scene' : 'XXX movie'} requests.`
       );
     }
 
+    // XXX movies share the movie quota
     const quotas = await requestUser.getQuota();
+    const quota = isScene ? quotas.scene : quotas.movie;
     const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
     const ignoreQuota =
       requestBody.ignoreQuota === true &&
       canBypassQuota &&
-      (quotas.scene.limit ?? 0) > 0;
+      (quota.limit ?? 0) > 0;
 
     if (requestBody.ignoreQuota && !canBypassQuota) {
       throw new RequestPermissionError(
         'You do not have permission to bypass user quota limits.'
       );
-    } else if (!ignoreQuota && quotas.scene.restricted) {
-      throw new QuotaRestrictedError('Scene Quota exceeded.');
+    } else if (!ignoreQuota && quota.restricted) {
+      throw new QuotaRestrictedError(
+        `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`
+      );
     }
 
-    const scene = await StashDbAPI.fromSettings().getScene(requestBody.stashId);
+    let externalId: string;
 
-    if (!scene || scene.deleted) {
-      throw new Error('Scene not found on StashDB.');
+    if (requestBody.mediaType === MediaType.SCENE) {
+      const scene = await StashDbAPI.fromSettings().getScene(
+        requestBody.stashId
+      );
+
+      if (!scene || scene.deleted) {
+        throw new Error('Scene not found on StashDB.');
+      }
+      externalId = scene.id;
+    } else {
+      const movie = await TpdbAPI.fromSettings().getMovie(requestBody.tpdbId);
+
+      if (!movie) {
+        throw new Error('Movie not found on ThePornDB.');
+      }
+      externalId = movie.id;
     }
 
+    const idField = isScene ? 'stashId' : 'tpdbId';
     let media = await mediaRepository.findOne({
-      where: { stashId: scene.id, mediaType: MediaType.SCENE },
+      where: { [idField]: externalId, mediaType: requestBody.mediaType },
       relations: ['requests'],
     });
 
     if (!media) {
       media = new Media({
-        mediaType: MediaType.SCENE,
-        stashId: scene.id,
+        mediaType: requestBody.mediaType,
+        [idField]: externalId,
         tmdbId: null,
+        isAdult: !isScene,
         status: MediaStatus.PENDING,
       });
     } else {
@@ -174,8 +204,9 @@ export class MediaRequest {
       );
 
       if (active) {
-        logger.warn('Duplicate request for scene blocked', {
-          stashId: scene.id,
+        logger.warn('Duplicate adult request blocked', {
+          mediaType: requestBody.mediaType,
+          externalId,
           label: 'Media Request',
         });
         throw new DuplicateMediaRequestError(
@@ -195,7 +226,7 @@ export class MediaRequest {
 
     // Same precedence as movies: advanced users keep what they picked
     const ruleResult = await overrideRules({
-      mediaType: MediaType.SCENE,
+      mediaType: requestBody.mediaType,
       is4k: false,
       requestUser,
       tags: requestBody.tags,
@@ -221,7 +252,7 @@ export class MediaRequest {
     );
 
     const request = new MediaRequest({
-      type: MediaType.SCENE,
+      type: requestBody.mediaType,
       media,
       requestedBy: requestUser,
       status: autoApprove
@@ -907,7 +938,9 @@ export class MediaRequest {
           ? 'Movie'
           : entity.type === MediaType.SCENE
             ? 'Scene'
-            : 'Series';
+            : entity.type === MediaType.XXX_MOVIE
+              ? 'XXX Movie'
+              : 'Series';
       let event: string | undefined;
       let notifyAdmin = true;
       let notifySystem = true;
@@ -1018,6 +1051,31 @@ export class MediaRequest {
           extra: details.studio
             ? [{ name: 'Studio', value: details.studio.name }]
             : [],
+        });
+      } else if (entity.type === MediaType.XXX_MOVIE && media.tpdbId) {
+        const movie = await TpdbAPI.fromSettings().getMovie(media.tpdbId);
+
+        if (!movie) {
+          throw new Error(`Movie ${media.tpdbId} not found on ThePornDB`);
+        }
+
+        notificationManager.sendNotification(type, {
+          media,
+          request: entity,
+          notifyAdmin,
+          notifySystem,
+          notifyUser: notifyAdmin ? undefined : entity.requestedBy,
+          event,
+          subject: `${movie.title}${
+            movie.date ? ` (${movie.date.slice(0, 4)})` : ''
+          }`,
+          message: truncate(movie.description ?? '', {
+            length: 500,
+            separator: /\s/,
+            omission: '…',
+          }),
+          image: movie.posters?.large ?? movie.image ?? undefined,
+          extra: movie.site ? [{ name: 'Studio', value: movie.site.name }] : [],
         });
       }
     } catch (e) {

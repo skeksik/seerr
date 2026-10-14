@@ -1,15 +1,15 @@
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
-import {
-  MediaRequestStatus,
-  MediaStatus,
-  MediaType,
-} from '@server/constants/media';
+import { MediaRequestStatus, MediaStatus } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import { Notification } from '@server/lib/notifications';
-import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
+import {
+  getWhisparrServer,
+  isWhisparrMedia,
+  lookupWhisparrItem,
+} from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isEqual } from 'lodash';
 import type { EntityManager } from 'typeorm';
@@ -104,10 +104,7 @@ export const sendToWhisparr = async (
   let item: WhisparrItem;
 
   try {
-    item =
-      media.mediaType === MediaType.SCENE && media.stashId
-        ? await whisparr.lookupScene(media.stashId)
-        : await whisparr.lookupMovie(media.tmdbId ?? 0);
+    item = await lookupWhisparrItem(whisparr, media);
 
     if (server.tagRequests) {
       const label = `${entity.requestedBy.id}-${sanitizeTagLabel(

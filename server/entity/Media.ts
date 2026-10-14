@@ -132,6 +132,37 @@ class Media {
     }
   }
 
+  public static async getRelatedXxxMovies(tpdbIds: string[]): Promise<Media[]> {
+    if (tpdbIds.length === 0) {
+      return [];
+    }
+
+    try {
+      return await getRepository(Media).find({
+        where: { mediaType: MediaType.XXX_MOVIE, tpdbId: In(tpdbIds) },
+      });
+    } catch (e) {
+      logger.error(e.message);
+      return [];
+    }
+  }
+
+  public static async getMediaByTpdbId(
+    tpdbId: string
+  ): Promise<Media | undefined> {
+    try {
+      const media = await getRepository(Media).findOne({
+        where: { tpdbId, mediaType: MediaType.XXX_MOVIE },
+        relations: { requests: true, issues: true },
+      });
+
+      return media ?? undefined;
+    } catch (e) {
+      logger.error(e.message);
+      return undefined;
+    }
+  }
+
   public static async getMediaByStashId(
     stashId: string
   ): Promise<Media | undefined> {
@@ -156,7 +187,7 @@ class Media {
   @Column({ type: 'varchar' })
   public mediaType: MediaType;
 
-  // Null for scenes, which are keyed by stashId instead
+  // Null for scenes and XXX movies, which are keyed by stashId and tpdbId
   @Column({ type: 'int', nullable: true })
   @Index()
   public tmdbId: number | null;
@@ -165,7 +196,11 @@ class Media {
   @Column({ type: 'varchar', unique: true, nullable: true })
   public stashId?: string | null;
 
-  // Adult TMDB movie sent to Whisparr instead of Radarr
+  // ThePornDB movie UUID of an XXX movie, shared by Whisparr
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  public tpdbId?: string | null;
+
+  // Adult movie sent to Whisparr instead of Radarr; always set on XXX movies
   @Column({ type: 'boolean', default: false })
   public isAdult: boolean;
 
@@ -314,6 +349,11 @@ class Media {
       if (this.stashMediaId && stashHost) {
         this.mediaUrl = `${stashHost}/scenes/${this.stashMediaId}`;
       }
+      return;
+    }
+
+    // XXX movies are only tracked through Whisparr
+    if (this.mediaType === MediaType.XXX_MOVIE) {
       return;
     }
 

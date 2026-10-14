@@ -9,7 +9,7 @@ import type {
 } from '@server/lib/scanners/baseScanner';
 import BaseScanner from '@server/lib/scanners/baseScanner';
 import type { WhisparrSettings } from '@server/lib/settings';
-import { getSettings } from '@server/lib/settings';
+import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import { uniqWith } from 'lodash';
 
 type SyncStatus = StatusBase & {
@@ -90,9 +90,9 @@ class WhisparrScanner
 
     try {
       if (item.itemType === 'scene' && item.stashId) {
-        await this.processScene(item, is4k);
-      } else if (item.itemType === 'movie' && item.tmdbId > 0) {
-        await this.processAdultMovie(item, is4k);
+        await this.processExternal(item, is4k, MediaType.SCENE, item.stashId);
+      } else if (item.itemType === 'movie') {
+        await this.processMovieItem(item, is4k);
       }
     } catch (e) {
       this.log('Failed to process Whisparr item', 'error', {
@@ -102,19 +102,57 @@ class WhisparrScanner
     }
   }
 
-  private async processScene(item: WhisparrItem, is4k: boolean) {
-    const stashId = item.stashId as string;
-    const mediaRepository = getRepository(Media);
+  // Movies become XXX movies when they are listed from ThePornDB, unless an
+  // adult TMDB movie already tracks them; otherwise they are TMDB movies
+  private async processMovieItem(item: WhisparrItem, is4k: boolean) {
+    const hasTmdb = item.tmdbId > 0;
 
-    await this.asyncLock.dispatch(stashId, async () => {
+    if (!item.tpdbId) {
+      if (hasTmdb) {
+        await this.processAdultMovie(item, is4k);
+      }
+      return;
+    }
+
+    const preferTpdb =
+      getSettings().xxxMovies.source === XxxMovieSource.TPDB || !hasTmdb;
+    const trackedByTmdb =
+      hasTmdb &&
+      (await getRepository(Media).exist({
+        where: {
+          tmdbId: item.tmdbId,
+          mediaType: MediaType.MOVIE,
+          isAdult: true,
+        },
+      }));
+
+    if (preferTpdb && !trackedByTmdb) {
+      await this.processExternal(item, is4k, MediaType.XXX_MOVIE, item.tpdbId);
+    } else {
+      await this.processAdultMovie(item, is4k);
+    }
+  }
+
+  // Scenes and XXX movies, keyed by their stash-box or ThePornDB id
+  private async processExternal(
+    item: WhisparrItem,
+    is4k: boolean,
+    mediaType: MediaType.SCENE | MediaType.XXX_MOVIE,
+    externalId: string
+  ) {
+    const mediaRepository = getRepository(Media);
+    const idField = mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
+
+    await this.asyncLock.dispatch(`${mediaType}:${externalId}`, async () => {
       const media =
         (await mediaRepository.findOne({
-          where: { stashId, mediaType: MediaType.SCENE },
+          where: { [idField]: externalId, mediaType },
         })) ??
         new Media({
-          mediaType: MediaType.SCENE,
-          stashId,
+          mediaType,
+          [idField]: externalId,
           tmdbId: null,
+          isAdult: mediaType === MediaType.XXX_MOVIE,
         });
 
       const statusField = is4k ? 'status4k' : 'status';
@@ -156,7 +194,7 @@ class WhisparrScanner
       }
 
       await mediaRepository.save(media);
-      this.log(`Updated scene: ${item.title}`);
+      this.log(`Updated ${mediaType}: ${item.title}`);
     });
   }
 

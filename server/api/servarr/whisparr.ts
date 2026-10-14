@@ -14,6 +14,8 @@ export interface WhisparrItem {
   foreignId: string;
   stashId?: string | null;
   tmdbId: number;
+  // ThePornDB movie UUID; movies listed from ThePornDB have no TMDB id
+  tpdbId?: string | null;
   titleSlug: string;
   year: number;
   monitored: boolean;
@@ -171,6 +173,10 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
 
   public lookupMovie(tmdbId: number): Promise<WhisparrItem> {
     return this.lookup(`tmdb:${tmdbId}`, 'movie');
+  }
+
+  public lookupTpdbMovie(tpdbId: string): Promise<WhisparrItem> {
+    return this.lookup(`tpdb:${tpdbId}`, 'movie');
   }
 
   private async lookup(

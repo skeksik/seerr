@@ -18,7 +18,10 @@ export const getMediaPath = (media: {
   mediaType: MediaType;
   tmdbId: number | null;
   stashId?: string | null;
+  tpdbId?: string | null;
 }): string =>
   media.mediaType === 'scene'
     ? `/scene/${media.stashId}`
-    : `/${media.mediaType}/${media.tmdbId}`;
+    : media.mediaType === 'xxxmovie'
+      ? `/xxxmovie/${media.tpdbId}`
+      : `/${media.mediaType}/${media.tmdbId}`;

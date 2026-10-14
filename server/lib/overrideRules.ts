@@ -4,7 +4,7 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import OverrideRule from '@server/entity/OverrideRule';
 import type { User } from '@server/entity/User';
@@ -41,7 +41,7 @@ async function overrideRules({
   let rootFolder: string | null = null;
   let profileId: number | null = null;
 
-  const useWhisparr = service === 'whisparr' || mediaType === MediaType.SCENE;
+  const useWhisparr = service === 'whisparr' || isAdultMediaType(mediaType);
   const serviceIdField = useWhisparr
     ? 'whisparrServiceId'
     : mediaType === MediaType.MOVIE

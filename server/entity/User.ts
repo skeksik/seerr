@@ -18,6 +18,7 @@ import {
   AfterLoad,
   Column,
   Entity,
+  In,
   Not,
   OneToMany,
   OneToOne,
@@ -297,9 +298,10 @@ export class User {
       type: 'or',
     });
 
-    // Movies and scenes count one per request; series count seasons below
+    // Movies and scenes count one per request; series count seasons below.
+    // XXX movies share the movie quota.
     const countRequests = async (
-      type: MediaType.MOVIE | MediaType.SCENE,
+      types: MediaType[],
       limit: number | undefined,
       days: number | undefined
     ): Promise<number> => {
@@ -318,7 +320,7 @@ export class User {
             id: this.id,
           },
           ...(days ? { createdAt: AfterDate(since) } : {}),
-          type,
+          type: In(types),
           status: Not(MediaRequestStatus.DECLINED),
           ignoreQuota: false,
         },
@@ -330,7 +332,7 @@ export class User {
       : 0;
     const movieQuotaDays = this.movieQuotaDays ?? defaultQuotas.movie.quotaDays;
     const movieQuotaUsed = await countRequests(
-      MediaType.MOVIE,
+      [MediaType.MOVIE, MediaType.XXX_MOVIE],
       movieQuotaLimit,
       movieQuotaDays
     );
@@ -341,7 +343,7 @@ export class User {
     const sceneQuotaDays =
       this.sceneQuotaDays ?? defaultQuotas.scene?.quotaDays;
     const sceneQuotaUsed = await countRequests(
-      MediaType.SCENE,
+      [MediaType.SCENE],
       sceneQuotaLimit,
       sceneQuotaDays
     );

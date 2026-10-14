@@ -1,3 +1,4 @@
+import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import { MediaType } from '@server/constants/media';
 import type { WhisparrSettings } from '@server/lib/settings';
@@ -9,7 +10,24 @@ export const isWhisparrMedia = (media: {
   isAdult?: boolean;
 }): boolean =>
   media.mediaType === MediaType.SCENE ||
+  media.mediaType === MediaType.XXX_MOVIE ||
   (media.mediaType === MediaType.MOVIE && !!media.isAdult);
+
+// Finds the Whisparr item for a scene, XXX movie or adult TMDB movie
+export const lookupWhisparrItem = (
+  whisparr: WhisparrAPI,
+  media: {
+    mediaType: MediaType;
+    tmdbId: number | null;
+    stashId?: string | null;
+    tpdbId?: string | null;
+  }
+): Promise<WhisparrItem> =>
+  media.mediaType === MediaType.SCENE && media.stashId
+    ? whisparr.lookupScene(media.stashId)
+    : media.mediaType === MediaType.XXX_MOVIE && media.tpdbId
+      ? whisparr.lookupTpdbMovie(media.tpdbId)
+      : whisparr.lookupMovie(media.tmdbId ?? 0);
 
 export const getWhisparrServer = (
   is4k: boolean,

@@ -19,9 +19,9 @@ import {
 import SeasonRequest from '@server/entity/SeasonRequest';
 import { User } from '@server/entity/User';
 import type {
+  AdultRequestBody,
   MediaRequestBody,
   RequestResultsResponse,
-  SceneRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
 import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
@@ -192,6 +192,11 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             type: MediaType.SCENE,
           });
           break;
+        case 'xxxmovie':
+          query = query.andWhere('request.type = :type', {
+            type: MediaType.XXX_MOVIE,
+          });
+          break;
       }
 
       if (!canViewAdult(req.user)) {
@@ -284,8 +289,9 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 ?.profiles?.find((profile) => profile.id === r.profileId)?.name,
             };
           }
-          case MediaType.SCENE: {
-            // Handled above, scenes always belong to Whisparr
+          case MediaType.SCENE:
+          case MediaType.XXX_MOVIE: {
+            // Handled above, adult media always belongs to Whisparr
             return { ...r, profileName: undefined };
           }
         }
@@ -328,8 +334,9 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 ),
               };
             }
-            case MediaType.SCENE: {
-              // Handled above, scenes always belong to Whisparr
+            case MediaType.SCENE:
+            case MediaType.XXX_MOVIE: {
+              // Handled above, adult media always belongs to Whisparr
               return { ...r, canRemove: false };
             }
           }
@@ -377,7 +384,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
   }
 );
 
-requestRoutes.post<never, MediaRequest, MediaRequestBody | SceneRequestBody>(
+requestRoutes.post<never, MediaRequest, MediaRequestBody | AdultRequestBody>(
   '/',
   async (req, res, next) => {
     try {
@@ -388,13 +395,16 @@ requestRoutes.post<never, MediaRequest, MediaRequestBody | SceneRequestBody>(
         });
       }
 
-      const isScene = req.body.mediaType === MediaType.SCENE;
-      if (isScene ? !('stashId' in req.body) : !('mediaId' in req.body)) {
+      const idField =
+        req.body.mediaType === MediaType.SCENE
+          ? 'stashId'
+          : req.body.mediaType === MediaType.XXX_MOVIE
+            ? 'tpdbId'
+            : 'mediaId';
+      if (!(idField in req.body)) {
         return next({
           status: 400,
-          message: isScene
-            ? 'Scene requests need a stashId.'
-            : 'Movie and series requests need a mediaId.',
+          message: `${req.body.mediaType} requests need a ${idField}.`,
         });
       }
 
@@ -609,22 +619,20 @@ requestRoutes.put<{ requestId: string }>(
         const ownerChanging = requestUser.id !== previousOwnerId;
 
         return requestLock.dispatch(userKey(requestUser.id), async () => {
-          // Scenes have no quota and share the movie edit fields
+          // Scenes and XXX movies share the movie edit fields
           if (
             req.body.mediaType === MediaType.MOVIE ||
-            req.body.mediaType === MediaType.SCENE
+            req.body.mediaType === MediaType.SCENE ||
+            req.body.mediaType === MediaType.XXX_MOVIE
           ) {
-            if (
-              req.body.mediaType === MediaType.MOVIE &&
-              ownerChanging &&
-              !request.ignoreQuota
-            ) {
+            if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();
+              const isScene = req.body.mediaType === MediaType.SCENE;
 
-              if (quotas.movie.restricted) {
+              if ((isScene ? quotas.scene : quotas.movie).restricted) {
                 return next({
                   status: 403,
-                  message: 'Movie Quota exceeded.',
+                  message: `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`,
                 });
               }
             }

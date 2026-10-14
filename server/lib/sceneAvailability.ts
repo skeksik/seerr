@@ -6,7 +6,8 @@ import { mediaExistsInWhisparr } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 
 // A scene stays available while Stash still has it or Whisparr still has its
-// file. Lookup failures count as present so an outage never deletes media.
+// file; XXX movies only live in Whisparr. Lookup failures count as present so
+// an outage never deletes media.
 export const syncSceneAvailability = async (media: Media): Promise<void> => {
   let inStash = false;
 
@@ -34,7 +35,7 @@ export const syncSceneAvailability = async (media: Media): Promise<void> => {
   if (!inStash && !inWhisparr && media.status === MediaStatus.AVAILABLE) {
     media.status = MediaStatus.DELETED;
     changed = true;
-    logger.info(`Scene ${media.stashId} is no longer in Stash or Whisparr`, {
+    logger.info(`${media.stashId ?? media.tpdbId} is no longer available`, {
       label: 'AvailabilitySync',
       mediaId: media.id,
     });

@@ -5,6 +5,7 @@ import ExternalAPI from '@server/api/externalapi';
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import StashDbAPI from '@server/api/stashdb';
+import TpdbAPI from '@server/api/tpdb';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -408,6 +409,76 @@ describe('Adult movie requests', () => {
           user
         ),
       RequestPermissionError
+    );
+  });
+});
+
+describe('XXX movie requests', () => {
+  const TPDB_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
+  const requestXxxMovie = (user: User) =>
+    MediaRequest.request(
+      { mediaType: MediaType.XXX_MOVIE, tpdbId: TPDB_ID },
+      user
+    );
+
+  beforeEach(() => {
+    getSettings().tpdb = { apiKey: 'key' };
+    mock.method(TpdbAPI.prototype, 'getMovie', async (id: string) => ({
+      id,
+      _id: 1,
+      title: '2 of a Kind',
+      type: 'Movie',
+    }));
+  });
+
+  afterEach(() => {
+    getSettings().tpdb = { apiKey: '' };
+  });
+
+  it('creates an adult XXX movie keyed by ThePornDB id', async () => {
+    const user = await createUser(
+      'xxx@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    const request = await requestXxxMovie(user);
+
+    assert.strictEqual(request.type, MediaType.XXX_MOVIE);
+    const media = await Media.getMediaByTpdbId(TPDB_ID);
+    assert.strictEqual(media?.isAdult, true);
+    assert.strictEqual(media?.tmdbId, null);
+    assert.strictEqual(media?.status, MediaStatus.PENDING);
+  });
+
+  it('requires the adult permission', async () => {
+    const user = await createUser('xxxkid@seerr.dev', Permission.REQUEST);
+
+    await assert.rejects(() => requestXxxMovie(user), RequestPermissionError);
+  });
+
+  it('counts XXX movies against the movie quota', async () => {
+    const user = await createUser(
+      'xxxquota@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    user.movieQuotaLimit = 1;
+    await getRepository(User).save(user);
+
+    await requestXxxMovie(user);
+
+    const quota = await user.getQuota();
+    assert.strictEqual(quota.movie.used, 1);
+    assert.strictEqual(quota.scene.used, 0);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          {
+            mediaType: MediaType.XXX_MOVIE,
+            tpdbId: 'a232281d-93ee-4f20-b6e1-30535e95bdd5',
+          },
+          user
+        ),
+      QuotaRestrictedError
     );
   });
 });

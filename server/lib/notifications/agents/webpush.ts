@@ -83,7 +83,9 @@ class WebPushAgent
             ? globalMessages.movie
             : payload.media.mediaType === MediaType.SCENE
               ? globalMessages.scene
-              : globalMessages.series
+              : payload.media.mediaType === MediaType.XXX_MOVIE
+                ? globalMessages.xxxMovie
+                : globalMessages.series
         )
       : undefined;
     const is4k = payload.request?.is4k;

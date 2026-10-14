@@ -15,7 +15,11 @@ import type {
 import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
+import {
+  getWhisparrServer,
+  isWhisparrMedia,
+  lookupWhisparrItem,
+} from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
@@ -241,10 +245,7 @@ mediaRoutes.delete(
           apiKey: server.apiKey,
           url: WhisparrAPI.buildUrl(server, '/api/v3'),
         });
-        const item =
-          media.mediaType === MediaType.SCENE && media.stashId
-            ? await whisparr.lookupScene(media.stashId)
-            : await whisparr.lookupMovie(media.tmdbId ?? 0);
+        const item = await lookupWhisparrItem(whisparr, media);
         await whisparr.removeItem(item);
 
         media[is4k ? 'status4k' : 'status'] = MediaStatus.DELETED;
