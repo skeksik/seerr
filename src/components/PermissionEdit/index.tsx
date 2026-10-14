@@ -82,6 +82,9 @@ export const messages = defineMessages('components.PermissionEdit', {
   manageblocklistDescription: 'Grant permission to manage blocklisted media.',
   blocklistedItems: 'Blocklist media.',
   blocklistedItemsDescription: 'Grant permission to blocklist media.',
+  adult: 'Adult Content',
+  adultDescription:
+    'Grant permission to view and request adult content. Request and auto-approve permissions still apply.',
   viewblocklistedItems: 'View blocklisted media.',
   viewblocklistedItemsDescription:
     'Grant permission to view blocklisted media.',
@@ -355,6 +358,16 @@ export const PermissionEdit = ({
         },
       ],
     },
+    ...(settings.currentSettings.enableAdult
+      ? [
+          {
+            id: 'adult',
+            name: intl.formatMessage(messages.adult),
+            description: intl.formatMessage(messages.adultDescription),
+            permission: Permission.ADULT,
+          },
+        ]
+      : []),
   ];
 
   return (

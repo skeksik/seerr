@@ -12,6 +12,7 @@ const defaultSettings = {
   initialized: false,
   applicationTitle: 'Seerr',
   applicationUrl: '',
+  enableAdult: false,
   hideAvailable: false,
   hideBlocklisted: false,
   hideRequested: false,

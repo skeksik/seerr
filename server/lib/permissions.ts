@@ -28,6 +28,8 @@ export enum Permission {
   RECENT_VIEW = 67108864,
   WATCHLIST_VIEW = 134217728,
   MANAGE_BLOCKLIST = 268435456,
+  // View and request adult content; only applies while enableAdult is on
+  ADULT = 536870912,
   VIEW_BLOCKLIST = 1073741824,
 }
 

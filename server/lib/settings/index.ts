@@ -134,6 +134,7 @@ export interface MainSettings {
   applicationTitle: string;
   applicationUrl: string;
   cacheImages: boolean;
+  enableAdult: boolean;
   defaultPermissions: number;
   defaultQuotas: {
     movie: Quota;
@@ -193,6 +194,7 @@ interface PublicSettings {
 interface FullPublicSettings extends PublicSettings {
   applicationTitle: string;
   applicationUrl: string;
+  enableAdult: boolean;
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;
@@ -412,6 +414,7 @@ class Settings {
         applicationTitle: 'Seerr',
         applicationUrl: '',
         cacheImages: false,
+        enableAdult: false,
         defaultPermissions: Permission.REQUEST,
         defaultQuotas: {
           movie: {},
@@ -715,6 +718,7 @@ class Settings {
       ...this.data.public,
       applicationTitle: this.data.main.applicationTitle,
       applicationUrl: this.data.main.applicationUrl,
+      enableAdult: this.data.main.enableAdult,
       hideAvailable: this.data.main.hideAvailable,
       hideBlocklisted: this.data.main.hideBlocklisted,
       hideRequested: this.data.main.hideRequested,

@@ -59,6 +59,9 @@ const messages = defineMessages('components.Settings.SettingsMain', {
   toastApiKeyFailure: 'Something went wrong while generating a new API key.',
   toastSettingsSuccess: 'Settings saved successfully!',
   toastSettingsFailure: 'Something went wrong while saving settings.',
+  enableAdult: 'Enable Adult Content',
+  enableAdultTip:
+    'Allow users with the Adult Content permission to browse and request adult scenes and movies',
   hideAvailable: 'Hide Available Media',
   hideAvailableTip:
     'Hide available media from the discover pages but not search results',
@@ -167,6 +170,7 @@ const SettingsMain = () => {
           initialValues={{
             applicationTitle: data?.applicationTitle,
             applicationUrl: data?.applicationUrl,
+            enableAdult: data?.enableAdult,
             hideAvailable: data?.hideAvailable,
             hideBlocklisted: data?.hideBlocklisted,
             hideRequested: data?.hideRequested,
@@ -191,6 +195,7 @@ const SettingsMain = () => {
               await axios.post('/api/v1/settings/main', {
                 applicationTitle: values.applicationTitle,
                 applicationUrl: values.applicationUrl,
+                enableAdult: values.enableAdult,
                 hideAvailable: values.hideAvailable,
                 hideBlocklisted: values.hideBlocklisted,
                 hideRequested: values.hideRequested,
@@ -513,6 +518,26 @@ const SettingsMain = () => {
                       name="hideAvailable"
                       onChange={() => {
                         setFieldValue('hideAvailable', !values.hideAvailable);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <label htmlFor="enableAdult" className="checkbox-label">
+                    <span className="mr-2">
+                      {intl.formatMessage(messages.enableAdult)}
+                    </span>
+                    <span className="label-tip">
+                      {intl.formatMessage(messages.enableAdultTip)}
+                    </span>
+                  </label>
+                  <div className="form-input-area">
+                    <Field
+                      type="checkbox"
+                      id="enableAdult"
+                      name="enableAdult"
+                      onChange={() => {
+                        setFieldValue('enableAdult', !values.enableAdult);
                       }}
                     />
                   </div>

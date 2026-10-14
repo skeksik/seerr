@@ -29,6 +29,7 @@ export interface PublicSettingsResponse {
   initialized: boolean;
   applicationTitle: string;
   applicationUrl: string;
+  enableAdult: boolean;
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;

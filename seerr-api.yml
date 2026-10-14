@@ -229,6 +229,9 @@ components:
         applicationUrl:
           type: string
           example: https://os.example.com
+        enableAdult:
+          type: boolean
+          example: false
         hideAvailable:
           type: boolean
           example: false
