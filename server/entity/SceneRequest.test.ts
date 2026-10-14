@@ -18,6 +18,7 @@ import {
   QuotaRestrictedError,
   RequestPermissionError,
 } from '@server/entity/MediaRequest';
+import OverrideRule from '@server/entity/OverrideRule';
 import { User } from '@server/entity/User';
 import { Permission } from '@server/lib/permissions';
 import type { WhisparrSettings } from '@server/lib/settings';
@@ -272,6 +273,70 @@ describe('Scene quotas', () => {
 
     assert.strictEqual(request.ignoreQuota, true);
     assert.strictEqual((await requester.getQuota()).scene.used, 1);
+  });
+});
+
+describe('Whisparr override rules', () => {
+  it('applies Whisparr rules matching the requesting user', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const user = await createUser(
+      'ruled@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    await getRepository(OverrideRule).save(
+      new OverrideRule({
+        whisparrServiceId: whisparrServer.id,
+        users: String(user.id),
+        profileId: 9,
+        rootFolder: '/data/ruled',
+        tags: '3',
+      })
+    );
+
+    const request = await requestScene(user);
+
+    assert.strictEqual(request.profileId, 9);
+    assert.strictEqual(request.rootFolder, '/data/ruled');
+    assert.deepStrictEqual(request.tags, [3]);
+  });
+
+  it('skips rules with TMDB conditions for scenes', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const user = await createUser(
+      'genre@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    await getRepository(OverrideRule).save(
+      new OverrideRule({
+        whisparrServiceId: whisparrServer.id,
+        users: String(user.id),
+        genre: '18',
+        profileId: 9,
+      })
+    );
+
+    const request = await requestScene(user);
+
+    assert.strictEqual(request.profileId ?? null, null);
+  });
+
+  it('ignores Radarr rules for scenes', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const user = await createUser(
+      'radarrrule@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+    await getRepository(OverrideRule).save(
+      new OverrideRule({
+        radarrServiceId: whisparrServer.id,
+        users: String(user.id),
+        profileId: 9,
+      })
+    );
+
+    const request = await requestScene(user);
+
+    assert.strictEqual(request.profileId ?? null, null);
   });
 });
 

@@ -12,7 +12,11 @@ import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
 import type OverrideRule from '@server/entity/OverrideRule';
-import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
+import type {
+  RadarrSettings,
+  SonarrSettings,
+  WhisparrSettings,
+} from '@server/lib/settings';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
 import { useCallback, useEffect, useState } from 'react';
@@ -57,6 +61,7 @@ interface OverrideRuleModalProps {
   onClose: () => void;
   radarrServices: RadarrSettings[];
   sonarrServices: SonarrSettings[];
+  whisparrServices: WhisparrSettings[];
 }
 
 const OverrideRuleModal = ({
@@ -64,6 +69,7 @@ const OverrideRuleModal = ({
   rule,
   radarrServices,
   sonarrServices,
+  whisparrServices,
 }: OverrideRuleModalProps) => {
   const intl = useIntl();
   const { addToast } = useToasts();
@@ -91,7 +97,7 @@ const OverrideRuleModal = ({
         baseUrl?: string;
         useSsl?: boolean;
       },
-      type: 'radarr' | 'sonarr'
+      type: 'radarr' | 'sonarr' | 'whisparr'
     ) => {
       setIsTesting(true);
       try {
@@ -127,12 +133,19 @@ const OverrideRuleModal = ({
       (s) => s.id === rule?.sonarrServiceId
     );
     if (sonarrMatch) getServiceInfos(sonarrMatch, 'sonarr');
+
+    const whisparrMatch = whisparrServices.find(
+      (s) => s.id === rule?.whisparrServiceId
+    );
+    if (whisparrMatch) getServiceInfos(whisparrMatch, 'whisparr');
   }, [
     getServiceInfos,
     radarrServices,
     rule?.radarrServiceId,
     rule?.sonarrServiceId,
+    rule?.whisparrServiceId,
     sonarrServices,
+    whisparrServices,
   ]);
 
   return (
@@ -151,6 +164,7 @@ const OverrideRuleModal = ({
         initialValues={{
           radarrServiceId: rule?.radarrServiceId,
           sonarrServiceId: rule?.sonarrServiceId,
+          whisparrServiceId: rule?.whisparrServiceId,
           users: rule?.users,
           genre: rule?.genre,
           language: rule?.language,
@@ -171,6 +185,7 @@ const OverrideRuleModal = ({
               tags: values.tags || null,
               radarrServiceId: values.radarrServiceId,
               sonarrServiceId: values.sonarrServiceId,
+              whisparrServiceId: values.whisparrServiceId,
             };
             if (!rule) {
               await axios.post('/api/v1/overrideRule', submission);
@@ -244,12 +259,15 @@ const OverrideRuleModal = ({
                         id="service"
                         name="service"
                         defaultValue={
-                          values.radarrServiceId !== null
-                            ? `radarr-${values.radarrServiceId}`
-                            : `sonarr-${values.sonarrServiceId}`
+                          values.whisparrServiceId != null
+                            ? `whisparr-${values.whisparrServiceId}`
+                            : values.radarrServiceId !== null
+                              ? `radarr-${values.radarrServiceId}`
+                              : `sonarr-${values.sonarrServiceId}`
                         }
                         onChange={(e) => {
                           const id = Number(e.target.value.split('-')[1]);
+                          setFieldValue('whisparrServiceId', null);
                           if (e.target.value.startsWith('radarr-')) {
                             setFieldValue('radarrServiceId', id);
                             setFieldValue('sonarrServiceId', null);
@@ -267,6 +285,16 @@ const OverrideRuleModal = ({
                             );
                             if (match) {
                               getServiceInfos(match, 'sonarr');
+                            }
+                          } else if (e.target.value.startsWith('whisparr-')) {
+                            setFieldValue('radarrServiceId', null);
+                            setFieldValue('sonarrServiceId', null);
+                            setFieldValue('whisparrServiceId', id);
+                            const match = whisparrServices.find(
+                              (s) => s.id === id
+                            );
+                            if (match) {
+                              getServiceInfos(match, 'whisparr');
                             }
                           } else {
                             setFieldValue('radarrServiceId', null);
@@ -292,6 +320,14 @@ const OverrideRuleModal = ({
                             value={`sonarr-${sonarr.id}`}
                           >
                             {sonarr.name}
+                          </option>
+                        ))}
+                        {whisparrServices.map((whisparr) => (
+                          <option
+                            key={`whisparr-${whisparr.id}`}
+                            value={`whisparr-${whisparr.id}`}
+                          >
+                            {whisparr.name}
                           </option>
                         ))}
                       </select>
@@ -342,11 +378,10 @@ const OverrideRuleModal = ({
                     <div className="form-input-field">
                       <GenreSelector
                         type={
-                          values.radarrServiceId != null
+                          values.radarrServiceId != null ||
+                          values.whisparrServiceId != null
                             ? 'movie'
-                            : values.sonarrServiceId != null
-                              ? 'tv'
-                              : 'tv'
+                            : 'tv'
                         }
                         defaultValue={values.genre}
                         isMulti

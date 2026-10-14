@@ -15,7 +15,7 @@ import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { getWhisparrServer } from '@server/lib/whisparrMedia';
+import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { mapSceneResult } from '@server/models/Scene';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
@@ -193,6 +193,28 @@ export class MediaRequest {
 
     await mediaRepository.save(media);
 
+    // Same precedence as movies: advanced users keep what they picked
+    const ruleResult = await overrideRules({
+      mediaType: MediaType.SCENE,
+      is4k: false,
+      requestUser,
+      tags: requestBody.tags,
+    });
+    const isAdvanced = user.hasPermission(
+      [Permission.MANAGE_REQUESTS, Permission.REQUEST_ADVANCED],
+      { type: 'or' }
+    );
+    const profileId =
+      (isAdvanced && requestBody.profileId) ||
+      ruleResult.profileId ||
+      requestBody.profileId;
+    const rootFolder =
+      (isAdvanced && requestBody.rootFolder) ||
+      ruleResult.rootFolder ||
+      requestBody.rootFolder;
+    const tags =
+      (isAdvanced && requestBody.tags) || ruleResult.tags || requestBody.tags;
+
     const autoApprove = user.hasPermission(
       [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
       { type: 'or' }
@@ -208,9 +230,9 @@ export class MediaRequest {
       modifiedBy: autoApprove ? user : undefined,
       is4k: false,
       serverId: requestBody.serverId,
-      profileId: requestBody.profileId,
-      rootFolder: requestBody.rootFolder,
-      tags: requestBody.tags,
+      profileId: profileId || undefined,
+      rootFolder: rootFolder || undefined,
+      tags: tags ?? undefined,
       isAutoRequest: false,
       ignoreQuota,
     });
@@ -420,12 +442,26 @@ export class MediaRequest {
     let profileId = requestBody.profileId;
     let tags = requestBody.tags;
 
+    // Adult movies go to Whisparr when one is configured, unless Radarr
+    // already handles this title
+    if (
+      requestBody.mediaType === MediaType.MOVIE &&
+      'adult' in tmdbMedia &&
+      tmdbMedia.adult &&
+      getWhisparrServer(!!requestBody.is4k, requestBody.serverId) &&
+      media.serviceId == null &&
+      media.serviceId4k == null
+    ) {
+      media.isAdult = true;
+    }
+
     const ruleResult = await overrideRules({
       mediaType: requestBody.mediaType,
       is4k: requestBody.is4k || false,
       tmdbMedia,
       requestUser,
       tags,
+      service: isWhisparrMedia(media) ? 'whisparr' : undefined,
     });
     const isAdvanced = user.hasPermission(
       [Permission.MANAGE_REQUESTS, Permission.REQUEST_ADVANCED],
@@ -460,18 +496,6 @@ export class MediaRequest {
     }
 
     if (requestBody.mediaType === MediaType.MOVIE) {
-      // Adult movies go to Whisparr when one is configured, unless Radarr
-      // already handles this title
-      if (
-        'adult' in tmdbMedia &&
-        tmdbMedia.adult &&
-        getWhisparrServer(!!requestBody.is4k, requestBody.serverId) &&
-        media.serviceId == null &&
-        media.serviceId4k == null
-      ) {
-        media.isAdult = true;
-      }
-
       await mediaRepository.save(media);
 
       const request = new MediaRequest({

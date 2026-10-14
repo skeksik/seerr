@@ -16,7 +16,11 @@ import { Transition } from '@headlessui/react';
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import type OverrideRule from '@server/entity/OverrideRule';
 import type { OverrideRuleResultsResponse } from '@server/interfaces/api/overrideRuleInterfaces';
-import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
+import type {
+  RadarrSettings,
+  SonarrSettings,
+  WhisparrSettings,
+} from '@server/lib/settings';
 import axios from 'axios';
 import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -218,6 +222,9 @@ const SettingsServices = () => {
     error: sonarrError,
     mutate: revalidateSonarr,
   } = useSWR<SonarrSettings[]>('/api/v1/settings/sonarr');
+  const { data: whisparrData } = useSWR<WhisparrSettings[]>(
+    '/api/v1/settings/whisparr'
+  );
   const { data: rules, mutate: revalidate } =
     useSWR<OverrideRuleResultsResponse>('/api/v1/overrideRule');
   const [editRadarrModal, setEditRadarrModal] = useState<{
@@ -514,11 +521,12 @@ const SettingsServices = () => {
       </div>
       <div className="section">
         <ul className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-          {rules && radarrData && sonarrData && (
+          {rules && radarrData && sonarrData && whisparrData && (
             <OverrideRuleTiles
               rules={rules}
               radarrServices={radarrData}
               sonarrServices={sonarrData}
+              whisparrServices={whisparrData}
               setOverrideRuleModal={setOverrideRuleModal}
               revalidate={revalidate}
             />
@@ -527,7 +535,11 @@ const SettingsServices = () => {
             <div className="flex h-full w-full items-center justify-center">
               <Button
                 buttonType="ghost"
-                disabled={!radarrData?.length && !sonarrData?.length}
+                disabled={
+                  !radarrData?.length &&
+                  !sonarrData?.length &&
+                  !whisparrData?.length
+                }
                 onClick={() =>
                   setOverrideRuleModal({
                     open: true,
@@ -542,7 +554,7 @@ const SettingsServices = () => {
           </li>
         </ul>
       </div>
-      {overrideRuleModal.open && radarrData && sonarrData && (
+      {overrideRuleModal.open && radarrData && sonarrData && whisparrData && (
         <OverrideRuleModal
           rule={overrideRuleModal.rule}
           onClose={() => {
@@ -554,6 +566,7 @@ const SettingsServices = () => {
           }}
           radarrServices={radarrData}
           sonarrServices={sonarrData}
+          whisparrServices={whisparrData}
         />
       )}
     </>

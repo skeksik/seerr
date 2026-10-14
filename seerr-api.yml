@@ -8952,14 +8952,18 @@ paths:
               type: object
               required:
                 - mediaType
-                - tmdbId
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv]
+                  enum: [movie, tv, scene]
                 tmdbId:
                   type: number
+                  description: Required for movies and series
                   example: 1
+                service:
+                  type: string
+                  enum: [whisparr]
+                  description: Evaluate Whisparr rules (scenes and adult movies)
                 is4k:
                   type: boolean
                   example: false

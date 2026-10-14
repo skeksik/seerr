@@ -343,13 +343,14 @@ const AdvancedRequester = ({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Override rules only know Radarr and Sonarr servers
-      if (tmdbId && !service && serverData?.server.id === selectedServer) {
+      // Whisparr requests without a TMDB id are scenes
+      if ((tmdbId || service) && serverData?.server.id === selectedServer) {
         try {
           const { data: override } = await axios.post<OverrideRulesResult>(
             '/api/v1/overrideRule/advancedRequest',
             {
-              mediaType: type,
+              mediaType: tmdbId ? type : 'scene',
+              service,
               is4k,
               requestUser:
                 selectedUser?.id ?? requestUser?.id ?? currentUser?.id,
@@ -392,6 +393,7 @@ const AdvancedRequester = ({
   }, [
     tmdbId,
     type,
+    service,
     is4k,
     serverData?.server.id,
     selectedServer,

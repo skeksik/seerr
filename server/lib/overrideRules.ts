@@ -4,11 +4,12 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType, type TmdbMediaType } from '@server/constants/media';
+import { MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import OverrideRule from '@server/entity/OverrideRule';
 import type { User } from '@server/entity/User';
 import { getSettings } from '@server/lib/settings';
+import { getWhisparrServer } from '@server/lib/whisparrMedia';
 
 export type OverrideRulesResult = {
   rootFolder: string | null;
@@ -23,22 +24,32 @@ async function overrideRules({
   requestUser,
   tags = null,
   serviceId,
+  service,
 }: {
-  mediaType: TmdbMediaType;
+  mediaType: MediaType;
   is4k: boolean;
-  tmdbMedia: TmdbMovieDetails | TmdbTvDetails;
+  // Scenes have no TMDB data, so only user conditions can match them
+  tmdbMedia?: TmdbMovieDetails | TmdbTvDetails;
   requestUser: User;
   tags?: number[] | null;
   serviceId?: number;
+  // Scenes and adult movies are handled by Whisparr
+  service?: 'whisparr';
 }): Promise<OverrideRulesResult> {
   const settings = getSettings();
 
   let rootFolder: string | null = null;
   let profileId: number | null = null;
 
-  const serviceIdField =
-    mediaType === MediaType.MOVIE ? 'radarrServiceId' : 'sonarrServiceId';
-  if (serviceId === undefined) {
+  const useWhisparr = service === 'whisparr' || mediaType === MediaType.SCENE;
+  const serviceIdField = useWhisparr
+    ? 'whisparrServiceId'
+    : mediaType === MediaType.MOVIE
+      ? 'radarrServiceId'
+      : 'sonarrServiceId';
+  if (serviceId === undefined && useWhisparr) {
+    serviceId = getWhisparrServer(is4k)?.id;
+  } else if (serviceId === undefined) {
     const defaultRadarrId = is4k
       ? settings.radarr.find((r) => r.is4k && r.isDefault)?.id
       : settings.radarr.find((r) => !r.is4k && r.isDefault)?.id;
@@ -58,6 +69,18 @@ async function overrideRules({
         });
 
   const appliedOverrideRules = rules.filter((rule) => {
+    if (!tmdbMedia) {
+      return (
+        !rule.genre &&
+        !rule.language &&
+        !rule.keywords &&
+        (!rule.users ||
+          rule.users
+            .split(',')
+            .some((userId) => Number(userId) === requestUser.id))
+      );
+    }
+
     const hasAnimeKeyword =
       'results' in tmdbMedia.keywords &&
       tmdbMedia.keywords.results.some(
