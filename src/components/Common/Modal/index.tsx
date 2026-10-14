@@ -38,7 +38,7 @@ interface ModalProps {
   loading?: boolean;
   backdrop?: string;
   // Where the backdrop comes from, so it goes through the right image cache
-  backdropType?: 'tmdb' | 'stashdb';
+  backdropType?: 'tmdb' | 'stashdb' | 'tpdb';
   children?: React.ReactNode;
   dialogClass?: string;
 }

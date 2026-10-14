@@ -1,6 +1,7 @@
 import PersonCard from '@app/components/PersonCard';
 import TitleCard from '@app/components/TitleCard';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
+import XxxMovieCard from '@app/components/XxxMovieCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
@@ -12,10 +13,17 @@ import type {
   PersonResult,
   TvResult,
 } from '@server/models/Search';
+import type { XxxMovieResult } from '@server/models/XxxMovie';
 import { useIntl } from 'react-intl';
 
 type ListViewProps = {
-  items?: (TvResult | MovieResult | PersonResult | CollectionResult)[];
+  items?: (
+    | TvResult
+    | MovieResult
+    | PersonResult
+    | CollectionResult
+    | XxxMovieResult
+  )[];
   plexItems?: WatchlistItem[];
   isEmpty?: boolean;
   isLoading?: boolean;
@@ -92,6 +100,7 @@ const ListView = ({
                     userScore={title.voteAverage}
                     year={title.releaseDate}
                     mediaType={title.mediaType}
+                    isAdult={title.adult}
                     inProgress={
                       (title.mediaInfo?.downloadStatus ?? []).length > 0
                     }
@@ -143,6 +152,10 @@ const ListView = ({
                   />
                 );
                 break;
+            }
+
+            if (title.mediaType === 'xxxmovie') {
+              titleCard = <XxxMovieCard movie={title} canExpand />;
             }
 
             return <li key={`${title.id}-${index}`}>{titleCard}</li>;

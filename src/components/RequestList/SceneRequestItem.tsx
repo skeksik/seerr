@@ -4,11 +4,11 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import ConfirmButton from '@app/components/Common/ConfirmButton';
 import StatusBadge from '@app/components/StatusBadge';
+import useAdultRequestItem from '@app/hooks/useAdultRequestItem';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
-import { stashImageUrl } from '@app/utils/stashImage';
 import {
   ArrowPathIcon,
   CheckIcon,
@@ -19,7 +19,6 @@ import { MediaRequestStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties } from '@server/interfaces/api/common';
 import type { RequestResultsResponse } from '@server/interfaces/api/requestInterfaces';
-import type { SceneDetails } from '@server/models/Scene';
 import axios from 'axios';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -38,6 +37,7 @@ const messages = defineMessages('components.RequestList.SceneRequestItem', {
   failedretry: 'Something went wrong while retrying the request.',
   removemediaerror: 'Something went wrong while removing the media.',
   unknownscene: 'Unknown Scene',
+  unknownxxxmovie: 'Unknown XXX Movie',
 });
 
 interface SceneRequestItemProps {
@@ -45,7 +45,8 @@ interface SceneRequestItemProps {
   revalidateList: () => void;
 }
 
-// Scenes have no TMDB data, seasons or 4K tier, so they get their own row
+// Scenes and XXX movies have no TMDB data, seasons or 4K tier, so they get
+// their own row
 const SceneRequestItem = ({
   request,
   revalidateList,
@@ -54,11 +55,7 @@ const SceneRequestItem = ({
   const intl = useIntl();
   const { addToast } = useToasts();
   const { user, hasPermission } = useUser();
-  const { data: scene } = useSWR<SceneDetails>(
-    inView && request.media.stashId
-      ? `/api/v1/scene/${request.media.stashId}`
-      : null
-  );
+  const item = useAdultRequestItem(request.media, inView);
   const { data: requestData, mutate: revalidate } = useSWR<
     NonFunctionProperties<MediaRequest>
   >(`/api/v1/request/${request.id}`, { fallbackData: request });
@@ -102,8 +99,14 @@ const SceneRequestItem = ({
   };
 
   const data = requestData ?? request;
-  const title = scene?.title ?? intl.formatMessage(messages.unknownscene);
-  const href = `/scene/${request.media.stashId}`;
+  const title =
+    item.title ??
+    intl.formatMessage(
+      request.type === 'scene'
+        ? messages.unknownscene
+        : messages.unknownxxxmovie
+    );
+  const href = item.href;
   const relativeDate = (date: Date) => (
     <FormattedRelativeTime
       key="date"
@@ -122,13 +125,15 @@ const SceneRequestItem = ({
         <div className="relative z-10 flex w-full items-center overflow-hidden pl-4 pr-4 sm:pr-0 xl:w-7/12 2xl:w-2/3">
           <Link
             href={href}
-            className="relative h-auto w-32 flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md bg-gray-700 transition duration-300 hover:scale-105"
-            style={{ aspectRatio: '16 / 9' }}
+            className={`relative h-auto flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md bg-gray-700 transition duration-300 hover:scale-105 ${
+              item.portrait ? 'w-12 sm:w-14' : 'w-32'
+            }`}
+            style={{ aspectRatio: item.portrait ? '2 / 3' : '16 / 9' }}
           >
-            {scene?.imageUrl && (
+            {item.imageUrl && (
               <CachedImage
-                type="stashdb"
-                src={stashImageUrl(scene.imageUrl, 300) ?? ''}
+                type={item.imageType}
+                src={item.imageUrl}
                 alt=""
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 fill
@@ -137,9 +142,7 @@ const SceneRequestItem = ({
           </Link>
           <div className="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
             <div className="pt-0.5 text-xs font-medium text-white sm:pt-1">
-              {[scene?.studio?.name, scene?.releaseDate?.slice(0, 4)]
-                .filter(Boolean)
-                .join(' · ')}
+              {item.subtitle}
             </div>
             <Link
               href={href}
@@ -168,7 +171,7 @@ const SceneRequestItem = ({
                 downloadItem={data.media.downloadStatus}
                 title={title}
                 inProgress={(data.media.downloadStatus ?? []).length > 0}
-                mediaType="scene"
+                mediaType={request.type === 'scene' ? 'scene' : 'xxxmovie'}
                 serviceUrl={data.media.serviceUrl}
                 plexUrl={data.media.mediaUrl}
               />

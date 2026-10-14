@@ -257,6 +257,14 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
 
   const movieAttributes: React.ReactNode[] = [];
 
+  if (data.adult) {
+    movieAttributes.push(
+      <span className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white">
+        {intl.formatMessage(globalMessages.xxx)}
+      </span>
+    );
+  }
+
   const certification = releases?.find((r) => r.certification)?.certification;
   if (certification) {
     movieAttributes.push(

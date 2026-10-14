@@ -202,7 +202,13 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           leaveTo="opacity-0"
         >
           <SceneRequestModal
-            scene={data}
+            item={{
+              mediaType: 'scene',
+              id: data.id,
+              title: data.title,
+              backdrop: stashImageUrl(data.imageUrl, 1280),
+              backdropType: 'stashdb',
+            }}
             onCancel={() => setShowRequestModal(false)}
             onComplete={() => {
               setShowRequestModal(false);

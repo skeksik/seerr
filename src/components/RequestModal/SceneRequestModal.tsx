@@ -7,11 +7,9 @@ import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
-import { stashImageUrl } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { QuotaResponse } from '@server/interfaces/api/userInterfaces';
-import type { SceneDetails } from '@server/models/Scene';
 import axios from 'axios';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -19,19 +17,30 @@ import useSWR, { mutate } from 'swr';
 
 const messages = defineMessages('components.RequestModal.SceneRequestModal', {
   requestscenetitle: 'Request Scene',
+  requestxxxmovietitle: 'Request XXX Movie',
   requestadmin: 'This request will be approved automatically.',
   requestSuccess: '<strong>{title}</strong> requested successfully!',
   requesterror: 'Something went wrong while submitting the request.',
 });
 
+// Scenes and XXX movies share this modal; both go to Whisparr
+export interface AdultRequestItem {
+  mediaType: 'scene' | 'xxxmovie';
+  // StashDB scene id or ThePornDB movie id
+  id: string;
+  title: string;
+  backdrop?: string;
+  backdropType: 'stashdb' | 'tpdb';
+}
+
 interface SceneRequestModalProps {
-  scene: SceneDetails;
+  item: AdultRequestItem;
   onCancel: () => void;
   onComplete: (newStatus: MediaStatus) => void;
 }
 
 const SceneRequestModal = ({
-  scene,
+  item,
   onCancel,
   onComplete,
 }: SceneRequestModalProps) => {
@@ -45,6 +54,8 @@ const SceneRequestModal = ({
       ? `/api/v1/user/${overrides?.user?.id ?? user.id}/quota`
       : null
   );
+  // XXX movies share the movie quota
+  const itemQuota = item.mediaType === 'scene' ? quota?.scene : quota?.movie;
 
   const hasAutoApprove = hasPermission(
     [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
@@ -56,8 +67,8 @@ const SceneRequestModal = ({
 
     try {
       await axios.post<MediaRequest>('/api/v1/request', {
-        mediaType: 'scene',
-        stashId: scene.id,
+        mediaType: item.mediaType,
+        [item.mediaType === 'scene' ? 'stashId' : 'tpdbId']: item.id,
         serverId: overrides?.server,
         profileId: overrides?.profile,
         rootFolder: overrides?.folder,
@@ -71,7 +82,7 @@ const SceneRequestModal = ({
       addToast(
         <span>
           {intl.formatMessage(messages.requestSuccess, {
-            title: scene.title,
+            title: item.title,
             strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
           })}
         </span>,
@@ -93,20 +104,24 @@ const SceneRequestModal = ({
       onCancel={onCancel}
       onOk={sendRequest}
       okDisabled={
-        isUpdating || (quota?.scene.restricted && !overrides?.ignoreQuota)
+        isUpdating || (itemQuota?.restricted && !overrides?.ignoreQuota)
       }
-      title={intl.formatMessage(messages.requestscenetitle)}
-      subTitle={scene.title}
+      title={intl.formatMessage(
+        item.mediaType === 'scene'
+          ? messages.requestscenetitle
+          : messages.requestxxxmovietitle
+      )}
+      subTitle={item.title}
       okText={
         isUpdating
           ? intl.formatMessage(globalMessages.requesting)
           : intl.formatMessage(globalMessages.request)
       }
       okButtonType="primary"
-      backdrop={stashImageUrl(scene.imageUrl, 1280)}
-      backdropType="stashdb"
+      backdrop={item.backdrop}
+      backdropType={item.backdropType}
     >
-      {hasAutoApprove && !quota?.scene.restricted && (
+      {hasAutoApprove && !itemQuota?.restricted && (
         <div className="mt-6">
           <Alert
             title={intl.formatMessage(messages.requestadmin)}
@@ -114,10 +129,10 @@ const SceneRequestModal = ({
           />
         </div>
       )}
-      {(quota?.scene.limit ?? 0) > 0 && (
+      {(itemQuota?.limit ?? 0) > 0 && (
         <QuotaDisplay
-          mediaType="scene"
-          quota={quota?.scene}
+          mediaType={item.mediaType === 'scene' ? 'scene' : 'movie'}
+          quota={itemQuota}
           userOverride={
             overrides?.user && overrides.user.id !== user?.id
               ? overrides.user.id
@@ -133,8 +148,8 @@ const SceneRequestModal = ({
           type="movie"
           service="whisparr"
           is4k={false}
-          // Scenes go through the movie form, so hand it the scene quota
-          quota={quota && { movie: quota.scene, tv: quota.tv }}
+          // Adult media goes through the movie form with its own quota
+          quota={itemQuota && quota && { movie: itemQuota, tv: quota.tv }}
           onChange={setOverrides}
         />
       )}

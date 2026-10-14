@@ -44,6 +44,7 @@ import searchRoutes from './search';
 import serviceRoutes from './service';
 import tvRoutes from './tv';
 import user from './user';
+import xxxMovieRoutes from './xxxMovie';
 
 const router = Router();
 
@@ -174,6 +175,7 @@ router.use(
 router.use('/movie', isAuthenticated(), movieRoutes);
 router.use('/tv', isAuthenticated(), tvRoutes);
 router.use('/scene', isAuthenticated(), isAdultAllowed, sceneRoutes);
+router.use('/xxxmovie', isAuthenticated(), isAdultAllowed, xxxMovieRoutes);
 router.use('/media', isAuthenticated(), mediaRoutes);
 router.use('/person', isAuthenticated(), personRoutes);
 router.use('/collection', isAuthenticated(), collectionRoutes);

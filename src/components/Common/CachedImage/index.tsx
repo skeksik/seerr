@@ -6,7 +6,7 @@ const imageLoader: ImageLoader = ({ src }) => src;
 
 export type CachedImageProps = ImageProps & {
   src: string;
-  type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb';
+  type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb' | 'tpdb';
 };
 
 /**
@@ -39,6 +39,11 @@ const CachedImage = ({ src, type, ...props }: CachedImageProps) => {
             /^https?:\/\/[^/]+\/images\//,
             '/imageproxy/stashdb/images/'
           )
+        : src;
+  } else if (type === 'tpdb') {
+    imageUrl =
+      currentSettings.cacheImages && !src.startsWith('/')
+        ? src.replace(/^https:\/\/cdn\.theporndb\.net\//, '/imageproxy/tpdb/')
         : src;
   } else if (type === 'avatar') {
     // jellyfin avatar (if any)

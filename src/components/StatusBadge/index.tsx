@@ -110,7 +110,7 @@ const StatusBadge = ({
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
         arr:
           serviceName ??
-          (mediaType === 'scene'
+          (mediaType === 'scene' || mediaType === 'xxxmovie'
             ? 'Whisparr'
             : mediaType === 'movie'
               ? 'Radarr'

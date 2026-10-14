@@ -52,6 +52,22 @@ function initStashDbImageProxy() {
 
 const stashDbImageSizes = ['300', '600', '1280'];
 
+let _tpdbImageProxy: ImageProxy;
+function initTpdbImageProxy() {
+  if (!_tpdbImageProxy) {
+    _tpdbImageProxy = new ImageProxy('tpdb', 'https://cdn.theporndb.net', {
+      rateLimitOptions: {
+        maxRequests: 4,
+        maxRPS: 4,
+      },
+    });
+  }
+  return _tpdbImageProxy;
+}
+
+// ThePornDB CDN paths, e.g. /scene/ff/a2/04/<hash>/background/c/<file>.jpg
+const tpdbImagePath = /^\/(scene|movie|performer|sites)\/[\w\-.%[\]()/]+$/;
+
 router.get<{
   type: string;
   path: string[];
@@ -79,6 +95,12 @@ router.get<{
           ? `${imagePath}?size=${size}`
           : imagePath
       );
+    } else if (
+      req.params.type === 'tpdb' &&
+      tpdbImagePath.test(imagePath) &&
+      !imagePath.includes('..')
+    ) {
+      imageData = await initTpdbImageProxy().getImage(imagePath);
     } else {
       logger.error('Unsupported image type', {
         imagePath,

@@ -53,7 +53,7 @@ type Sort = 'added' | 'modified';
 
 type SortDirection = 'asc' | 'desc';
 
-type MediaType = 'all' | 'movie' | 'tv' | 'scene';
+type MediaType = 'all' | 'movie' | 'tv' | 'scene' | 'xxxmovie';
 
 const RequestList = () => {
   const router = useRouter();
@@ -198,9 +198,14 @@ const RequestList = () => {
                 {intl.formatMessage(globalMessages.tvshows)}
               </option>
               {canViewAdult && (
-                <option value="scene">
-                  {intl.formatMessage(globalMessages.scenes)}
-                </option>
+                <>
+                  <option value="xxxmovie">
+                    {intl.formatMessage(globalMessages.xxxMovies)}
+                  </option>
+                  <option value="scene">
+                    {intl.formatMessage(globalMessages.scenes)}
+                  </option>
+                </>
               )}
             </select>
           </div>
@@ -323,7 +328,7 @@ const RequestList = () => {
       {data.results.map((request) => {
         return (
           <div className="py-2" key={`request-list-${request.id}`}>
-            {request.type === 'scene' ? (
+            {request.type === 'scene' || request.type === 'xxxmovie' ? (
               <SceneRequestItem
                 request={request}
                 revalidateList={() => revalidate()}

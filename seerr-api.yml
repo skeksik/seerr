@@ -42,6 +42,8 @@ tags:
     description: Blocklisted media from discovery page.
   - name: scenes
     description: Endpoints related to adult scenes from StashDB. Requires adult content to be enabled and the Adult Content permission.
+  - name: xxxmovies
+    description: Endpoints related to XXX movies from ThePornDB or adult TMDB studios. Requires adult content to be enabled and the Adult Content permission.
 servers:
   - url: '{server}/api/v1'
     variables:
@@ -2471,6 +2473,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SceneResult'
+    XxxMovieList:
+      type: object
+      properties:
+        page:
+          type: number
+          example: 1
+        totalPages:
+          type: number
+          example: 20
+        totalResults:
+          type: number
+          example: 200
+        results:
+          type: array
+          description: ThePornDB movies (mediaType xxxmovie), or adult TMDB movies (mediaType movie) with the TMDB source
+          items:
+            type: object
+    XxxMovieLookup:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: number
+          name:
+            type: string
+          imageUrl:
+            type: string
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -7697,6 +7727,190 @@ paths:
                       criticsScore:
                         type: number
                         example: 6.5
+  /xxxmovie/discover:
+    get:
+      summary: Discover XXX movies
+      description: Returns a page of XXX movies from the configured source (ThePornDB or TMDB studios).
+      tags:
+        - xxxmovies
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [released, oldest, added, popularity, title, duration]
+            default: released
+        - in: query
+          name: studio
+          description: ThePornDB site id, or TMDB company id with the TMDB source
+          schema:
+            type: number
+        - in: query
+          name: performer
+          description: ThePornDB performer id (ThePornDB only)
+          schema:
+            type: number
+        - in: query
+          name: tags
+          description: Comma-separated ThePornDB tag ids (ThePornDB only)
+          schema:
+            type: string
+        - in: query
+          name: year
+          schema:
+            type: number
+        - in: query
+          name: releasedFrom
+          schema:
+            type: string
+            example: '2026-01-01'
+        - in: query
+          name: releasedTo
+          schema:
+            type: string
+            example: '2026-12-31'
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: XXX movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieList'
+  /xxxmovie/search:
+    get:
+      summary: Search ThePornDB movies
+      tags:
+        - xxxmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: XXX movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieList'
+  /xxxmovie/studios:
+    get:
+      summary: Search ThePornDB studios
+      tags:
+        - xxxmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieLookup'
+  /xxxmovie/performers:
+    get:
+      summary: Search ThePornDB performers
+      tags:
+        - xxxmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieLookup'
+  /xxxmovie/tags:
+    get:
+      summary: Search ThePornDB tags
+      tags:
+        - xxxmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieLookup'
+  /xxxmovie/{type}/{id}:
+    get:
+      summary: Name a ThePornDB studio or performer
+      tags:
+        - xxxmovies
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [studio, performer]
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  name:
+                    type: string
+  /xxxmovie/{xxxMovieId}:
+    get:
+      summary: Get XXX movie details
+      description: Returns a ThePornDB movie with its Seerr media info.
+      tags:
+        - xxxmovies
+      parameters:
+        - in: path
+          name: xxxMovieId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                type: object
   /scene/discover:
     get:
       summary: Discover scenes

@@ -270,6 +270,10 @@ export const startJobs = (): void => {
 
       // Clean users avatar image cache
       ImageProxy.clearCache('avatar');
+
+      // Clean adult artwork caches
+      ImageProxy.clearCache('stashdb');
+      ImageProxy.clearCache('tpdb');
     }),
   });
 

@@ -1,0 +1,369 @@
+import type { MovieSortOptions } from '@server/api/themoviedb';
+import TheMovieDb from '@server/api/themoviedb';
+import type { TpdbMovieQuery } from '@server/api/tpdb';
+import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
+import type { TpdbMovieSort } from '@server/api/tpdb/interfaces';
+import Media from '@server/entity/Media';
+import { getSettings, XxxMovieSource } from '@server/lib/settings';
+import logger from '@server/logger';
+import { mapMovieResult } from '@server/models/Search';
+import type { XxxMovieListResponse } from '@server/models/XxxMovie';
+import { mapXxxMovieDetails, mapXxxMovieResult } from '@server/models/XxxMovie';
+import type { NextFunction, Request } from 'express';
+import { Router } from 'express';
+import { z } from 'zod';
+
+const PAGE_SIZE = 20;
+
+const xxxMovieRoutes = Router();
+
+export const xxxMovieSorts = [
+  'released',
+  'oldest',
+  'added',
+  'popularity',
+  'title',
+  'duration',
+] as const;
+
+const ids = z
+  .string()
+  .regex(/^\d+(,\d+)*$/)
+  .transform((value) => value.split(',').map(Number));
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const discoverQuery = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  sort: z.enum(xxxMovieSorts).default('released'),
+  studio: z.coerce.number().int().positive().optional(),
+  performer: z.coerce.number().int().positive().optional(),
+  tags: ids.optional(),
+  year: z.coerce.number().int().min(1900).max(2100).optional(),
+  releasedFrom: date.optional(),
+  releasedTo: date.optional(),
+  upcoming: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+});
+
+type DiscoverQuery = z.infer<typeof discoverQuery>;
+
+const searchQuery = z.object({
+  query: z.string().trim().min(1),
+  page: z.coerce.number().int().positive().default(1),
+});
+
+const lookupQuery = z.object({ query: z.string().trim().min(1) });
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const handleError = (
+  e: Error,
+  next: NextFunction,
+  message: string,
+  meta: Record<string, unknown>
+) => {
+  if (e instanceof TpdbNotConfiguredError) {
+    return next({ status: 503, message: 'ThePornDB is not configured.' });
+  }
+
+  logger.debug(message, { label: 'API', errorMessage: e.message, ...meta });
+  return next({ status: 500, message });
+};
+
+const tpdbSorts: Record<(typeof xxxMovieSorts)[number], TpdbMovieSort> = {
+  released: 'recently_released',
+  oldest: 'former_released',
+  added: 'recently_created',
+  // ThePornDB has no popularity or title order
+  popularity: 'recently_released',
+  title: 'recently_released',
+  duration: 'duration_desc',
+};
+
+const discoverTpdb = async (
+  query: DiscoverQuery
+): Promise<XxxMovieListResponse> => {
+  // ThePornDB takes one date bound; future dates are often placeholders
+  // like 3024, so released lists stop at today
+  let dateBound: TpdbMovieQuery['date'];
+  if (query.upcoming) {
+    dateBound = { value: today(), operation: '>' };
+  } else if (query.releasedFrom) {
+    dateBound = { value: query.releasedFrom, operation: '>=' };
+  } else {
+    dateBound = { value: query.releasedTo ?? today(), operation: '<=' };
+  }
+
+  const list = await TpdbAPI.fromSettings().getMovies({
+    page: query.page,
+    perPage: PAGE_SIZE,
+    sort: query.upcoming ? 'former_released' : tpdbSorts[query.sort],
+    siteId: query.studio,
+    performerId: query.performer,
+    tagIds: query.tags,
+    year: query.year,
+    date: dateBound,
+  });
+  const media = await Media.getRelatedXxxMovies(list.data.map((m) => m.id));
+
+  return {
+    page: query.page,
+    totalPages: list.meta.last_page,
+    totalResults: list.meta.total,
+    results: list.data.map((movie) =>
+      mapXxxMovieResult(
+        movie,
+        media.find((m) => m.tpdbId === movie.id)
+      )
+    ),
+  };
+};
+
+const tmdbSorts: Record<(typeof xxxMovieSorts)[number], MovieSortOptions> = {
+  released: 'primary_release_date.desc',
+  oldest: 'primary_release_date.asc',
+  added: 'primary_release_date.desc',
+  popularity: 'popularity.desc',
+  title: 'original_title.asc',
+  duration: 'popularity.desc',
+};
+
+// TMDB cannot list adult movies on their own, so list the movies of the
+// configured adult studios instead
+const discoverTmdb = async (
+  req: Request,
+  query: DiscoverQuery
+): Promise<XxxMovieListResponse> => {
+  const { tmdbCompanies } = getSettings().xxxMovies;
+  const companies = query.studio ? [query.studio] : tmdbCompanies;
+
+  if (companies.length === 0) {
+    return { page: 1, totalPages: 0, totalResults: 0, results: [] };
+  }
+
+  const releasedFrom = query.upcoming
+    ? today()
+    : (query.releasedFrom ?? (query.year ? `${query.year}-01-01` : undefined));
+  const releasedTo = query.upcoming
+    ? undefined
+    : (query.releasedTo ??
+      (query.year
+        ? `${query.year}-12-31`
+        : query.sort === 'released'
+          ? today()
+          : undefined));
+
+  const tmdb = new TheMovieDb({
+    discoverRegion: req.user?.settings?.discoverRegion,
+  });
+  const data = await tmdb.getDiscoverMovies({
+    page: query.page,
+    sortBy: query.upcoming ? 'primary_release_date.asc' : tmdbSorts[query.sort],
+    includeAdult: true,
+    originalLanguage: 'all',
+    studio: companies.join('|'),
+    primaryReleaseDateGte: releasedFrom,
+    primaryReleaseDateLte: releasedTo,
+  });
+  const media = await Media.getRelatedMedia(
+    req.user,
+    data.results.map((result) => ({ tmdbId: result.id, mediaType: 'movie' }))
+  );
+
+  return {
+    page: data.page,
+    totalPages: data.total_pages,
+    totalResults: data.total_results,
+    results: data.results.map((result) =>
+      mapMovieResult(
+        result,
+        media.find((m) => m.tmdbId === result.id && m.mediaType === 'movie')
+      )
+    ),
+  };
+};
+
+xxxMovieRoutes.get('/discover', async (req, res, next) => {
+  const parsed = discoverQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'Invalid discover parameters.' });
+  }
+
+  try {
+    const list =
+      getSettings().xxxMovies.source === XxxMovieSource.TMDB
+        ? await discoverTmdb(req, parsed.data)
+        : await discoverTpdb(parsed.data);
+
+    return res.status(200).json(list);
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve XXX movies.', {
+      query: req.query,
+    });
+  }
+});
+
+xxxMovieRoutes.get('/search', async (req, res, next) => {
+  const parsed = searchQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'Invalid search parameters.' });
+  }
+
+  const { query, page } = parsed.data;
+
+  try {
+    const list = await TpdbAPI.fromSettings().getMovies({
+      query,
+      page,
+      perPage: PAGE_SIZE,
+    });
+    const media = await Media.getRelatedXxxMovies(list.data.map((m) => m.id));
+
+    return res.status(200).json({
+      page,
+      totalPages: list.meta.last_page,
+      totalResults: list.meta.total,
+      results: list.data.map((movie) =>
+        mapXxxMovieResult(
+          movie,
+          media.find((m) => m.tpdbId === movie.id)
+        )
+      ),
+    } satisfies XxxMovieListResponse);
+  } catch (e) {
+    return handleError(e, next, 'Unable to search XXX movies.', { query });
+  }
+});
+
+// Lookups for the ThePornDB filters
+xxxMovieRoutes.get('/studios', async (req, res, next) => {
+  const parsed = lookupQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'A query is required.' });
+  }
+
+  try {
+    const sites = await TpdbAPI.fromSettings().searchSites(parsed.data.query);
+
+    return res
+      .status(200)
+      .json(sites.map((site) => ({ id: site.id, name: site.name })));
+  } catch (e) {
+    return handleError(e, next, 'Unable to search studios.', {
+      query: parsed.data.query,
+    });
+  }
+});
+
+xxxMovieRoutes.get('/performers', async (req, res, next) => {
+  const parsed = lookupQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'A query is required.' });
+  }
+
+  try {
+    const performers = await TpdbAPI.fromSettings().searchPerformers(
+      parsed.data.query
+    );
+
+    return res.status(200).json(
+      performers.map((performer) => ({
+        id: performer._id,
+        name: performer.name,
+        imageUrl: performer.image ?? undefined,
+      }))
+    );
+  } catch (e) {
+    return handleError(e, next, 'Unable to search performers.', {
+      query: parsed.data.query,
+    });
+  }
+});
+
+xxxMovieRoutes.get('/tags', async (req, res, next) => {
+  const parsed = lookupQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'A query is required.' });
+  }
+
+  try {
+    const tags = await TpdbAPI.fromSettings().searchTags(parsed.data.query);
+
+    return res
+      .status(200)
+      .json(tags.map((tag) => ({ id: tag.id, name: tag.name })));
+  } catch (e) {
+    return handleError(e, next, 'Unable to search tags.', {
+      query: parsed.data.query,
+    });
+  }
+});
+
+xxxMovieRoutes.get<{ type: string; id: string }>(
+  '/:type/:id',
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0 ||
+      !['studio', 'performer'].includes(req.params.type)
+    ) {
+      return next({ status: 404, message: 'Not found.' });
+    }
+
+    try {
+      const tpdb = TpdbAPI.fromSettings();
+      const found =
+        req.params.type === 'studio'
+          ? await tpdb.getSite(id)
+          : await tpdb.getPerformer(id);
+
+      if (!found) {
+        return next({ status: 404, message: 'Not found.' });
+      }
+
+      return res.status(200).json({ id, name: found.name });
+    } catch (e) {
+      return handleError(e, next, 'Unable to retrieve filter.', {
+        type: req.params.type,
+        id,
+      });
+    }
+  }
+);
+
+xxxMovieRoutes.get('/:id', async (req, res, next) => {
+  const parsed = z.string().uuid().safeParse(req.params.id);
+
+  if (!parsed.success) {
+    return next({ status: 404, message: 'Movie not found.' });
+  }
+
+  try {
+    const movie = await TpdbAPI.fromSettings().getMovie(parsed.data);
+
+    if (!movie) {
+      return next({ status: 404, message: 'Movie not found.' });
+    }
+
+    const media = await Media.getMediaByTpdbId(movie.id);
+
+    return res
+      .status(200)
+      .json(mapXxxMovieDetails(movie, media?.filter(req.user)));
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve movie.', {
+      id: parsed.data,
+    });
+  }
+});
+
+export default xxxMovieRoutes;
