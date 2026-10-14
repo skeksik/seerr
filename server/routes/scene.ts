@@ -24,6 +24,7 @@ import {
   mapSceneResult,
   mapStudioDetails,
 } from '@server/models/Scene';
+import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction, Request } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -58,10 +59,7 @@ const discoverQuery = z.object({
   tag: z.string().uuid().optional(),
   // stash-box takes one date bound
   released: z.enum(['after', 'before']).optional(),
-  releaseDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  releaseDate: isoDate.optional(),
   upcoming: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')

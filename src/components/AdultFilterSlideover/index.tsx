@@ -44,6 +44,19 @@ const filterKeys = [
 
 type Option = { value: string; label: string };
 
+// The date picker drops leading zeros (2026-10-7); the API wants YYYY-MM-DD
+const toIsoDate = (value: Date | string) =>
+  typeof value === 'string'
+    ? value
+        .split('-')
+        .map((part, index) => (index > 0 ? part.padStart(2, '0') : part))
+        .join('-')
+    : [
+        value.getFullYear(),
+        String(value.getMonth() + 1).padStart(2, '0'),
+        String(value.getDate()).padStart(2, '0'),
+      ].join('-');
+
 const param = (value: string | string[] | undefined) =>
   typeof value === 'string' && value !== '' ? value : undefined;
 
@@ -120,7 +133,7 @@ const LookupSelect = ({
         name: string;
         disambiguation?: string | null;
       }[]
-    >(searchUrl, { params: { query } });
+    >(`${searchUrl}?query=${encodeURIComponent(query)}`);
 
     return data.map((item) => ({
       value: String(item.id),
@@ -227,7 +240,7 @@ const AdultFilterSlideover = ({
               onChange={(value) =>
                 batchUpdate({
                   releaseDate: value?.startDate
-                    ? (value.startDate as string)
+                    ? toIsoDate(value.startDate)
                     : undefined,
                 })
               }

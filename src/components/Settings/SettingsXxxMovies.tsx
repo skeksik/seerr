@@ -59,8 +59,7 @@ const loadCompanyOptions = async (
   }
 
   const { data } = await axios.get<TmdbCompanySearchResponse>(
-    '/api/v1/search/company',
-    { params: { query: inputValue } }
+    `/api/v1/search/company?query=${encodeURIComponent(inputValue)}`
   );
 
   return data.results.map((result) => ({
