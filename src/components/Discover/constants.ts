@@ -88,6 +88,15 @@ export const sliderTitles = defineMessages('components.Discover', {
   tmdbsearch: 'TMDB Search',
   tmdbmoviestreamingservices: 'TMDB Movie Streaming Services',
   tmdbtvstreamingservices: 'TMDB TV Streaming Services',
+  trendingScenes: 'Trending Scenes',
+  popularScenes: 'Popular Scenes',
+  newScenes: 'New Scenes',
+  upcomingScenes: 'Upcoming Scenes',
+  adultStudios: 'Trending Studios',
+  adultNetworks: 'Trending Networks',
+  newXxxMovies: 'New XXX Movies',
+  popularXxxMovies: 'Popular XXX Movies',
+  upcomingXxxMovies: 'Upcoming XXX Movies',
 });
 
 export const QueryFilterOptions = z.object({

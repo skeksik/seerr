@@ -22,7 +22,32 @@ export enum DiscoverSliderType {
   TMDB_NETWORK,
   TMDB_MOVIE_STREAMING_SERVICES,
   TMDB_TV_STREAMING_SERVICES,
+  TRENDING_SCENES,
+  POPULAR_SCENES,
+  NEW_SCENES,
+  UPCOMING_SCENES,
+  ADULT_STUDIOS,
+  ADULT_NETWORKS,
+  NEW_XXX_MOVIES,
+  POPULAR_XXX_MOVIES,
+  UPCOMING_XXX_MOVIES,
 }
+
+// Only shown to users with adult access
+export const adultSliderTypes = [
+  DiscoverSliderType.TRENDING_SCENES,
+  DiscoverSliderType.POPULAR_SCENES,
+  DiscoverSliderType.NEW_SCENES,
+  DiscoverSliderType.UPCOMING_SCENES,
+  DiscoverSliderType.ADULT_STUDIOS,
+  DiscoverSliderType.ADULT_NETWORKS,
+  DiscoverSliderType.NEW_XXX_MOVIES,
+  DiscoverSliderType.POPULAR_XXX_MOVIES,
+  DiscoverSliderType.UPCOMING_XXX_MOVIES,
+];
+
+export const isAdultSliderType = (type: DiscoverSliderType): boolean =>
+  adultSliderTypes.includes(type);
 
 export const defaultSliders: Partial<DiscoverSlider>[] = [
   {
@@ -97,4 +122,11 @@ export const defaultSliders: Partial<DiscoverSlider>[] = [
     isBuiltIn: true,
     order: 11,
   },
+  // Adult rows go last; existing installs get them appended
+  ...adultSliderTypes.map((type, index) => ({
+    type,
+    enabled: true,
+    isBuiltIn: true,
+    order: 12 + index,
+  })),
 ];

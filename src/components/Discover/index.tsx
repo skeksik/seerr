@@ -14,7 +14,12 @@ import StudioSlider from '@app/components/Discover/StudioSlider';
 import TvGenreSlider from '@app/components/Discover/TvGenreSlider';
 import { sliderTitles } from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
+import AdultStudioSlider from '@app/components/Scenes/AdultStudioSlider';
+import SceneSlider from '@app/components/Scenes/SceneSlider';
+import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
+import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
+import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -27,7 +32,10 @@ import {
   PencilIcon,
   PlusIcon,
 } from '@heroicons/react/24/solid';
-import { DiscoverSliderType } from '@server/constants/discover';
+import {
+  DiscoverSliderType,
+  isAdultSliderType,
+} from '@server/constants/discover';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -56,6 +64,8 @@ const Discover = () => {
   const intl = useIntl();
   const { hasPermission } = useUser();
   const { addToast } = useToasts();
+  const canViewAdult = useAdult();
+  const { currentSettings } = useSettings();
   const {
     data: discoverData,
     error: discoverError,
@@ -210,6 +220,11 @@ const Discover = () => {
       )}
       {(isEditing ? sliders : discoverData)?.map((slider, index) => {
         let sliderComponent: React.ReactNode;
+
+        // Adult rows stay hidden, editing included, without adult access
+        if (slider.type && isAdultSliderType(slider.type) && !canViewAdult) {
+          return null;
+        }
 
         switch (slider.type) {
           case DiscoverSliderType.RECENTLY_ADDED:
@@ -395,6 +410,95 @@ const Discover = () => {
                 linkUrl={`/discover/tv?watchRegion=${
                   slider.data?.split(',')[0]
                 }&watchProviders=${slider.data?.split(',')[1]}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.TRENDING_SCENES:
+            sliderComponent = (
+              <SceneSlider
+                sliderKey="trending-scenes"
+                title={intl.formatMessage(sliderTitles.trendingScenes)}
+                url="/api/v1/scene/discover?sort=trending&page=1"
+                linkUrl="/scenes?sort=trending"
+              />
+            );
+            break;
+          case DiscoverSliderType.POPULAR_SCENES:
+            sliderComponent = (
+              <SceneSlider
+                sliderKey="popular-scenes"
+                title={intl.formatMessage(sliderTitles.popularScenes)}
+                url="/api/v1/scene/discover?sort=popularity&page=1"
+                linkUrl="/scenes?sort=popularity"
+              />
+            );
+            break;
+          case DiscoverSliderType.NEW_SCENES:
+            sliderComponent = (
+              <SceneSlider
+                sliderKey="new-scenes"
+                title={intl.formatMessage(sliderTitles.newScenes)}
+                url={`/api/v1/scene/discover?sort=date&released=before&releaseDate=${upcomingDate}&page=1`}
+                linkUrl={`/scenes?sort=date&released=before&releaseDate=${upcomingDate}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.UPCOMING_SCENES:
+            sliderComponent = (
+              <SceneSlider
+                sliderKey="upcoming-scenes"
+                title={intl.formatMessage(sliderTitles.upcomingScenes)}
+                url="/api/v1/scene/discover?upcoming=true&page=1"
+                linkUrl={`/scenes?sort=oldest&releaseDate=${upcomingDate}`}
+                hideWhenEmpty
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_STUDIOS:
+            sliderComponent = (
+              <AdultStudioSlider
+                type="studios"
+                title={intl.formatMessage(sliderTitles.adultStudios)}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_NETWORKS:
+            sliderComponent = (
+              <AdultStudioSlider
+                type="networks"
+                title={intl.formatMessage(sliderTitles.adultNetworks)}
+              />
+            );
+            break;
+          case DiscoverSliderType.NEW_XXX_MOVIES:
+            sliderComponent = (
+              <XxxMovieSlider
+                sliderKey="new-xxx-movies"
+                title={intl.formatMessage(sliderTitles.newXxxMovies)}
+                url="/api/v1/xxxmovie/discover?sort=released&page=1"
+                linkUrl="/xxxmovies?sort=released"
+              />
+            );
+            break;
+          case DiscoverSliderType.POPULAR_XXX_MOVIES:
+            // ThePornDB has no popularity order
+            sliderComponent = currentSettings.xxxMovieSource === 'tmdb' && (
+              <XxxMovieSlider
+                sliderKey="popular-xxx-movies"
+                title={intl.formatMessage(sliderTitles.popularXxxMovies)}
+                url="/api/v1/xxxmovie/discover?sort=popularity&page=1"
+                linkUrl="/xxxmovies?sort=popularity"
+              />
+            );
+            break;
+          case DiscoverSliderType.UPCOMING_XXX_MOVIES:
+            sliderComponent = (
+              <XxxMovieSlider
+                sliderKey="upcoming-xxx-movies"
+                title={intl.formatMessage(sliderTitles.upcomingXxxMovies)}
+                url="/api/v1/xxxmovie/discover?upcoming=true&page=1"
+                linkUrl={`/xxxmovies?sort=oldest&releaseDate=${upcomingDate}`}
+                hideWhenEmpty
               />
             );
             break;

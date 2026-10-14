@@ -151,6 +151,24 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.upcomingtv);
       case DiscoverSliderType.NETWORKS:
         return intl.formatMessage(sliderTitles.networks);
+      case DiscoverSliderType.TRENDING_SCENES:
+        return intl.formatMessage(sliderTitles.trendingScenes);
+      case DiscoverSliderType.POPULAR_SCENES:
+        return intl.formatMessage(sliderTitles.popularScenes);
+      case DiscoverSliderType.NEW_SCENES:
+        return intl.formatMessage(sliderTitles.newScenes);
+      case DiscoverSliderType.UPCOMING_SCENES:
+        return intl.formatMessage(sliderTitles.upcomingScenes);
+      case DiscoverSliderType.ADULT_STUDIOS:
+        return intl.formatMessage(sliderTitles.adultStudios);
+      case DiscoverSliderType.ADULT_NETWORKS:
+        return intl.formatMessage(sliderTitles.adultNetworks);
+      case DiscoverSliderType.NEW_XXX_MOVIES:
+        return intl.formatMessage(sliderTitles.newXxxMovies);
+      case DiscoverSliderType.POPULAR_XXX_MOVIES:
+        return intl.formatMessage(sliderTitles.popularXxxMovies);
+      case DiscoverSliderType.UPCOMING_XXX_MOVIES:
+        return intl.formatMessage(sliderTitles.upcomingXxxMovies);
       case DiscoverSliderType.TMDB_MOVIE_KEYWORD:
         return intl.formatMessage(sliderTitles.tmdbmoviekeyword);
       case DiscoverSliderType.TMDB_TV_KEYWORD:
