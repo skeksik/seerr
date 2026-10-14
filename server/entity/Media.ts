@@ -21,6 +21,7 @@ import {
   AfterLoad,
   Column,
   Entity,
+  In,
   Index,
   OneToMany,
   OneToOne,
@@ -111,6 +112,21 @@ class Media {
     } catch (e) {
       logger.error(e.message);
       return undefined;
+    }
+  }
+
+  public static async getRelatedScenes(stashIds: string[]): Promise<Media[]> {
+    if (stashIds.length === 0) {
+      return [];
+    }
+
+    try {
+      return await getRepository(Media).find({
+        where: { mediaType: MediaType.SCENE, stashId: In(stashIds) },
+      });
+    } catch (e) {
+      logger.error(e.message);
+      return [];
     }
   }
 

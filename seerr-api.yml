@@ -40,6 +40,8 @@ tags:
     description: Collection of media to watch later
   - name: blocklist
     description: Blocklisted media from discovery page.
+  - name: scenes
+    description: Endpoints related to adult scenes from StashDB. Requires adult content to be enabled and the Adult Content permission.
 servers:
   - url: '{server}/api/v1'
     variables:
@@ -1292,10 +1294,16 @@ components:
         tmdbId:
           type: number
           readOnly: true
+          nullable: true
         tvdbId:
           type: number
           readOnly: true
           nullable: true
+        stashId:
+          type: string
+          readOnly: true
+          nullable: true
+          description: stash-box (StashDB) scene UUID, set for scenes only
         status:
           type: number
           example: 0
@@ -2148,6 +2156,125 @@ components:
             - certification: 'PG'
               meaning: 'Some material may not be suitable for children under 10.'
               order: 2
+    StashDbSettings:
+      type: object
+      required:
+        - endpoint
+        - apiKey
+      properties:
+        endpoint:
+          type: string
+          example: https://stashdb.org/graphql
+        apiKey:
+          type: string
+    SceneStudio:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parent:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+    ScenePerformer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        disambiguation:
+          type: string
+        as:
+          type: string
+        gender:
+          type: string
+        imageUrl:
+          type: string
+    SceneResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
+        mediaType:
+          type: string
+          enum: [scene]
+        title:
+          type: string
+        releaseDate:
+          type: string
+          example: '2023-07-01'
+        duration:
+          type: number
+          description: Length in seconds
+        imageUrl:
+          type: string
+        studio:
+          $ref: '#/components/schemas/SceneStudio'
+        performers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenePerformer'
+        mediaInfo:
+          $ref: '#/components/schemas/MediaInfo'
+    SceneDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneResult'
+        - type: object
+          properties:
+            details:
+              type: string
+            productionDate:
+              type: string
+            code:
+              type: string
+            director:
+              type: string
+            urls:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  site:
+                    type: string
+            tags:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+    SceneList:
+      type: object
+      properties:
+        page:
+          type: number
+          example: 1
+        totalPages:
+          type: number
+          example: 20
+        totalResults:
+          type: number
+          example: 200
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SceneResult'
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -2788,6 +2915,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TautulliSettings'
+  /settings/stashdb:
+    get:
+      summary: Get StashDB settings
+      description: Retrieves the stash-box endpoint and API key used for scene metadata.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbSettings'
+    post:
+      summary: Update StashDB settings
+      description: Tests the connection and saves the stash-box endpoint and API key.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashDbSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbSettings'
+  /settings/stashdb/test:
+    post:
+      summary: Test StashDB settings
+      description: Tests the stash-box endpoint and API key without saving them.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashDbSettings'
+      responses:
+        '200':
+          description: Connection succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: v0.10.3
   /settings/radarr:
     get:
       summary: Get Radarr settings
@@ -7026,6 +7207,93 @@ paths:
                       criticsScore:
                         type: number
                         example: 6.5
+  /scene/discover:
+    get:
+      summary: Discover scenes
+      description: Returns a page of StashDB scenes, optionally limited to a studio, performer or tag.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [trending, popularity, date, title, duration, created_at]
+            default: trending
+        - in: query
+          name: studio
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: performer
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: tag
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Scene results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
+  /scene/search:
+    get:
+      summary: Search scenes
+      description: Searches StashDB scenes by title, studio or performer.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            example: Slo-Mo
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+      responses:
+        '200':
+          description: Scene results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
+  /scene/{sceneId}:
+    get:
+      summary: Get scene details
+      description: Returns full StashDB scene details with Seerr media info.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+            example: 01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
+      responses:
+        '200':
+          description: Scene details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneDetails'
   /tv/{tvId}:
     get:
       summary: Get TV details

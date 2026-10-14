@@ -65,6 +65,12 @@ export interface TautulliSettings {
   externalUrl?: string;
 }
 
+// Any stash-box instance works; StashDB is the default
+export interface StashDbSettings {
+  endpoint: string;
+  apiKey: string;
+}
+
 export interface DVRSettings {
   id: number;
   name: string;
@@ -385,6 +391,7 @@ export interface AllSettings {
   plex: PlexSettings;
   jellyfin: JellyfinSettings;
   tautulli: TautulliSettings;
+  stashdb: StashDbSettings;
   radarr: RadarrSettings[];
   sonarr: SonarrSettings[];
   public: PublicSettings;
@@ -460,6 +467,10 @@ class Settings {
         apiKey: '',
       },
       tautulli: {},
+      stashdb: {
+        endpoint: 'https://stashdb.org/graphql',
+        apiKey: '',
+      },
       metadataSettings: {
         tv: MetadataProviderType.TMDB,
         anime: MetadataProviderType.TMDB,
@@ -676,6 +687,14 @@ class Settings {
 
   set tautulli(data: TautulliSettings) {
     this.data.tautulli = mergeSettings(this.data.tautulli, data);
+  }
+
+  get stashdb(): StashDbSettings {
+    return this.data.stashdb;
+  }
+
+  set stashdb(data: StashDbSettings) {
+    this.data.stashdb = mergeSettings(this.data.stashdb, data);
   }
 
   get metadataSettings(): MetadataSettings {

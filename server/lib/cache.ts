@@ -10,7 +10,8 @@ export type AvailableCacheIds =
   | 'github'
   | 'plextv'
   | 'plexwatchlist'
-  | 'tvdb';
+  | 'tvdb'
+  | 'stashdb';
 
 const DEFAULT_TTL = 300;
 
@@ -47,6 +48,9 @@ const PLEX_WATCHLIST_MAX_KEYS = 500;
 // Several keys per show, holding the largest payloads of any tier as the extended
 // series lookup carries every episode.
 const TVDB_MAX_KEYS = 500;
+
+// One key per scene, performer or studio, plus one per discover or search page.
+const STASHDB_MAX_KEYS = 2000;
 
 export interface CacheStats {
   hits: number;
@@ -249,6 +253,10 @@ class CacheManager {
     tvdb: new Cache('tvdb', 'The TVDB API', {
       stdTtl: 21600,
       max: TVDB_MAX_KEYS,
+    }),
+    stashdb: new Cache('stashdb', 'StashDB API', {
+      stdTtl: 21600,
+      max: STASHDB_MAX_KEYS,
     }),
   };
 
