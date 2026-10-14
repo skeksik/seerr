@@ -263,6 +263,10 @@ class Media {
   @Column({ nullable: true, type: 'varchar' })
   public jellyfinMediaId4k?: string | null;
 
+  // Scene id in the Stash companion library
+  @Column({ nullable: true, type: 'varchar' })
+  public stashMediaId?: string | null;
+
   public serviceUrl?: string;
   public serviceUrl4k?: string;
   public hasActiveRequest?: boolean;
@@ -289,6 +293,7 @@ class Media {
       this.externalServiceSlug = null;
       this.ratingKey = null;
       this.jellyfinMediaId = null;
+      this.stashMediaId = null;
     }
     if (is4k === undefined || is4k) {
       this.serviceId4k = null;
@@ -301,6 +306,17 @@ class Media {
 
   @AfterLoad()
   public setPlexUrls(): void {
+    // Scenes play from Stash whatever the main media server is
+    if (this.mediaType === MediaType.SCENE) {
+      const { url, externalUrl } = getSettings().stash;
+      const stashHost = (externalUrl || url).replace(/\/+$/, '');
+
+      if (this.stashMediaId && stashHost) {
+        this.mediaUrl = `${stashHost}/scenes/${this.stashMediaId}`;
+      }
+      return;
+    }
+
     const { machineId, webAppUrl } = getSettings().plex;
     const { externalUrl: tautulliUrl } = getSettings().tautulli;
 

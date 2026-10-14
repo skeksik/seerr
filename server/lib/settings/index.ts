@@ -71,6 +71,13 @@ export interface StashDbSettings {
   apiKey: string;
 }
 
+// Stash is a companion library for scenes, not a login media server
+export interface StashSettings {
+  url: string;
+  apiKey: string;
+  externalUrl?: string;
+}
+
 export interface DVRSettings {
   id: number;
   name: string;
@@ -378,6 +385,7 @@ export type JobId =
   | 'radarr-scan'
   | 'sonarr-scan'
   | 'whisparr-scan'
+  | 'stash-scan'
   | 'download-sync'
   | 'download-sync-reset'
   | 'jellyfin-recently-added-scan'
@@ -396,6 +404,7 @@ export interface AllSettings {
   jellyfin: JellyfinSettings;
   tautulli: TautulliSettings;
   stashdb: StashDbSettings;
+  stash: StashSettings;
   radarr: RadarrSettings[];
   whisparr: WhisparrSettings[];
   sonarr: SonarrSettings[];
@@ -474,6 +483,10 @@ class Settings {
       tautulli: {},
       stashdb: {
         endpoint: 'https://stashdb.org/graphql',
+        apiKey: '',
+      },
+      stash: {
+        url: '',
         apiKey: '',
       },
       metadataSettings: {
@@ -616,6 +629,9 @@ class Settings {
         'whisparr-scan': {
           schedule: '0 0 5 * * *',
         },
+        'stash-scan': {
+          schedule: '0 */15 * * * *',
+        },
         'availability-sync': {
           schedule: '0 0 5 * * *',
         },
@@ -704,6 +720,14 @@ class Settings {
 
   set stashdb(data: StashDbSettings) {
     this.data.stashdb = mergeSettings(this.data.stashdb, data);
+  }
+
+  get stash(): StashSettings {
+    return this.data.stash;
+  }
+
+  set stash(data: StashSettings) {
+    this.data.stash = mergeSettings(this.data.stash, data);
   }
 
   get metadataSettings(): MetadataSettings {

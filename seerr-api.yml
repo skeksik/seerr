@@ -2219,6 +2219,20 @@ components:
             - certification: 'PG'
               meaning: 'Some material may not be suitable for children under 10.'
               order: 2
+    StashSettings:
+      type: object
+      required:
+        - url
+        - apiKey
+      properties:
+        url:
+          type: string
+          example: http://localhost:9999
+        apiKey:
+          type: string
+        externalUrl:
+          type: string
+          description: URL used for Play on Stash links, if different
     StashDbSettings:
       type: object
       required:
@@ -2993,6 +3007,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TautulliSettings'
+  /settings/stash:
+    get:
+      summary: Get Stash settings
+      description: Retrieves the Stash companion library connection.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSettings'
+    post:
+      summary: Update Stash settings
+      description: Tests the connection and saves the Stash URL and API key.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSettings'
+  /settings/stash/test:
+    post:
+      summary: Test Stash settings
+      description: Tests the Stash URL and API key without saving them.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashSettings'
+      responses:
+        '200':
+          description: Connection succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: v0.31.1
   /settings/stashdb:
     get:
       summary: Get StashDB settings

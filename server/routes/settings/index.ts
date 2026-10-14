@@ -45,6 +45,7 @@ import metadataRoutes from './metadata';
 import notificationRoutes from './notifications';
 import radarrRoutes from './radarr';
 import sonarrRoutes from './sonarr';
+import stashRoutes from './stash';
 import stashDbRoutes from './stashdb';
 import whisparrRoutes from './whisparr';
 
@@ -57,6 +58,7 @@ settingsRoutes.use('/whisparr', whisparrRoutes);
 settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
 settingsRoutes.use('/stashdb', stashDbRoutes);
+settingsRoutes.use('/stash', stashRoutes);
 
 const libraryUpdateSchema = z.object({
   enabled: z.boolean(),
