@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddAdultWatchlistBlocklist1792008699725 implements MigrationInterface {
   name = 'AddAdultWatchlistBlocklist1792008699725';
