@@ -36,17 +36,36 @@ const sortValues = [
   'trending',
   'popularity',
   'date',
+  'oldest',
   'title',
   'duration',
   'created_at',
 ] as const;
 
+const uuids = z
+  .string()
+  .transform((value) => value.split(',').filter(Boolean))
+  .pipe(z.array(z.string().uuid()).max(25));
+
 const discoverQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
   sort: z.enum(sortValues).default('trending'),
-  studio: z.string().uuid().optional(),
-  performer: z.string().uuid().optional(),
+  // Comma-separated StashDB ids
+  studio: uuids.optional(),
+  performer: uuids.optional(),
+  tags: uuids.optional(),
+  // Single tag, kept for older links
   tag: z.string().uuid().optional(),
+  // stash-box takes one date bound
+  released: z.enum(['after', 'before']).optional(),
+  releaseDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  upcoming: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
 });
 
 const searchQuery = z.object({
@@ -155,18 +174,42 @@ sceneRoutes.get('/discover', async (req, res, next) => {
     return next({ status: 400, message: 'Invalid discover parameters.' });
   }
 
-  const { page, sort, studio, performer, tag } = parsed.data;
+  const {
+    page,
+    sort,
+    studio,
+    performer,
+    tags,
+    tag,
+    released,
+    releaseDate,
+    upcoming,
+  } = parsed.data;
+  const today = new Date().toISOString().slice(0, 10);
 
   try {
     const list = await StashDbAPI.fromSettings().queryScenes({
       page,
       perPage: PAGE_SIZE,
-      sort: sort.toUpperCase() as StashDbSceneSort,
+      sort: upcoming
+        ? 'DATE'
+        : sort === 'oldest'
+          ? 'DATE'
+          : (sort.toUpperCase() as StashDbSceneSort),
       // Oldest-first is never what a discover row wants, titles aside
-      direction: sort === 'title' ? 'ASC' : 'DESC',
-      studioId: studio,
-      performerId: performer,
-      tagId: tag,
+      direction:
+        upcoming || sort === 'title' || sort === 'oldest' ? 'ASC' : 'DESC',
+      studioIds: studio,
+      performerIds: performer,
+      tagIds: [...(tags ?? []), ...(tag ? [tag] : [])],
+      date: upcoming
+        ? { value: today, modifier: 'GREATER_THAN' }
+        : releaseDate
+          ? {
+              value: releaseDate,
+              modifier: released === 'before' ? 'LESS_THAN' : 'GREATER_THAN',
+            }
+          : undefined,
     });
 
     return res.status(200).json(await mapSceneList(list, page));
@@ -197,6 +240,76 @@ sceneRoutes.get('/search', async (req, res, next) => {
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene search results.', {
       query,
+    });
+  }
+});
+
+const TRENDING_STUDIO_LIMIT = 20;
+
+// Studios (or their networks) ranked by how many trending scenes they have
+sceneRoutes.get('/trending-studios', async (req, res, next) => {
+  const type = req.query.type === 'networks' ? 'networks' : 'studios';
+
+  try {
+    const studios = await StashDbAPI.fromSettings().getTrendingStudios();
+    const counts = new Map<string, SceneFilterDetails & { count: number }>();
+
+    for (const studio of studios) {
+      const entry = type === 'networks' ? studio.parent : studio;
+      if (!entry) {
+        continue;
+      }
+      const current = counts.get(entry.id);
+      counts.set(entry.id, {
+        id: entry.id,
+        name: entry.name,
+        imageUrl: entry.imageUrl,
+        count: (current?.count ?? 0) + 1,
+      });
+    }
+
+    return res.status(200).json(
+      [...counts.values()]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, TRENDING_STUDIO_LIMIT)
+        .map(({ id, name, imageUrl }) => ({ id, name, imageUrl }))
+    );
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve trending studios.', {
+      type,
+    });
+  }
+});
+
+const lookupQuery = z.object({ query: z.string().trim().min(1) });
+
+// Autocomplete for the scene filters
+sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
+  const parsed = lookupQuery.safeParse(req.query);
+  const { type } = req.params;
+
+  if (!['studios', 'performers', 'tags'].includes(type)) {
+    return next({ status: 404, message: 'Not found.' });
+  }
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'A query is required.' });
+  }
+
+  try {
+    const stashDb = StashDbAPI.fromSettings();
+    const results =
+      type === 'studios'
+        ? await stashDb.searchStudios(parsed.data.query)
+        : type === 'performers'
+          ? await stashDb.searchPerformers(parsed.data.query)
+          : await stashDb.searchTags(parsed.data.query);
+
+    return res.status(200).json(results);
+  } catch (e) {
+    return handleError(e, next, 'Unable to search StashDB.', {
+      type,
+      query: parsed.data.query,
     });
   }
 });

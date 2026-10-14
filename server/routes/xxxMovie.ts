@@ -39,8 +39,9 @@ const discoverQuery = z.object({
   performer: z.coerce.number().int().positive().optional(),
   tags: ids.optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
-  releasedFrom: date.optional(),
-  releasedTo: date.optional(),
+  // ThePornDB takes one date bound, so both sources use one here
+  released: z.enum(['after', 'before']).optional(),
+  releaseDate: date.optional(),
   upcoming: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
@@ -90,10 +91,10 @@ const discoverTpdb = async (
   let dateBound: TpdbMovieQuery['date'];
   if (query.upcoming) {
     dateBound = { value: today(), operation: '>' };
-  } else if (query.releasedFrom) {
-    dateBound = { value: query.releasedFrom, operation: '>=' };
+  } else if (query.releaseDate && query.released !== 'before') {
+    dateBound = { value: query.releaseDate, operation: '>=' };
   } else {
-    dateBound = { value: query.releasedTo ?? today(), operation: '<=' };
+    dateBound = { value: query.releaseDate ?? today(), operation: '<=' };
   }
 
   const list = await TpdbAPI.fromSettings().getMovies({
@@ -143,15 +144,23 @@ const discoverTmdb = async (
     return { page: 1, totalPages: 0, totalResults: 0, results: [] };
   }
 
+  const after =
+    query.releaseDate && query.released !== 'before'
+      ? query.releaseDate
+      : undefined;
+  const before =
+    query.releaseDate && query.released === 'before'
+      ? query.releaseDate
+      : undefined;
   const releasedFrom = query.upcoming
     ? today()
-    : (query.releasedFrom ?? (query.year ? `${query.year}-01-01` : undefined));
+    : (after ?? (query.year ? `${query.year}-01-01` : undefined));
   const releasedTo = query.upcoming
     ? undefined
-    : (query.releasedTo ??
+    : (before ??
       (query.year
         ? `${query.year}-12-31`
-        : query.sort === 'released'
+        : query.sort === 'released' && !after
           ? today()
           : undefined));
 
@@ -176,12 +185,15 @@ const discoverTmdb = async (
     page: data.page,
     totalPages: data.total_pages,
     totalResults: data.total_results,
-    results: data.results.map((result) =>
-      mapMovieResult(
-        result,
-        media.find((m) => m.tmdbId === result.id && m.mediaType === 'movie')
-      )
-    ),
+    // Adult studios also release non-adult titles, which Radarr would get
+    results: data.results
+      .filter((result) => result.adult)
+      .map((result) =>
+        mapMovieResult(
+          result,
+          media.find((m) => m.tmdbId === result.id && m.mediaType === 'movie')
+        )
+      ),
   };
 };
 

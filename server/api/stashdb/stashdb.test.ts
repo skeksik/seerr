@@ -77,12 +77,25 @@ describe('StashDbAPI', () => {
       { data: { queryScenes: { count: 0, scenes: [] } } },
     ]);
 
-    await api.queryScenes({ studioId: 'studio', sort: 'DATE' });
+    await api.queryScenes({
+      studioIds: ['studio'],
+      tagIds: ['a', 'b'],
+      sort: 'DATE',
+      date: { value: '2026-01-01', modifier: 'GREATER_THAN' },
+    });
 
     const { input } = JSON.parse(api.requests[0].data).variables;
     assert.deepStrictEqual(input.studios, {
       value: ['studio'],
       modifier: 'INCLUDES',
+    });
+    assert.deepStrictEqual(input.tags, {
+      value: ['a', 'b'],
+      modifier: 'INCLUDES_ALL',
+    });
+    assert.deepStrictEqual(input.date, {
+      value: '2026-01-01',
+      modifier: 'GREATER_THAN',
     });
     assert.strictEqual(input.performers, undefined);
     assert.strictEqual(input.sort, 'DATE');

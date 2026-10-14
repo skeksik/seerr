@@ -5,6 +5,7 @@ import { withProperties } from '@app/utils/typeHelpers';
 import { MediaStatus } from '@server/constants/media';
 import type { XxxMovieResult } from '@server/models/XxxMovie';
 import Link from 'next/link';
+import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 interface XxxMovieCardProps {
@@ -16,6 +17,8 @@ interface XxxMovieCardProps {
 const XxxMovieCard = ({ movie, canExpand = false }: XxxMovieCardProps) => {
   const intl = useIntl();
   const status = movie.mediaInfo?.status;
+  // ThePornDB's CDN fails now and then; show the title instead
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <div
@@ -27,7 +30,7 @@ const XxxMovieCard = ({ movie, canExpand = false }: XxxMovieCardProps) => {
         className="group relative block transform-gpu overflow-hidden rounded-xl bg-gray-800 bg-cover shadow outline-none ring-1 ring-gray-700 transition duration-300 hover:scale-105 hover:shadow-lg hover:ring-gray-500 focus-visible:ring-gray-500"
         style={{ paddingBottom: '150%' }}
       >
-        {movie.posterUrl ? (
+        {movie.posterUrl && !imageFailed ? (
           <CachedImage
             type="tpdb"
             className="absolute inset-0 h-full w-full"
@@ -35,6 +38,7 @@ const XxxMovieCard = ({ movie, canExpand = false }: XxxMovieCardProps) => {
             src={movie.posterUrl}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center p-3 text-center text-sm text-gray-400">

@@ -2,6 +2,7 @@ import ExternalAPI from '@server/api/externalapi';
 import type {
   StashDbGraphqlResponse,
   StashDbPerformer,
+  StashDbPerformerSummary,
   StashDbScene,
   StashDbSceneList,
   StashDbSceneSort,
@@ -56,9 +57,20 @@ export interface StashDbSceneQuery {
   perPage?: number;
   sort?: StashDbSceneSort;
   direction?: 'ASC' | 'DESC';
-  studioId?: string;
-  performerId?: string;
-  tagId?: string;
+  // Any of these studios
+  studioIds?: string[];
+  // All of these performers and tags
+  performerIds?: string[];
+  tagIds?: string[];
+  // stash-box takes a single date bound
+  date?: { value: string; modifier: 'GREATER_THAN' | 'LESS_THAN' };
+}
+
+export interface StashDbLookup {
+  id: string;
+  name: string;
+  disambiguation?: string | null;
+  imageUrl?: string;
 }
 
 class StashDbAPI extends ExternalAPI {
@@ -155,12 +167,15 @@ class StashDbAPI extends ExternalAPI {
     perPage = 20,
     sort = 'TRENDING',
     direction = 'DESC',
-    studioId,
-    performerId,
-    tagId,
+    studioIds,
+    performerIds,
+    tagIds,
+    date,
   }: StashDbSceneQuery = {}): Promise<StashDbSceneList> {
-    const includes = (id?: string) =>
-      id ? { value: [id], modifier: 'INCLUDES' } : undefined;
+    const criterion = (
+      ids: string[] | undefined,
+      modifier: 'INCLUDES' | 'INCLUDES_ALL'
+    ) => (ids?.length ? { value: ids, modifier } : undefined);
 
     const data = await this.query<{ queryScenes: StashDbSceneList }>(
       `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${SCENE_LIST_FIELDS} } }`,
@@ -170,9 +185,10 @@ class StashDbAPI extends ExternalAPI {
           per_page: perPage,
           sort,
           direction,
-          studios: includes(studioId),
-          performers: includes(performerId),
-          tags: includes(tagId),
+          studios: criterion(studioIds, 'INCLUDES'),
+          performers: criterion(performerIds, 'INCLUDES_ALL'),
+          tags: criterion(tagIds, 'INCLUDES_ALL'),
+          date,
         },
       },
       LIST_TTL
@@ -213,6 +229,103 @@ class StashDbAPI extends ExternalAPI {
     );
 
     return data.findStudio;
+  }
+
+  // Studios behind the trending scenes, most frequent first
+  public async getTrendingStudios(): Promise<
+    {
+      id: string;
+      name: string;
+      imageUrl?: string;
+      parent?: { id: string; name: string; imageUrl?: string };
+    }[]
+  > {
+    type StudioRef = { id: string; name: string; images: { url: string }[] };
+    const data = await this.query<{
+      queryScenes: {
+        scenes: { studio?: (StudioRef & { parent?: StudioRef }) | null }[];
+      };
+    }>(
+      `query {
+        queryScenes(input: { sort: TRENDING, direction: DESC, per_page: 100 }) {
+          scenes {
+            studio { id name images { url } parent { id name images { url } } }
+          }
+        }
+      }`,
+      {},
+      LIST_TTL
+    );
+
+    return data.queryScenes.scenes.flatMap(({ studio }) =>
+      studio
+        ? [
+            {
+              id: studio.id,
+              name: studio.name,
+              imageUrl: studio.images[0]?.url,
+              parent: studio.parent
+                ? {
+                    id: studio.parent.id,
+                    name: studio.parent.name,
+                    imageUrl: studio.parent.images[0]?.url,
+                  }
+                : undefined,
+            },
+          ]
+        : []
+    );
+  }
+
+  public async searchStudios(term: string): Promise<StashDbLookup[]> {
+    const data = await this.query<{
+      searchStudio: { id: string; name: string; parent?: { name: string } }[];
+    }>(
+      'query ($term: String!) { searchStudio(term: $term, limit: 25) { id name parent { name } } }',
+      { term },
+      LIST_TTL
+    );
+
+    return data.searchStudio.map((studio) => ({
+      id: studio.id,
+      name: studio.name,
+      disambiguation: studio.parent?.name,
+    }));
+  }
+
+  public async searchPerformers(term: string): Promise<StashDbLookup[]> {
+    const data = await this.query<{
+      searchPerformers: {
+        performers: (StashDbPerformerSummary & { disambiguation?: string })[];
+      };
+    }>(
+      `query ($term: String!) {
+        searchPerformers(term: $term, per_page: 25) {
+          performers { id name disambiguation gender images { ${IMAGE_FIELDS} } }
+        }
+      }`,
+      { term },
+      LIST_TTL
+    );
+
+    return data.searchPerformers.performers.map((performer) => ({
+      id: performer.id,
+      name: performer.name,
+      disambiguation: performer.disambiguation,
+      imageUrl: performer.images[0]?.url,
+    }));
+  }
+
+  public async searchTags(term: string): Promise<StashDbLookup[]> {
+    const data = await this.query<{
+      searchTag: { id: string; name: string }[];
+    }>(
+      'query ($term: String!) { searchTag(term: $term, limit: 25) { id name } }',
+      { term },
+      LIST_TTL
+    );
+
+    return data.searchTag;
   }
 
   public async getTag(id: string): Promise<StashDbTag | null> {

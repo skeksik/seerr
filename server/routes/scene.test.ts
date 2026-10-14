@@ -259,10 +259,37 @@ describe('GET /scene/discover', () => {
       perPage: 20,
       sort: 'DATE',
       direction: 'DESC',
-      studioId: '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10',
-      performerId: undefined,
-      tagId: undefined,
+      studioIds: ['6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'],
+      performerIds: undefined,
+      tagIds: [],
+      date: undefined,
     });
+  });
+
+  it('maps release date bounds and upcoming scenes', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    await agent.get(
+      `/scene/discover?released=before&releaseDate=2026-01-01&tags=${SCENE_ID},${SCENE_ID}`
+    );
+    await agent.get('/scene/discover?upcoming=true');
+
+    const [filtered, upcoming] = queryScenes.mock.calls.map(
+      (call) => call.arguments[0]
+    );
+    assert.deepStrictEqual(filtered?.date, {
+      value: '2026-01-01',
+      modifier: 'LESS_THAN',
+    });
+    assert.strictEqual(filtered?.tagIds?.length, 2);
+    assert.strictEqual(upcoming?.sort, 'DATE');
+    assert.strictEqual(upcoming?.direction, 'ASC');
+    assert.strictEqual(upcoming?.date?.modifier, 'GREATER_THAN');
   });
 
   it('rejects unknown sorts', async () => {

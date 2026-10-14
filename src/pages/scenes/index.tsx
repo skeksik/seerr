@@ -1,8 +1,8 @@
-import Scenes from '@app/components/Scenes';
+import SceneBrowse from '@app/components/Scenes/SceneBrowse';
 import type { NextPage } from 'next';
 
 const ScenesPage: NextPage = () => {
-  return <Scenes />;
+  return <SceneBrowse />;
 };
 
 export default ScenesPage;

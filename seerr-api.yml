@@ -7765,15 +7765,16 @@ paths:
           schema:
             type: number
         - in: query
-          name: releasedFrom
+          name: released
+          description: Whether releaseDate is a lower or upper bound
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
           schema:
             type: string
             example: '2026-01-01'
-        - in: query
-          name: releasedTo
-          schema:
-            type: string
-            example: '2026-12-31'
         - in: query
           name: upcoming
           schema:
@@ -7928,23 +7929,45 @@ paths:
           name: sort
           schema:
             type: string
-            enum: [trending, popularity, date, title, duration, created_at]
+            enum:
+              [trending, popularity, date, oldest, title, duration, created_at]
             default: trending
         - in: query
           name: studio
+          description: Comma-separated StashDB studio ids (any may match)
           schema:
             type: string
-            format: uuid
         - in: query
           name: performer
+          description: Comma-separated StashDB performer ids (all must match)
+          schema:
+            type: string
+        - in: query
+          name: tag
+          description: Single tag, kept for older links
           schema:
             type: string
             format: uuid
         - in: query
-          name: tag
+          name: tags
+          description: Comma-separated StashDB tag ids (all must match)
           schema:
             type: string
-            format: uuid
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+            example: '2026-01-01'
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
       responses:
         '200':
           description: Scene results
@@ -7952,6 +7975,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneList'
+  /scene/lookup/{type}:
+    get:
+      summary: Search StashDB studios, performers or tags
+      description: Autocomplete for the scene filters.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [studios, performers, tags]
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    disambiguation:
+                      type: string
+                      nullable: true
+                    imageUrl:
+                      type: string
+  /scene/trending-studios:
+    get:
+      summary: Trending StashDB studios or networks
+      description: Studios, or their parent networks, ranked by how many trending scenes they have.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [studios, networks]
+            default: studios
+      responses:
+        '200':
+          description: Studios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SceneFilterDetails'
   /scene/search:
     get:
       summary: Search scenes

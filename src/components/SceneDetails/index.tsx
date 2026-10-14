@@ -273,7 +273,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
                 (tag) => (
                   <Link
-                    href={`/scenes/browse?tag=${tag.id}`}
+                    href={`/scenes?tags=${tag.id}`}
                     key={`tag-${tag.id}`}
                     className="mb-2 mr-2 inline-flex last:mr-0"
                   >
