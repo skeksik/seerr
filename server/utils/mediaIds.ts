@@ -12,3 +12,13 @@ export const requireTmdbId = (media: {
 
   return media.tmdbId;
 };
+
+// App path of a media item; scenes are keyed by their StashDB id
+export const getMediaPath = (media: {
+  mediaType: MediaType;
+  tmdbId: number | null;
+  stashId?: string | null;
+}): string =>
+  media.mediaType === 'scene'
+    ? `/scene/${media.stashId}`
+    : `/${media.mediaType}/${media.tmdbId}`;

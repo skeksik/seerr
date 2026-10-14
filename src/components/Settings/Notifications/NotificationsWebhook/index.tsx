@@ -40,6 +40,7 @@ const defaultPayload = {
     imdbId: '{{media_imdbid}}',
     tmdbId: '{{media_tmdbid}}',
     tvdbId: '{{media_tvdbid}}',
+    stashId: '{{media_stashid}}',
     jellyfinMediaId: '{{media_jellyfinMediaId}}',
     status: '{{media_status}}',
     status4k: '{{media_status4k}}',

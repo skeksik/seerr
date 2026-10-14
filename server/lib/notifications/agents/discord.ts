@@ -11,6 +11,7 @@ import type { NotificationAgentDiscord } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
+import { getMediaPath } from '@server/utils/mediaIds';
 import axios from 'axios';
 import {
   Notification,
@@ -199,7 +200,7 @@ class DiscordAgent
       ? payload.issue
         ? `${applicationUrl}/issues/${payload.issue.id}`
         : payload.media
-          ? `${applicationUrl}/${payload.media.mediaType}/${payload.media.tmdbId}`
+          ? `${applicationUrl}${getMediaPath(payload.media)}`
           : undefined
       : undefined;
 

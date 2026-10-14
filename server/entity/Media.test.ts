@@ -5,7 +5,7 @@ import { isTmdbMedia, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { setupTestDb } from '@server/test/db';
-import { requireTmdbId } from '@server/utils/mediaIds';
+import { getMediaPath, requireTmdbId } from '@server/utils/mediaIds';
 
 setupTestDb();
 
@@ -68,5 +68,13 @@ describe('TMDB id helpers', () => {
   it('requireTmdbId returns the id or throws for scenes', () => {
     assert.strictEqual(requireTmdbId(movie), 603);
     assert.throws(() => requireTmdbId(scene), /has no TMDB ID/);
+  });
+
+  it('getMediaPath links scenes by stash id and others by TMDB id', () => {
+    assert.strictEqual(getMediaPath(movie), '/movie/603');
+    assert.strictEqual(
+      getMediaPath({ ...scene, stashId: 'abc' }),
+      '/scene/abc'
+    );
   });
 });

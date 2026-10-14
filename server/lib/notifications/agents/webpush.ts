@@ -10,6 +10,7 @@ import type { NotificationAgentConfig } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
+import { getMediaPath } from '@server/utils/mediaIds';
 import webpush from 'web-push';
 import { Notification, shouldSendAdminNotification } from '..';
 import type { NotificationAgent, NotificationPayload } from './agent';
@@ -77,9 +78,13 @@ class WebPushAgent
     const { embedPoster } = getSettings().notifications.agents.webpush;
 
     const mediaType = payload.media
-      ? payload.media.mediaType === MediaType.MOVIE
-        ? intl.formatMessage(globalMessages.movie)
-        : intl.formatMessage(globalMessages.series)
+      ? intl.formatMessage(
+          payload.media.mediaType === MediaType.MOVIE
+            ? globalMessages.movie
+            : payload.media.mediaType === MediaType.SCENE
+              ? globalMessages.scene
+              : globalMessages.series
+        )
       : undefined;
     const is4k = payload.request?.is4k;
     const quality = is4k ? '4K ' : '';
@@ -175,7 +180,7 @@ class WebPushAgent
     const actionUrl = payload.issue
       ? `/issues/${payload.issue.id}`
       : payload.media
-        ? `/${payload.media.mediaType}/${payload.media.tmdbId}`
+        ? getMediaPath(payload.media)
         : undefined;
 
     const actionUrlTitle = actionUrl

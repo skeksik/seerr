@@ -5,6 +5,7 @@ import type { NotificationAgentNtfy } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
+import { getMediaPath } from '@server/utils/mediaIds';
 import axios from 'axios';
 import { Notification, hasNotificationType } from '..';
 import type { NotificationAgent, NotificationPayload } from './agent';
@@ -96,7 +97,7 @@ class NtfyAgent
 
     let click;
     if (applicationUrl && payload.media) {
-      click = `${applicationUrl}/${payload.media.mediaType}/${payload.media.tmdbId}`;
+      click = `${applicationUrl}${getMediaPath(payload.media)}`;
     }
 
     const ntfyPayload: Record<string, unknown> = {
