@@ -1,5 +1,6 @@
 import SettingsLayout from '@app/components/Settings/SettingsLayout';
 import SettingsServices from '@app/components/Settings/SettingsServices';
+import SettingsStash from '@app/components/Settings/SettingsStash';
 import SettingsWhisparr from '@app/components/Settings/SettingsWhisparr';
 import useRouteGuard from '@app/hooks/useRouteGuard';
 import { Permission } from '@app/hooks/useUser';
@@ -11,6 +12,7 @@ const ServicesSettingsPage: NextPage = () => {
     <SettingsLayout>
       <SettingsServices />
       <SettingsWhisparr />
+      <SettingsStash />
     </SettingsLayout>
   );
 };

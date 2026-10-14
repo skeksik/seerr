@@ -170,6 +170,7 @@ const SceneRequestItem = ({
                 inProgress={(data.media.downloadStatus ?? []).length > 0}
                 mediaType="scene"
                 serviceUrl={data.media.serviceUrl}
+                plexUrl={data.media.mediaUrl}
               />
             )}
           </div>

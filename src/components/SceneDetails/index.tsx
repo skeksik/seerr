@@ -2,6 +2,7 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
+import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
@@ -16,6 +17,7 @@ import { Transition } from '@headlessui/react';
 import {
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
+  PlayIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
@@ -42,6 +44,7 @@ const messages = defineMessages('components.SceneDetails', {
   moreFromStudio: 'More from {studio}',
   minutes: '{minutes} min',
   showalltags: 'Show all {count} tags',
+  playonstash: 'Play on Stash',
 });
 
 // StashDB scenes often carry 70+ tags
@@ -143,6 +146,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               title={data.title}
               inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
               mediaType="scene"
+              plexUrl={data.mediaInfo?.mediaUrl}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
           </div>
@@ -159,6 +163,19 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           </span>
         </div>
         <div className="media-actions">
+          {data.mediaInfo?.mediaUrl && (
+            <div className="z-20 mr-2">
+              <PlayButton
+                links={[
+                  {
+                    text: intl.formatMessage(messages.playonstash),
+                    url: data.mediaInfo.mediaUrl,
+                    svg: <PlayIcon />,
+                  },
+                ]}
+              />
+            </div>
+          )}
           <a href={data.stashDbUrl} target="_blank" rel="noreferrer">
             <Button buttonType="ghost">
               <ArrowTopRightOnSquareIcon />

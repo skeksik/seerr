@@ -89,11 +89,13 @@ const StatusBadge = ({
     mediaLink = plexUrl;
     mediaLinkDescription = intl.formatMessage(messages.playonplex, {
       mediaServerName:
-        settings.currentSettings.mediaServerType === MediaServerType.EMBY
-          ? 'Emby'
-          : settings.currentSettings.mediaServerType === MediaServerType.PLEX
-            ? 'Plex'
-            : 'Jellyfin',
+        mediaType === 'scene'
+          ? 'Stash'
+          : settings.currentSettings.mediaServerType === MediaServerType.EMBY
+            ? 'Emby'
+            : settings.currentSettings.mediaServerType === MediaServerType.PLEX
+              ? 'Plex'
+              : 'Jellyfin',
     });
   } else if (hasPermission(Permission.MANAGE_REQUESTS)) {
     if (mediaType && tmdbId) {

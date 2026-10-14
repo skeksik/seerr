@@ -93,6 +93,7 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
               inProgress={(request.media.downloadStatus ?? []).length > 0}
               mediaType="scene"
               serviceUrl={request.media.serviceUrl}
+              plexUrl={request.media.mediaUrl}
             />
           )}
         </div>
