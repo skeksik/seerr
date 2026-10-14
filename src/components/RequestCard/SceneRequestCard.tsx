@@ -15,7 +15,8 @@ interface SceneRequestCardProps {
   request: NonFunctionProperties<MediaRequest>;
 }
 
-// Slider card for scene requests; same footprint as RequestCard
+// Slider card for scene requests; same footprint as RequestCard, whose
+// height comes from its poster (w-20/w-28 at 2:3, plus padding)
 const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
@@ -26,7 +27,7 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
   return (
     <div
       ref={ref}
-      className="relative flex h-full w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:w-96"
+      className="relative flex h-full min-h-[9.5rem] w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:min-h-[12.5rem] sm:w-96"
       data-testid="scene-request-card"
     >
       {item.backdropUrl && (
@@ -60,8 +61,25 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
         {hasPermission([Permission.MANAGE_REQUESTS, Permission.REQUEST_VIEW], {
           type: 'or',
         }) && (
-          <div className="card-field truncate font-semibold">
-            {request.requestedBy.displayName}
+          <div className="card-field">
+            <Link
+              href={`/users/${request.requestedBy.id}`}
+              className="group flex items-center"
+            >
+              <span className="avatar-sm">
+                <CachedImage
+                  type="avatar"
+                  src={request.requestedBy.avatar}
+                  alt=""
+                  className="avatar-sm object-cover"
+                  width={20}
+                  height={20}
+                />
+              </span>
+              <span className="truncate font-semibold group-hover:underline">
+                {request.requestedBy.displayName}
+              </span>
+            </Link>
           </div>
         )}
         <div className="mt-2 flex items-center text-sm sm:mt-1">

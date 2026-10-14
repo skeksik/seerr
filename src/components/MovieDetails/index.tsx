@@ -22,6 +22,7 @@ import PersonCard from '@app/components/PersonCard';
 import RequestButton from '@app/components/RequestButton';
 import Slider from '@app/components/Slider';
 import StatusBadge from '@app/components/StatusBadge';
+import WhisparrButton from '@app/components/WhisparrButton';
 import useDeepLinks from '@app/hooks/useDeepLinks';
 import useLocale from '@app/hooks/useLocale';
 import useSettings from '@app/hooks/useSettings';
@@ -632,6 +633,12 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
                 )}
               </>
             )}
+          {data.mediaInfo?.isAdult && (
+            <WhisparrButton
+              serviceUrl={data.mediaInfo.serviceUrl}
+              className="z-20 mr-2"
+            />
+          )}
           <div className="z-20">
             <PlayButton links={mediaLinks} />
           </div>

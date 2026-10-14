@@ -9,6 +9,7 @@ import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import StatusBadge from '@app/components/StatusBadge';
+import WhisparrButton from '@app/components/WhisparrButton';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -196,6 +197,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <span>{intl.formatMessage(messages.viewonstashdb)}</span>
             </Button>
           </a>
+          <WhisparrButton serviceUrl={data.mediaInfo?.serviceUrl} />
           {canRequest && (
             <Button
               buttonType="primary"

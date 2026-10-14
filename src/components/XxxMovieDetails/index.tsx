@@ -7,6 +7,7 @@ import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
+import WhisparrButton from '@app/components/WhisparrButton';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -175,6 +176,7 @@ const XxxMovieDetailsContent = () => {
               <span>{intl.formatMessage(messages.viewontpdb)}</span>
             </Button>
           </a>
+          <WhisparrButton serviceUrl={data.mediaInfo?.serviceUrl} />
           {canRequest && (
             <Button
               buttonType="primary"

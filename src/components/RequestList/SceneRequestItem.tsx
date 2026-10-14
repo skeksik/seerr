@@ -29,6 +29,7 @@ import useSWR, { mutate } from 'swr';
 const messages = defineMessages('components.RequestList.SceneRequestItem', {
   requested: 'Requested',
   requestedby: '{date} by {user}',
+  modified: 'Modified',
   profileName: 'Profile',
   deleterequest: 'Delete Request',
   cancelRequest: 'Cancel Request',
@@ -107,6 +108,32 @@ const SceneRequestItem = ({
         : messages.unknownxxxmovie
     );
   const href = item.href;
+  // Avatar and name, as on movie and series requests
+  const userLink = (user: {
+    id: number;
+    avatar: string;
+    displayName: string;
+  }) => (
+    <Link
+      key="user"
+      href={`/users/${user.id}`}
+      className="group flex items-center truncate"
+    >
+      <span className="avatar-sm ml-1.5">
+        <CachedImage
+          type="avatar"
+          src={user.avatar}
+          alt=""
+          className="avatar-sm object-cover"
+          width={20}
+          height={20}
+        />
+      </span>
+      <span className="truncate text-sm font-semibold group-hover:text-white group-hover:underline">
+        {user.displayName}
+      </span>
+    </Link>
+  );
   const relativeDate = (date: Date) => (
     <FormattedRelativeTime
       key="date"
@@ -202,18 +229,23 @@ const SceneRequestItem = ({
             <span className="flex truncate text-sm text-gray-300">
               {intl.formatMessage(messages.requestedby, {
                 date: relativeDate(data.createdAt),
-                user: (
-                  <Link
-                    key="user"
-                    href={`/users/${data.requestedBy.id}`}
-                    className="ml-1.5 truncate text-sm font-semibold hover:text-white hover:underline"
-                  >
-                    {data.requestedBy.displayName}
-                  </Link>
-                ),
+                user: userLink(data.requestedBy),
               })}
             </span>
           </div>
+          {data.modifiedBy && (
+            <div className="card-field">
+              <span className="card-field-name">
+                {intl.formatMessage(messages.modified)}
+              </span>
+              <span className="flex truncate text-sm text-gray-300">
+                {intl.formatMessage(messages.requestedby, {
+                  date: relativeDate(data.updatedAt),
+                  user: userLink(data.modifiedBy),
+                })}
+              </span>
+            </div>
+          )}
           {request.profileName && (
             <div className="card-field">
               <span className="card-field-name">

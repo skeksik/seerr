@@ -598,18 +598,24 @@ const TitleCard = ({
                         : 'pb-11'
                     }`}
                   >
-                    {(subtitle || year) && (
-                      <div className="truncate text-sm font-medium">
-                        {subtitle || year}
-                      </div>
-                    )}
+                    {/* Scenes keep studio and year on one line for room */}
+                    {(isScene ? [subtitle || year] : [year, subtitle])
+                      .filter(Boolean)
+                      .map((line) => (
+                        <div
+                          key={line}
+                          className="truncate text-sm font-medium"
+                        >
+                          {line}
+                        </div>
+                      ))}
 
                     <h1
                       className={`whitespace-normal font-bold leading-tight ${
                         isScene ? 'text-lg' : 'text-xl'
                       }`}
                       style={{
-                        WebkitLineClamp: isScene ? 2 : 3,
+                        WebkitLineClamp: isScene ? 1 : 3,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

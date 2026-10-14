@@ -395,54 +395,57 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           </div>
         </div>
       </div>
-      {tpdbMatch && (
-        <XxxMovieSlider
-          sliderKey={`xxx-${type}-${tpdbMatch.id}`}
-          title={intl.formatMessage(messages.xxxMovies)}
-          url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&${type}=${tpdbMatch.id}`}
-          // The XXX Movies tab lists TMDB movies with the TMDB source
-          linkUrl={
-            currentSettings.xxxMovieSource === 'tpdb'
-              ? `/xxxmovies?${type}=${tpdbMatch.id}`
-              : undefined
-          }
-          hideWhenEmpty
-        />
-      )}
-      <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
-        <div className="slider-header">
-          <div className="slider-title">
-            <span>{intl.formatMessage(messages.scenes)}</span>
+      {/* Above the backdrop carousel, which spans the top of the page */}
+      <div className="relative z-10">
+        {tpdbMatch && (
+          <XxxMovieSlider
+            sliderKey={`xxx-${type}-${tpdbMatch.id}`}
+            title={intl.formatMessage(messages.xxxMovies)}
+            url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&${type}=${tpdbMatch.id}`}
+            // The XXX Movies tab lists TMDB movies with the TMDB source
+            linkUrl={
+              currentSettings.xxxMovieSource === 'tpdb'
+                ? `/xxxmovies?${type}=${tpdbMatch.id}`
+                : undefined
+            }
+            hideWhenEmpty
+          />
+        )}
+        <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
+          <div className="slider-header">
+            <div className="slider-title">
+              <span>{intl.formatMessage(messages.scenes)}</span>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-grow sm:mr-2 lg:flex-grow-0">
+            <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
+              <BarsArrowDownIcon className="h-6 w-6" />
+            </span>
+            <select
+              id="sortBy"
+              name="sortBy"
+              className="rounded-r-only"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+            >
+              {sortOptions.map(([value, message]) => (
+                <option key={value} value={value}>
+                  {intl.formatMessage(message)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-        <div className="mt-2 flex flex-grow sm:mr-2 lg:flex-grow-0">
-          <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
-            <BarsArrowDownIcon className="h-6 w-6" />
-          </span>
-          <select
-            id="sortBy"
-            name="sortBy"
-            className="rounded-r-only"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            {sortOptions.map(([value, message]) => (
-              <option key={value} value={value}>
-                {intl.formatMessage(message)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SceneList
+          scenes={titles}
+          isEmpty={isEmpty}
+          isLoading={
+            isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
+          }
+          isReachingEnd={isReachingEnd}
+          onScrollBottom={fetchMore}
+        />
       </div>
-      <SceneList
-        scenes={titles}
-        isEmpty={isEmpty}
-        isLoading={
-          isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
-        }
-        isReachingEnd={isReachingEnd}
-        onScrollBottom={fetchMore}
-      />
     </>
   );
 };
