@@ -17,6 +17,7 @@ import Media from '@server/entity/Media';
 import MediaRequest from '@server/entity/MediaRequest';
 import type Season from '@server/entity/Season';
 import { User } from '@server/entity/User';
+import { syncSceneAvailability } from '@server/lib/sceneAvailability';
 import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import { mediaExistsInWhisparr } from '@server/lib/whisparrMedia';
@@ -132,6 +133,11 @@ class AvailabilitySync {
       for await (const media of this.loadAvailableMediaPaginated(pageSize)) {
         if (!this.running) {
           throw new Error('Job aborted');
+        }
+
+        if (media.mediaType === 'scene') {
+          await syncSceneAvailability(media);
+          continue;
         }
 
         // Check plex, radarr, and sonarr for that specific media and

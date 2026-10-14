@@ -11,6 +11,7 @@ import {
 import { plexFullScanner, plexRecentScanner } from '@server/lib/scanners/plex';
 import { radarrScanner } from '@server/lib/scanners/radarr';
 import { sonarrScanner } from '@server/lib/scanners/sonarr';
+import { stashScanner } from '@server/lib/scanners/stash';
 import { whisparrScanner } from '@server/lib/scanners/whisparr';
 import type { JobId } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
@@ -175,6 +176,20 @@ export const startJobs = (): void => {
     }),
     running: () => whisparrScanner.status().running,
     cancelFn: () => whisparrScanner.cancel(),
+  });
+
+  scheduledJobs.push({
+    id: 'stash-scan',
+    name: 'Stash Scan',
+    type: 'process',
+    interval: 'minutes',
+    cronSchedule: jobs['stash-scan'].schedule,
+    job: schedule.scheduleJob(jobs['stash-scan'].schedule, () => {
+      logger.info('Starting scheduled job: Stash Scan', { label: 'Jobs' });
+      stashScanner.run();
+    }),
+    running: () => stashScanner.status().running,
+    cancelFn: () => stashScanner.cancel(),
   });
 
   // Run full sonarr scan every 24 hours

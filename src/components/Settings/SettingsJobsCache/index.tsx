@@ -87,6 +87,7 @@ const messages: { [messageName: string]: MessageDescriptor } = defineMessages(
     'radarr-scan': 'Radarr Scan',
     'sonarr-scan': 'Sonarr Scan',
     'whisparr-scan': 'Whisparr Scan',
+    'stash-scan': 'Stash Scan',
     'download-sync': 'Download Sync',
     'download-sync-reset': 'Download Sync Reset',
     'image-cache-cleanup': 'Image Cache Cleanup',
