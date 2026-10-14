@@ -11,19 +11,17 @@ import BaseScanner from '@server/lib/scanners/baseScanner';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import { uniqWith } from 'lodash';
-import type { FindOptionsWhere } from 'typeorm';
-import { Brackets } from 'typeorm';
 
 type SyncStatus = StatusBase & {
   currentServer: WhisparrSettings;
   servers: WhisparrSettings[];
 };
 
-// Marks scenes and adult movies requested through Seerr as processing or
-// available from Whisparr. Everything else Whisparr monitors stays out of
-// Seerr, so performer and studio monitoring doesn't flood it with titles
-// nobody asked for. Only monitored items are scanned; see
-// WhisparrAPI.getMonitoredItems.
+// Links scenes and adult movies to Whisparr and marks them available once
+// Whisparr has their file. Only titles requested through Seerr show as
+// processing: performer and studio monitoring adds many more, which stay
+// requestable like a series Sonarr follows. Only monitored items are
+// scanned; see WhisparrAPI.getMonitoredItems.
 class WhisparrScanner
   extends BaseScanner<WhisparrItem>
   implements RunnableScanner<SyncStatus>
@@ -81,8 +79,6 @@ class WhisparrScanner
         this.items = await whisparr.getMonitoredItems();
         await this.loop(this.processItem.bind(this), { sessionId });
       }
-
-      await this.pruneUnrequested();
 
       this.log('Whisparr scan complete', 'info');
     } catch (e) {
@@ -151,23 +147,32 @@ class WhisparrScanner
     const idField = mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
 
     await this.asyncLock.dispatch(`${mediaType}:${externalId}`, async () => {
-      const media = await this.findRequested({
-        [idField]: externalId,
-        mediaType,
-      });
-
-      if (!media) {
-        this.log(`Not requested through Seerr, skipping ${item.title}`);
-        return;
-      }
+      const media =
+        (await mediaRepository.findOne({
+          where: { [idField]: externalId, mediaType },
+          relations: { requests: true },
+        })) ??
+        new Media({
+          mediaType,
+          [idField]: externalId,
+          tmdbId: null,
+          isAdult: mediaType === MediaType.XXX_MOVIE,
+        });
+      const requested = (media.requests ?? []).length > 0;
 
       const statusField = is4k ? 'status4k' : 'status';
       const previous = media[statusField] ?? MediaStatus.UNKNOWN;
       const next = item.hasFile
         ? MediaStatus.AVAILABLE
-        : previous === MediaStatus.AVAILABLE || previous === MediaStatus.DELETED
-          ? previous
-          : MediaStatus.PROCESSING;
+        : !requested
+          ? // Earlier scans marked every monitored title processing
+            previous === MediaStatus.PROCESSING
+            ? MediaStatus.UNKNOWN
+            : previous
+          : previous === MediaStatus.AVAILABLE ||
+              previous === MediaStatus.DELETED
+            ? previous
+            : MediaStatus.PROCESSING;
 
       const serviceFields = {
         [is4k ? 'serviceId4k' : 'serviceId']: this.currentServer.id,
@@ -192,6 +197,8 @@ class WhisparrScanner
 
       Object.assign(media, serviceFields);
       media[statusField] = next;
+      // Loaded to tell requested titles apart; saving must not touch them
+      delete (media as Partial<Media>).requests;
 
       if (next === MediaStatus.AVAILABLE && !media.mediaAddedAt) {
         media.mediaAddedAt = item.movieFile?.dateAdded
@@ -204,91 +211,13 @@ class WhisparrScanner
     });
   }
 
-  // The media row of a title someone requested through Seerr
-  private async findRequested(
-    where: FindOptionsWhere<Media>
-  ): Promise<Media | null> {
-    const media = await getRepository(Media).findOne({
-      where,
-      relations: { requests: true },
-    });
-
-    return media && (media.requests ?? []).length > 0 ? media : null;
-  }
-
-  // Earlier scans tracked everything Whisparr monitors. Rows nobody
-  // requested, watchlisted, blocklisted or reported lose their Whisparr
-  // status; rows with nothing else to them are removed.
-  private async pruneUnrequested(): Promise<void> {
-    const mediaRepository = getRepository(Media);
-    const orphans = await mediaRepository
-      .createQueryBuilder('media')
-      .leftJoin('media.requests', 'request')
-      .leftJoin('media.watchlists', 'watchlist')
-      .leftJoin('media.issues', 'issue')
-      .where(
-        new Brackets((qb) =>
-          qb
-            .where('media.mediaType IN (:...adultTypes)', {
-              adultTypes: [MediaType.SCENE, MediaType.XXX_MOVIE],
-            })
-            .orWhere('(media.mediaType = :movie AND media.isAdult = :adult)', {
-              movie: MediaType.MOVIE,
-              adult: true,
-            })
-        )
-      )
-      .andWhere('request.id IS NULL')
-      .andWhere('watchlist.id IS NULL')
-      .andWhere('issue.id IS NULL')
-      .andWhere('media.status != :blocklisted', {
-        blocklisted: MediaStatus.BLOCKLISTED,
-      })
-      .andWhere(
-        '(media.serviceId IS NOT NULL OR media.serviceId4k IS NOT NULL)'
-      )
-      .getMany();
-
-    for (const media of orphans) {
-      // Still in a media server library: only the Whisparr link goes
-      if (media.stashMediaId || media.ratingKey || media.jellyfinMediaId) {
-        media.serviceId = null;
-        media.serviceId4k = null;
-        media.externalServiceId = null;
-        media.externalServiceId4k = null;
-        media.externalServiceSlug = null;
-        media.externalServiceSlug4k = null;
-        if (media.status === MediaStatus.PROCESSING) {
-          media.status = MediaStatus.UNKNOWN;
-        }
-        if (media.status4k === MediaStatus.PROCESSING) {
-          media.status4k = MediaStatus.UNKNOWN;
-        }
-        await mediaRepository.save(media);
-      } else {
-        await mediaRepository.remove(media);
-      }
-    }
-
-    if (orphans.length > 0) {
-      this.log(
-        `Stopped tracking ${orphans.length} title(s) not requested through Seerr`,
-        'info'
-      );
-    }
-  }
-
   private async processAdultMovie(item: WhisparrItem, is4k: boolean) {
     const mediaRepository = getRepository(Media);
-    const existing = await this.findRequested({
-      tmdbId: item.tmdbId,
-      mediaType: MediaType.MOVIE,
+    const existing = await mediaRepository.findOne({
+      where: { tmdbId: item.tmdbId, mediaType: MediaType.MOVIE },
+      relations: { requests: true },
     });
-
-    if (!existing) {
-      this.log(`Not requested through Seerr, skipping ${item.title}`);
-      return;
-    }
+    const requested = (existing?.requests ?? []).length > 0;
 
     // Radarr already manages this movie; leave its service ids alone
     if (
@@ -305,7 +234,7 @@ class WhisparrScanner
       externalServiceId: item.id,
       externalServiceSlug: item.titleSlug,
       title: item.title,
-      processing: !item.hasFile && item.monitored,
+      processing: !item.hasFile && item.monitored && requested,
       hasFile: item.hasFile,
     });
 

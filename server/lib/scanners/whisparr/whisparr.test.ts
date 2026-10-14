@@ -12,7 +12,6 @@ import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
-import { Watchlist } from '@server/entity/Watchlist';
 import { whisparrScanner } from '@server/lib/scanners/whisparr';
 import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
@@ -207,75 +206,43 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
   });
 
-  it('skips titles nobody requested through Seerr', async () => {
+  it('links titles nobody requested without marking them requested', async () => {
+    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
+    // An earlier scan marked this one processing
+    await getRepository(Media).save(
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: OTHER_ID,
+        tmdbId: null,
+        status: MediaStatus.PROCESSING,
+      })
+    );
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
       item({ id: 14, hasFile: false }),
-      movieItem({ id: 15, tmdbId: 0 }),
-      item({ id: 16, itemType: 'movie', stashId: null, tmdbId: 777 }),
+      item({ id: 15, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
+      movieItem({ id: 16, tmdbId: 0 }),
+      item({
+        id: 17,
+        itemType: 'movie',
+        stashId: null,
+        tmdbId: 777,
+        hasFile: false,
+      }),
     ]);
 
     await whisparrScanner.run();
 
-    assert.strictEqual(await getRepository(Media).count(), 0);
-  });
-
-  it('stops tracking titles earlier scans added without a request', async () => {
-    const mediaRepository = getRepository(Media);
-    // Added by an earlier scan: dropped
-    await mediaRepository.save(
-      new Media({
-        mediaType: MediaType.XXX_MOVIE,
-        tpdbId: TPDB_ID,
-        tmdbId: null,
-        isAdult: true,
-        status: MediaStatus.PROCESSING,
-        serviceId: 3,
-        externalServiceId: 20,
-      })
-    );
-    // In the Stash library: only the Whisparr link goes
-    await mediaRepository.save(
-      new Media({
-        mediaType: MediaType.SCENE,
-        stashId: SCENE_ID,
-        tmdbId: null,
-        stashMediaId: '12',
-        status: MediaStatus.AVAILABLE,
-        serviceId: 3,
-        externalServiceId: 21,
-      })
-    );
-    // On someone's watchlist: kept as is
-    const watched = await mediaRepository.save(
-      new Media({
-        mediaType: MediaType.SCENE,
-        stashId: '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10',
-        tmdbId: null,
-        status: MediaStatus.PROCESSING,
-        serviceId: 3,
-      })
-    );
-    await getRepository(Watchlist).save(
-      new Watchlist({
-        mediaType: MediaType.SCENE,
-        externalId: watched.stashId,
-        tmdbId: null,
-        title: 'Watched',
-        media: watched,
-        requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
-      })
-    );
-    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => []);
-
-    await whisparrScanner.run();
-
-    assert.strictEqual(await Media.getMediaByTpdbId(TPDB_ID), undefined);
-    const inStash = await Media.getMediaByStashId(SCENE_ID);
-    assert.strictEqual(inStash?.status, MediaStatus.AVAILABLE);
-    assert.strictEqual(inStash?.serviceId, null);
+    const monitored = await Media.getMediaByStashId(SCENE_ID);
+    assert.strictEqual(monitored?.status, MediaStatus.UNKNOWN);
+    assert.strictEqual(monitored?.externalServiceId, 14);
+    const stale = await Media.getMediaByStashId(OTHER_ID);
+    assert.strictEqual(stale?.status, MediaStatus.UNKNOWN);
+    // Downloaded titles are available whoever asked for them
     assert.strictEqual(
-      (await Media.getMediaByStashId(watched.stashId as string))?.serviceId,
-      3
+      (await Media.getMediaByTpdbId(TPDB_ID))?.status,
+      MediaStatus.AVAILABLE
     );
+    // TMDB movies without a file only get a row once requested
+    assert.strictEqual(await Media.getMedia(777, MediaType.MOVIE), undefined);
   });
 });
