@@ -2,7 +2,7 @@ import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
 import TautulliAPI from '@server/api/tautulli';
 import TheMovieDb from '@server/api/themoviedb';
-import { MediaStatus, MediaType } from '@server/constants/media';
+import { isTmdbMedia, MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import Season from '@server/entity/Season';
@@ -15,7 +15,6 @@ import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
-import { requireTmdbId } from '@server/utils/mediaIds';
 import { Router } from 'express';
 import type { FindOneOptions } from 'typeorm';
 import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
@@ -212,6 +211,14 @@ mediaRoutes.delete(
         where: { id: Number(req.params.id) },
       });
 
+      if (!isTmdbMedia(media)) {
+        // TODO(whisparr): remove scene files through Whisparr
+        return next({
+          status: 400,
+          message: 'Removing files is not supported for this media type.',
+        });
+      }
+
       const is4k = String(req.query.is4k) === 'true';
       const isMovie = media.mediaType === MediaType.MOVIE;
 
@@ -272,10 +279,10 @@ mediaRoutes.delete(
       }
 
       if (isMovie) {
-        await (service as RadarrAPI).removeMovie(requireTmdbId(media));
+        await (service as RadarrAPI).removeMovie(media.tmdbId);
       } else {
         const tmdb = new TheMovieDb();
-        const series = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
+        const series = await tmdb.getTvShow({ tvId: media.tmdbId });
         const tvdbId = series.external_ids.tvdb_id ?? media.tvdbId;
         if (!tvdbId) {
           throw new Error('TVDB ID not found');

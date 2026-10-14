@@ -8259,6 +8259,7 @@ paths:
               properties:
                 mediaType:
                   type: string
+                  enum: [movie, tv]
                 tmdbId:
                   type: number
                   example: 1

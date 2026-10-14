@@ -3,7 +3,7 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, type TmdbMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import OverrideRule from '@server/entity/OverrideRule';
@@ -77,7 +77,7 @@ overrideRuleRoutes.post<
   Record<string, string>,
   OverrideRulesResult,
   {
-    mediaType: MediaType;
+    mediaType: TmdbMediaType;
     is4k: boolean;
     tmdbId: number;
     requestUser: number;

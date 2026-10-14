@@ -111,7 +111,7 @@ describe('MediaRequest.request', () => {
   it('rejects a duplicate request that omits is4k', async () => {
     const requestRepository = getRepository(MediaRequest);
     const requester = await seedRequester(5);
-    const body = { mediaId: 66666, mediaType: MediaType.MOVIE };
+    const body = { mediaId: 66666, mediaType: MediaType.MOVIE as const };
 
     await MediaRequest.request(body, requester);
 

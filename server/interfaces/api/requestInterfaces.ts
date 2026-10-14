@@ -1,4 +1,4 @@
-import type { MediaType } from '@server/constants/media';
+import type { TmdbMediaType } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties, PaginatedResponse } from './common';
 
@@ -14,7 +14,7 @@ export interface RequestResultsResponse extends PaginatedResponse {
 }
 
 export type MediaRequestBody = {
-  mediaType: MediaType;
+  mediaType: TmdbMediaType;
   mediaId: number;
   tvdbId?: number;
   seasons?: number[] | 'all';

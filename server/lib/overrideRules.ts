@@ -4,7 +4,7 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, type TmdbMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import OverrideRule from '@server/entity/OverrideRule';
 import type { User } from '@server/entity/User';
@@ -24,7 +24,7 @@ async function overrideRules({
   tags = null,
   serviceId,
 }: {
-  mediaType: MediaType;
+  mediaType: TmdbMediaType;
   is4k: boolean;
   tmdbMedia: TmdbMovieDetails | TmdbTvDetails;
   requestUser: User;
