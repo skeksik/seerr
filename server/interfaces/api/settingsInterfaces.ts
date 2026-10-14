@@ -30,6 +30,7 @@ export interface PublicSettingsResponse {
   applicationTitle: string;
   applicationUrl: string;
   enableAdult: boolean;
+  xxxMovieSource: 'tpdb' | 'tmdb';
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;

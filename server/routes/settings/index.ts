@@ -48,6 +48,7 @@ import sonarrRoutes from './sonarr';
 import stashRoutes from './stash';
 import stashDbRoutes from './stashdb';
 import whisparrRoutes from './whisparr';
+import xxxMovieRoutes from './xxxMovies';
 
 const settingsRoutes = Router();
 
@@ -59,6 +60,7 @@ settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
 settingsRoutes.use('/stashdb', stashDbRoutes);
 settingsRoutes.use('/stash', stashRoutes);
+settingsRoutes.use('/xxxmovies', xxxMovieRoutes);
 
 const libraryUpdateSchema = z.object({
   enabled: z.boolean(),

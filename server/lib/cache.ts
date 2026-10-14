@@ -12,7 +12,8 @@ export type AvailableCacheIds =
   | 'plextv'
   | 'plexwatchlist'
   | 'tvdb'
-  | 'stashdb';
+  | 'stashdb'
+  | 'tpdb';
 
 const DEFAULT_TTL = 300;
 
@@ -53,6 +54,7 @@ const TVDB_MAX_KEYS = 500;
 
 // One key per scene, performer or studio, plus one per discover or search page.
 const STASHDB_MAX_KEYS = 2000;
+const TPDB_MAX_KEYS = 2000;
 
 export interface CacheStats {
   hits: number;
@@ -262,6 +264,10 @@ class CacheManager {
     stashdb: new Cache('stashdb', 'StashDB API', {
       stdTtl: 21600,
       max: STASHDB_MAX_KEYS,
+    }),
+    tpdb: new Cache('tpdb', 'ThePornDB API', {
+      stdTtl: 21600,
+      max: TPDB_MAX_KEYS,
     }),
   };
 

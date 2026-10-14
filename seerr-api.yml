@@ -2239,6 +2239,25 @@ components:
             - certification: 'PG'
               meaning: 'Some material may not be suitable for children under 10.'
               order: 2
+    XxxMovieSettings:
+      type: object
+      required:
+        - source
+        - tmdbCompanies
+        - tpdbApiKey
+      properties:
+        source:
+          type: string
+          enum: [tpdb, tmdb]
+          description: Where XXX movies are listed from
+        tmdbCompanies:
+          type: array
+          description: TMDB production companies whose movies count as XXX movies (TMDB source)
+          items:
+            type: number
+        tpdbApiKey:
+          type: string
+          description: ThePornDB API key
     StashSettings:
       type: object
       required:
@@ -3087,6 +3106,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TautulliSettings'
+  /settings/xxxmovies:
+    get:
+      summary: Get XXX movie settings
+      description: Retrieves the XXX movie source, its TMDB studios and the ThePornDB API key.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieSettings'
+    post:
+      summary: Update XXX movie settings
+      description: Tests the ThePornDB key when one is set, then saves.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XxxMovieSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XxxMovieSettings'
+  /settings/xxxmovies/test:
+    post:
+      summary: Test a ThePornDB API key
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+      responses:
+        '200':
+          description: The key works
+  /settings/xxxmovies/whisparr-companies:
+    get:
+      summary: TMDB companies of Whisparr studios
+      description: Lists the TMDB production companies of the studios on the default Whisparr server.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: Companies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                    name:
+                      type: string
   /settings/stash:
     get:
       summary: Get Stash settings

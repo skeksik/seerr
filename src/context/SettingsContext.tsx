@@ -8,11 +8,12 @@ export interface SettingsContextProps {
   children?: React.ReactNode;
 }
 
-const defaultSettings = {
+const defaultSettings: PublicSettingsResponse = {
   initialized: false,
   applicationTitle: 'Seerr',
   applicationUrl: '',
   enableAdult: false,
+  xxxMovieSource: 'tpdb',
   hideAvailable: false,
   hideBlocklisted: false,
   hideRequested: false,
