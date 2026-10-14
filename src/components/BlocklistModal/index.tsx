@@ -5,14 +5,17 @@ import { Transition } from '@headlessui/react';
 
 import type { Collection } from '@server/models/Collection';
 import type { MovieDetails } from '@server/models/Movie';
+import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
+import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 interface BlocklistModalProps {
-  tmdbId: number;
-  type: 'movie' | 'tv' | 'collection';
+  // TMDB id, or the StashDB or ThePornDB UUID of a scene or XXX movie
+  tmdbId: number | string;
+  type: 'movie' | 'tv' | 'collection' | 'scene' | 'xxxmovie';
   show: boolean;
   onComplete?: () => void;
   onCancel?: () => void;
@@ -23,9 +26,14 @@ const messages = defineMessages('component.BlocklistModal', {
   blocklisting: 'Blocklisting',
 });
 
-const isCollection = (
-  data: MovieDetails | TvDetails | Collection | null
-): data is Collection => {
+type BlocklistTitle =
+  | MovieDetails
+  | TvDetails
+  | Collection
+  | SceneDetails
+  | XxxMovieDetails;
+
+const isCollection = (data: BlocklistTitle | null): data is Collection => {
   return (
     data !== null &&
     data !== undefined &&
@@ -33,11 +41,36 @@ const isCollection = (
   );
 };
 
-const isMovie = (
-  movie: MovieDetails | TvDetails | Collection | null
-): movie is MovieDetails => {
+const isMovie = (movie: BlocklistTitle | null): movie is MovieDetails => {
   if (!movie) return false;
   return (movie as MovieDetails).title !== undefined;
+};
+
+const backdropProps = (
+  type: BlocklistModalProps['type'],
+  data: BlocklistTitle | null
+): { backdrop?: string; backdropType?: 'tmdb' | 'stashdb' | 'tpdb' } => {
+  if (type === 'scene') {
+    const imageUrl = (data as SceneDetails | null)?.imageUrl;
+    return {
+      backdrop: imageUrl ? `${imageUrl}?size=1280` : undefined,
+      backdropType: 'stashdb',
+    };
+  }
+
+  if (type === 'xxxmovie') {
+    const movie = data as XxxMovieDetails | null;
+    return {
+      backdrop: movie?.backdropUrl ?? movie?.posterUrl,
+      backdropType: 'tpdb',
+    };
+  }
+
+  return {
+    backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
+      (data as MovieDetails | null)?.backdropPath
+    }`,
+  };
 };
 
 const BlocklistModal = ({
@@ -49,9 +82,7 @@ const BlocklistModal = ({
   isUpdating,
 }: BlocklistModalProps) => {
   const intl = useIntl();
-  const [data, setData] = useState<
-    TvDetails | MovieDetails | Collection | null
-  >(null);
+  const [data, setData] = useState<BlocklistTitle | null>(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -84,16 +115,20 @@ const BlocklistModal = ({
         title={`${intl.formatMessage(globalMessages.blocklist)} ${
           type === 'collection'
             ? intl.formatMessage(globalMessages.collection)
-            : isMovie(data)
-              ? intl.formatMessage(globalMessages.movie)
-              : intl.formatMessage(globalMessages.tvshow)
+            : type === 'scene'
+              ? intl.formatMessage(globalMessages.scene)
+              : type === 'xxxmovie'
+                ? intl.formatMessage(globalMessages.xxxMovie)
+                : isMovie(data)
+                  ? intl.formatMessage(globalMessages.movie)
+                  : intl.formatMessage(globalMessages.tvshow)
         }`}
         subTitle={`${
           isCollection(data)
             ? data.name
-            : isMovie(data)
+            : data && 'title' in data
               ? data.title
-              : data?.name
+              : (data as TvDetails | null)?.name
         }`}
         onCancel={onCancel}
         onOk={onComplete}
@@ -104,7 +139,7 @@ const BlocklistModal = ({
         }
         okButtonType="danger"
         okDisabled={isUpdating}
-        backdrop={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${data?.backdropPath}`}
+        {...backdropProps(type, data)}
       />
     </Transition>
   );

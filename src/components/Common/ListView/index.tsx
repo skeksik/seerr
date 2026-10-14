@@ -1,12 +1,14 @@
 import PersonCard from '@app/components/PersonCard';
 import TitleCard from '@app/components/TitleCard';
-import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
+import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
 import XxxMovieCard from '@app/components/XxxMovieCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
+import { stashImageUrl } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { WatchlistItem } from '@server/interfaces/api/discoverInterfaces';
+import type { PerformerResult } from '@server/models/Scene';
 import type {
   CollectionResult,
   MovieResult,
@@ -23,6 +25,7 @@ type ListViewProps = {
     | PersonResult
     | CollectionResult
     | XxxMovieResult
+    | PerformerResult
   )[];
   plexItems?: WatchlistItem[];
   isEmpty?: boolean;
@@ -61,10 +64,11 @@ const ListView = ({
         {plexItems?.map((title, index) => {
           return (
             <li key={`${title.ratingKey}-${index}`}>
-              <TmdbTitleCard
-                id={title.tmdbId}
+              <MediaTitleCard
+                id={title.tmdbId ?? title.id}
                 tmdbId={title.tmdbId}
-                type={title.mediaType}
+                externalId={title.externalId}
+                mediaType={title.mediaType}
                 isAddedToWatchlist={true}
                 canExpand
                 mutateParent={mutateParent}
@@ -156,6 +160,26 @@ const ListView = ({
 
             if (title.mediaType === 'xxxmovie') {
               titleCard = <XxxMovieCard movie={title} canExpand />;
+            }
+
+            if (title.mediaType === 'performer') {
+              titleCard = (
+                <PersonCard
+                  personId={title.id}
+                  name={title.name}
+                  subName={title.disambiguation}
+                  href={`/scenes/performer/${title.id}`}
+                  image={
+                    title.imageUrl
+                      ? {
+                          src: stashImageUrl(title.imageUrl, 300) as string,
+                          type: 'stashdb',
+                        }
+                      : undefined
+                  }
+                  canExpand
+                />
+              );
             }
 
             return <li key={`${title.id}-${index}`}>{titleCard}</li>;

@@ -29,12 +29,12 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
       className="relative flex h-full w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:w-96"
       data-testid="scene-request-card"
     >
-      {item.imageUrl && (
+      {item.backdropUrl && (
         <div className="absolute inset-0 z-0">
           <CachedImage
             type={item.imageType}
             alt=""
-            src={item.imageUrl}
+            src={item.backdropUrl}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
           />
@@ -47,7 +47,7 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
           />
         </div>
       )}
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col pr-4">
         <div className="hidden text-xs font-medium text-white sm:flex">
           {item.subtitle}
         </div>
@@ -90,6 +90,21 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
           )}
         </div>
       </div>
+      {item.portrait && (
+        <Link
+          href={href}
+          className="relative z-10 w-20 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md shadow-sm transition duration-300 hover:scale-105 hover:shadow-md sm:w-28"
+          style={{ aspectRatio: '2 / 3' }}
+        >
+          <CachedImage
+            type={item.imageType}
+            src={item.imageUrl ?? '/images/seerr_poster_not_found.png'}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            fill
+          />
+        </Link>
+      )}
     </div>
   );
 };

@@ -32,11 +32,13 @@ Users with access get two sidebar tabs that work like **Movies** and **Series**:
 - **XXX Movies** filters by release date, studio, performer and tags (ThePornDB) or by release date and studio (TMDB).
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
 
-Search shows matching scenes and XXX movies above the regular results. Adult TMDB movies carry an **XXX** badge instead of the movie one.
+Search shows matching scenes in a row above the regular results. XXX movies and StashDB performers join the regular results. Adult TMDB movies carry an **XXX** badge instead of the movie one.
+
+Scene and XXX movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and XXX movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
 ### Discover Rows
 
-The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies (plus popular ones with the TMDB source); and **Trending Studios** and **Trending Networks**, the studios behind the scenes trending on StashDB. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
+The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies (plus popular ones with the TMDB source); and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and XXX movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
 
 ## Scenes
 

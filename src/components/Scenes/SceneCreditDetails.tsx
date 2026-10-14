@@ -1,5 +1,6 @@
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
+import ImageFader from '@app/components/Common/ImageFader';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import Modal from '@app/components/Common/Modal';
 import PageTitle from '@app/components/Common/PageTitle';
@@ -30,7 +31,7 @@ import type {
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -241,6 +242,16 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     [type]: id,
   });
 
+  // The person page's backdrop carousel, from the first scenes listed
+  const backdropKey = (titles ?? [])
+    .flatMap((scene) => stashImageUrl(scene.imageUrl, 1280) ?? [])
+    .slice(0, 6)
+    .join('|');
+  const backdrops = useMemo(
+    () => (backdropKey ? backdropKey.split('|') : []),
+    [backdropKey]
+  );
+
   if (!data && !error) {
     return <LoadingSpinner />;
   }
@@ -300,6 +311,15 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
   return (
     <>
       <PageTitle title={data.name} />
+      {backdrops.length > 0 && (
+        <div className="absolute left-0 right-0 top-0 z-0 h-96">
+          <ImageFader
+            isDarker
+            imageType="stashdb"
+            backgroundImages={backdrops}
+          />
+        </div>
+      )}
       <div className="relative z-10 mb-8 mt-4 flex flex-col items-center lg:flex-row lg:items-start">
         {imageUrl && (
           <div

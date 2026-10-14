@@ -160,9 +160,9 @@ const DiscoverSliderEdit = ({
       case DiscoverSliderType.UPCOMING_SCENES:
         return intl.formatMessage(sliderTitles.upcomingScenes);
       case DiscoverSliderType.ADULT_STUDIOS:
-        return intl.formatMessage(sliderTitles.adultStudios);
+        return intl.formatMessage(sliderTitles.adultStudiosEdit);
       case DiscoverSliderType.ADULT_NETWORKS:
-        return intl.formatMessage(sliderTitles.adultNetworks);
+        return intl.formatMessage(sliderTitles.adultNetworksEdit);
       case DiscoverSliderType.NEW_XXX_MOVIES:
         return intl.formatMessage(sliderTitles.newXxxMovies);
       case DiscoverSliderType.POPULAR_XXX_MOVIES:

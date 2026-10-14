@@ -2,10 +2,8 @@ import Header from '@app/components/Common/Header';
 import ListView from '@app/components/Common/ListView';
 import PageTitle from '@app/components/Common/PageTitle';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
-import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover, { encodeURIExtraParams } from '@app/hooks/useDiscover';
-import useSettings from '@app/hooks/useSettings';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -26,7 +24,6 @@ const Search = () => {
   const intl = useIntl();
   const router = useRouter();
   const canViewAdult = useAdult();
-  const { currentSettings } = useSettings();
   const query =
     typeof router.query.query === 'string' ? router.query.query : '';
 
@@ -64,15 +61,6 @@ const Search = () => {
             url={`/api/v1/scene/search?query=${encodeURIExtraParams(query)}&page=1`}
             hideWhenEmpty
           />
-          {/* TMDB-sourced XXX movies already show in the results below */}
-          {currentSettings.xxxMovieSource === 'tpdb' && (
-            <XxxMovieSlider
-              sliderKey="search-xxx-movies"
-              title={intl.formatMessage(globalMessages.xxxMovies)}
-              url={`/api/v1/xxxmovie/search?query=${encodeURIExtraParams(query)}&page=1`}
-              hideWhenEmpty
-            />
-          )}
         </div>
       )}
       <ListView

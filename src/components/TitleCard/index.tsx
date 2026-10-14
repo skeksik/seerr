@@ -5,6 +5,7 @@ import CachedImage from '@app/components/Common/CachedImage';
 import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
 import RequestModal from '@app/components/RequestModal';
+import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
 import { useIsTouch } from '@app/hooks/useIsTouch';
@@ -30,14 +31,20 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { mutate } from 'swr';
 
+// Scenes and XXX movies are keyed by StashDB and ThePornDB UUIDs
+type AdultCardType = 'scene' | 'xxxmovie';
+
 interface TitleCardProps {
-  id: number;
+  id: number | string;
+  // TMDB poster path, or the full image URL of a scene or XXX movie
   image?: string;
   summary?: string;
   year?: string;
+  // Replaces the year line, e.g. studio and year for adult titles
+  subtitle?: string;
   title: string;
   userScore?: number;
-  mediaType: MediaType;
+  mediaType: MediaType | AdultCardType;
   // Adult TMDB movies get an XXX badge instead of the movie one
   isAdult?: boolean;
   status?: MediaStatus;
@@ -62,6 +69,7 @@ const TitleCard = ({
   image,
   summary,
   year,
+  subtitle,
   title,
   status,
   mediaType,
@@ -82,7 +90,15 @@ const TitleCard = ({
   const [toggleWatchlist, setToggleWatchlist] =
     useState<boolean>(!isAddedToWatchlist);
   const [showBlocklistModal, setShowBlocklistModal] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const adultType: AdultCardType | undefined =
+    mediaType === 'scene' || mediaType === 'xxxmovie' ? mediaType : undefined;
+  // Scene stills are landscape; everything else has portrait posters
+  const isScene = mediaType === 'scene';
+  const hasImage = !!image && !imageFailed;
+  // Watchlist and blocklist items name adult titles by their external id
+  const itemKey = adultType ? { externalId: id } : { tmdbId: id };
 
   // Just to get the year from the date
   if (year) {
@@ -112,9 +128,9 @@ const TitleCard = ({
     setIsUpdating(true);
     try {
       const response = await axios.post<Watchlist>('/api/v1/watchlist', {
-        tmdbId: id,
+        ...itemKey,
         mediaType,
-        title,
+        ...(adultType ? {} : { title }),
       });
       mutate('/api/v1/discover/watchlist');
       if (response.data) {
@@ -181,12 +197,12 @@ const TitleCard = ({
         if (mediaType === 'collection') {
           await axios.post(`/api/v1/blocklist/collection/${id}`);
         } else {
-          await axios.post('/api/v1/blocklist', {
-            tmdbId: id,
-            mediaType,
-            title,
-            user: user?.id,
-          });
+          await axios.post(
+            '/api/v1/blocklist',
+            adultType
+              ? { ...itemKey, mediaType }
+              : { tmdbId: id, mediaType, title, user: user?.id }
+          );
         }
         addToast(
           <span>
@@ -303,15 +319,31 @@ const TitleCard = ({
 
   const closeModal = useCallback(() => setShowRequestModal(false), []);
 
-  const showRequestButton = hasPermission(
-    [
-      Permission.REQUEST,
-      mediaType === 'movie' || mediaType === 'collection'
-        ? Permission.REQUEST_MOVIE
-        : Permission.REQUEST_TV,
-    ],
-    { type: 'or' }
-  );
+  // Adult titles have no type-specific request permission
+  const showRequestButton = adultType
+    ? hasPermission(Permission.REQUEST)
+    : hasPermission(
+        [
+          Permission.REQUEST,
+          mediaType === 'movie' || mediaType === 'collection'
+            ? Permission.REQUEST_MOVIE
+            : Permission.REQUEST_TV,
+        ],
+        { type: 'or' }
+      );
+  const href = adultType
+    ? `/${adultType}/${id}`
+    : mediaType === 'movie'
+      ? `/movie/${id}`
+      : mediaType === 'collection'
+        ? `/collection/${id}`
+        : `/tv/${id}`;
+  const tmdbType =
+    mediaType === 'movie'
+      ? 'movie'
+      : mediaType === 'collection'
+        ? 'collection'
+        : 'tv';
 
   const showHideButton = hasPermission([Permission.MANAGE_BLOCKLIST], {
     type: 'or',
@@ -319,33 +351,48 @@ const TitleCard = ({
 
   return (
     <div
-      className={canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}
+      className={
+        canExpand ? 'w-full' : isScene ? 'w-64 sm:w-72' : 'w-36 sm:w-36 md:w-44'
+      }
       data-testid="title-card"
       ref={cardRef}
     >
-      <RequestModal
-        tmdbId={id}
-        show={showRequestModal}
-        type={
-          mediaType === 'movie'
-            ? 'movie'
-            : mediaType === 'collection'
-              ? 'collection'
-              : 'tv'
-        }
-        onComplete={requestComplete}
-        onUpdating={requestUpdating}
-        onCancel={closeModal}
-      />
+      {adultType ? (
+        <Transition
+          as="div"
+          show={showRequestModal}
+          enter="transition-opacity duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="transition-opacity duration-300"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <SceneRequestModal
+            item={{
+              mediaType: adultType,
+              id: String(id),
+              title,
+              backdrop: image,
+              backdropType: isScene ? 'stashdb' : 'tpdb',
+            }}
+            onComplete={requestComplete}
+            onCancel={closeModal}
+          />
+        </Transition>
+      ) : (
+        <RequestModal
+          tmdbId={id as number}
+          show={showRequestModal}
+          type={tmdbType}
+          onComplete={requestComplete}
+          onUpdating={requestUpdating}
+          onCancel={closeModal}
+        />
+      )}
       <BlocklistModal
         tmdbId={id}
-        type={
-          mediaType === 'movie'
-            ? 'movie'
-            : mediaType === 'collection'
-              ? 'collection'
-              : 'tv'
-        }
+        type={adultType ?? tmdbType}
         show={showBlocklistModal}
         onCancel={closeBlocklistModal}
         onComplete={onClickHideItemBtn}
@@ -358,7 +405,7 @@ const TitleCard = ({
             : 'scale-100 shadow ring-gray-700'
         }`}
         style={{
-          paddingBottom: '150%',
+          paddingBottom: isScene ? '56.25%' : '150%',
         }}
         onMouseEnter={() => {
           if (!isTouch) {
@@ -376,23 +423,49 @@ const TitleCard = ({
         tabIndex={0}
       >
         <div className="absolute inset-0 h-full w-full overflow-hidden">
-          <CachedImage
-            type="tmdb"
-            adult={isAdult}
-            className="absolute inset-0 h-full w-full"
-            alt=""
-            src={
-              image
-                ? `https://image.tmdb.org/t/p/w300_and_h450_face${image}`
-                : `/images/seerr_poster_not_found_logo_top.png`
-            }
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            fill
-          />
+          {adultType ? (
+            hasImage ? (
+              <CachedImage
+                type={isScene ? 'stashdb' : 'tpdb'}
+                className="absolute inset-0 h-full w-full"
+                alt=""
+                src={image}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                fill
+                // ThePornDB's CDN fails now and then; the details show instead
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              !isScene && (
+                <CachedImage
+                  type="tmdb"
+                  className="absolute inset-0 h-full w-full"
+                  alt=""
+                  src="/images/seerr_poster_not_found_logo_top.png"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  fill
+                />
+              )
+            )
+          ) : (
+            <CachedImage
+              type="tmdb"
+              adult={isAdult}
+              className="absolute inset-0 h-full w-full"
+              alt=""
+              src={
+                image
+                  ? `https://image.tmdb.org/t/p/w300_and_h450_face${image}`
+                  : `/images/seerr_poster_not_found_logo_top.png`
+              }
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              fill
+            />
+          )}
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
             <div
               className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                isAdult && mediaType === 'movie'
+                adultType || (isAdult && mediaType === 'movie')
                   ? 'border-pink-500 bg-pink-600/80'
                   : mediaType === 'movie' || mediaType === 'collection'
                     ? 'border-blue-500 bg-blue-600/80'
@@ -400,17 +473,21 @@ const TitleCard = ({
               }`}
             >
               <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                {isAdult && mediaType === 'movie'
-                  ? intl.formatMessage(globalMessages.xxx)
-                  : mediaType === 'movie'
-                    ? intl.formatMessage(globalMessages.movie)
-                    : mediaType === 'collection'
-                      ? intl.formatMessage(globalMessages.collection)
-                      : intl.formatMessage(globalMessages.tvshow)}
+                {isScene
+                  ? intl.formatMessage(globalMessages.scene)
+                  : adultType || (isAdult && mediaType === 'movie')
+                    ? intl.formatMessage(globalMessages.xxx)
+                    : mediaType === 'movie'
+                      ? intl.formatMessage(globalMessages.movie)
+                      : mediaType === 'collection'
+                        ? intl.formatMessage(globalMessages.collection)
+                        : intl.formatMessage(globalMessages.tvshow)}
               </div>
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
-              <div className="flex flex-col gap-1">
+              <div
+                className={`flex gap-1 ${isScene ? 'flex-row' : 'flex-col'}`}
+              >
                 {user?.userType !== UserType.PLEX &&
                   (toggleWatchlist ? (
                     <Button
@@ -493,7 +570,7 @@ const TitleCard = ({
 
           <Transition
             as={Fragment}
-            show={!image || showDetail || showRequestModal}
+            show={!hasImage || showDetail || showRequestModal}
             enter="transition-opacity"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -503,13 +580,7 @@ const TitleCard = ({
           >
             <div className="absolute inset-0 overflow-hidden rounded-xl">
               <Link
-                href={
-                  mediaType === 'movie'
-                    ? `/movie/${id}`
-                    : mediaType === 'collection'
-                      ? `/collection/${id}`
-                      : `/tv/${id}`
-                }
+                href={href}
                 className="absolute inset-0 h-full w-full cursor-pointer overflow-hidden text-left"
                 style={{
                   background:
@@ -527,12 +598,18 @@ const TitleCard = ({
                         : 'pb-11'
                     }`}
                   >
-                    {year && <div className="text-sm font-medium">{year}</div>}
+                    {(subtitle || year) && (
+                      <div className="truncate text-sm font-medium">
+                        {subtitle || year}
+                      </div>
+                    )}
 
                     <h1
-                      className="whitespace-normal text-xl font-bold leading-tight"
+                      className={`whitespace-normal font-bold leading-tight ${
+                        isScene ? 'text-lg' : 'text-xl'
+                      }`}
                       style={{
-                        WebkitLineClamp: 3,
+                        WebkitLineClamp: isScene ? 2 : 3,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',
@@ -550,8 +627,12 @@ const TitleCard = ({
                           (currentStatus &&
                             currentStatus !== MediaStatus.UNKNOWN &&
                             currentStatus !== MediaStatus.DELETED)
-                            ? 5
-                            : 3,
+                            ? isScene
+                              ? 2
+                              : 5
+                            : isScene
+                              ? 1
+                              : 3,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

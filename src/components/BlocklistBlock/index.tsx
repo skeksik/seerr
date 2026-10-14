@@ -22,7 +22,8 @@ const messages = defineMessages('component.BlocklistBlock', {
 });
 
 interface BlocklistBlockProps {
-  tmdbId: number;
+  // TMDB id, or the StashDB or ThePornDB UUID of a scene or XXX movie
+  tmdbId: number | string;
   mediaType: MediaType;
   onUpdate?: () => void;
   onDelete?: () => void;
@@ -42,7 +43,7 @@ const BlocklistBlock = ({
     `/api/v1/blocklist/${tmdbId}?mediaType=${mediaType}`
   );
 
-  const removeFromBlocklist = async (tmdbId: number, title?: string) => {
+  const removeFromBlocklist = async (title?: string) => {
     setIsUpdating(true);
 
     try {
@@ -118,7 +119,7 @@ const BlocklistBlock = ({
           >
             <Button
               buttonType="danger"
-              onClick={() => removeFromBlocklist(data.tmdbId, data.title)}
+              onClick={() => removeFromBlocklist(data.title)}
               disabled={isUpdating}
             >
               <TrashIcon className="icon-sm" />

@@ -13,6 +13,7 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
+import { stashImageUrl } from '@app/utils/stashImage';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -25,7 +26,9 @@ import type {
   BlocklistResultsResponse,
 } from '@server/interfaces/api/blocklistInterfaces';
 import type { MovieDetails } from '@server/models/Movie';
+import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
+import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -54,10 +57,6 @@ enum Filter {
   MANUAL = 'manual',
   BLOCKLISTEDTAGS = 'blocklistedTags',
 }
-
-const isMovie = (movie: MovieDetails | TvDetails): movie is MovieDetails => {
-  return (movie as MovieDetails).title !== undefined;
-};
 
 const Blocklist = () => {
   const [currentPageSize, setCurrentPageSize] = useState<number>(10);
@@ -270,6 +269,45 @@ interface BlocklistedItemProps {
   revalidateList: () => void;
 }
 
+// Poster and backdrop of a TMDB title, scene or XXX movie
+const blocklistImages = (
+  title?: MovieDetails | TvDetails | SceneDetails | XxxMovieDetails
+): {
+  poster?: string;
+  backdrop?: string;
+  type: 'tmdb' | 'stashdb' | 'tpdb';
+} => {
+  if (!title) {
+    return { type: 'tmdb' };
+  }
+
+  if ('stashDbUrl' in title) {
+    return {
+      poster: stashImageUrl(title.imageUrl, 300),
+      backdrop: stashImageUrl(title.imageUrl, 1280),
+      type: 'stashdb',
+    };
+  }
+
+  if ('tpdbUrl' in title) {
+    return {
+      poster: title.posterUrl,
+      backdrop: title.backdropUrl ?? title.posterUrl,
+      type: 'tpdb',
+    };
+  }
+
+  return {
+    poster: title.posterPath
+      ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${title.posterPath}`
+      : undefined,
+    backdrop: title.backdropPath
+      ? `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${title.backdropPath}`
+      : undefined,
+    type: 'tmdb',
+  };
+};
+
 const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const { addToast } = useToasts();
@@ -279,13 +317,25 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
 
-  const url =
-    item.mediaType === 'movie'
-      ? `/api/v1/movie/${item.tmdbId}`
-      : `/api/v1/tv/${item.tmdbId}`;
-  const { data: title, error } = useSWR<MovieDetails | TvDetails>(
-    inView ? url : null
-  );
+  // Scenes and XXX movies are keyed by their StashDB or ThePornDB UUID
+  const isAdultItem =
+    item.mediaType === 'scene' || item.mediaType === 'xxxmovie';
+  const itemId = (isAdultItem ? item.externalId : item.tmdbId) ?? '';
+  const href = `/${item.mediaType}/${itemId}`;
+  const { data: title, error } = useSWR<
+    MovieDetails | TvDetails | SceneDetails | XxxMovieDetails
+  >(inView ? `/api/v1/${item.mediaType}/${itemId}` : null);
+  const titleName = !title
+    ? undefined
+    : 'title' in title
+      ? title.title
+      : title.name;
+  const year = !title
+    ? undefined
+    : 'firstAirDate' in title
+      ? title.firstAirDate
+      : (title as MovieDetails | SceneDetails | XxxMovieDetails).releaseDate;
+  const images = blocklistImages(title);
 
   if (!title && !error) {
     return (
@@ -296,13 +346,11 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
     );
   }
 
-  const removeFromBlocklist = async (tmdbId: number, title?: string) => {
+  const removeFromBlocklist = async (id: number | string, title?: string) => {
     setIsUpdating(true);
 
     try {
-      await axios.delete(
-        `/api/v1/blocklist/${tmdbId}?mediaType=${item.mediaType}`
-      );
+      await axios.delete(`/api/v1/blocklist/${id}?mediaType=${item.mediaType}`);
 
       addToast(
         <span>
@@ -326,11 +374,11 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
 
   return (
     <div className="relative flex w-full flex-col justify-between overflow-hidden rounded-xl bg-gray-800 py-4 text-gray-400 shadow-md ring-1 ring-gray-700 xl:h-28 xl:flex-row">
-      {title && title.backdropPath && (
+      {images.backdrop && (
         <div className="absolute inset-0 z-0 w-full bg-cover bg-center xl:w-2/3">
           <CachedImage
-            type="tmdb"
-            src={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${title.backdropPath}`}
+            type={images.type}
+            src={images.backdrop}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
@@ -347,44 +395,28 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
       <div className="relative flex w-full flex-col justify-between overflow-hidden sm:flex-row">
         <div className="relative z-10 flex w-full items-center overflow-hidden pl-4 pr-4 sm:pr-0 xl:w-7/12 2xl:w-2/3">
           <Link
-            href={
-              item.mediaType === 'movie'
-                ? `/movie/${item.tmdbId}`
-                : `/tv/${item.tmdbId}`
-            }
-            className="relative h-auto w-12 flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105"
+            href={href}
+            className={`relative h-auto flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105 ${
+              item.mediaType === 'scene' ? 'w-32' : 'w-12'
+            }`}
           >
             <CachedImage
-              type="tmdb"
-              src={
-                title?.posterPath
-                  ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${title.posterPath}`
-                  : '/images/seerr_poster_not_found.png'
-              }
+              type={images.poster ? images.type : 'tmdb'}
+              src={images.poster ?? '/images/seerr_poster_not_found.png'}
               alt=""
               sizes="100vw"
               style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
               width={600}
-              height={900}
+              height={item.mediaType === 'scene' ? 338 : 900}
             />
           </Link>
           <div className="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
             <div className="pt-0.5 text-xs font-medium text-white sm:pt-1">
-              {title &&
-                (isMovie(title)
-                  ? title.releaseDate
-                  : title.firstAirDate
-                )?.slice(0, 4)}
+              {year?.slice(0, 4)}
             </div>
-            <Link
-              href={
-                item.mediaType === 'movie'
-                  ? `/movie/${item.tmdbId}`
-                  : `/tv/${item.tmdbId}`
-              }
-            >
+            <Link href={href}>
               <span className="mr-2 min-w-0 truncate text-lg font-bold text-white hover:underline xl:text-xl">
-                {title && (isMovie(title) ? title.title : title.name)}
+                {titleName}
               </span>
             </Link>
           </div>
@@ -445,7 +477,17 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
             </div>
           )}
           <div className="card-field">
-            {item.mediaType === 'movie' ? (
+            {isAdultItem ? (
+              <div className="pointer-events-none z-40 self-start rounded-full border border-pink-500 bg-pink-600/80 shadow-md">
+                <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
+                  {intl.formatMessage(
+                    item.mediaType === 'scene'
+                      ? globalMessages.scene
+                      : globalMessages.xxx
+                  )}
+                </div>
+              </div>
+            ) : item.mediaType === 'movie' ? (
               <div className="pointer-events-none z-40 self-start rounded-full border border-blue-500 bg-blue-600/80 shadow-md">
                 <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
                   {intl.formatMessage(globalMessages.movie)}
@@ -464,12 +506,7 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
       <div className="z-10 mt-4 flex w-full flex-col justify-center space-y-2 pl-4 pr-4 xl:mt-0 xl:w-96 xl:items-end xl:pl-0">
         {hasPermission(Permission.MANAGE_BLOCKLIST) && (
           <ConfirmButton
-            onClick={() =>
-              removeFromBlocklist(
-                item.tmdbId,
-                title && (isMovie(title) ? title.title : title.name)
-              )
-            }
+            onClick={() => removeFromBlocklist(itemId, titleName)}
             confirmText={intl.formatMessage(
               isUpdating ? globalMessages.deleting : globalMessages.areyousure
             )}

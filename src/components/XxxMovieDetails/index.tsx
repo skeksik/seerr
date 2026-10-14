@@ -1,3 +1,4 @@
+import AdultMediaActions from '@app/components/AdultMediaActions';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -70,7 +71,14 @@ const XxxMovieDetailsContent = () => {
     (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
-  const attributes: React.ReactNode[] = [];
+  const attributes: React.ReactNode[] = [
+    <span
+      key="badge"
+      className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white"
+    >
+      {intl.formatMessage(globalMessages.xxx)}
+    </span>,
+  ];
 
   if (data.studio) {
     attributes.push(
@@ -86,17 +94,18 @@ const XxxMovieDetailsContent = () => {
 
   return (
     <div className="media-page" style={{ height: 493 }}>
-      {data.posterUrl && (
+      {(data.backdropUrl ?? data.posterUrl) && (
         <div className="media-page-bg-image">
           <CachedImage
             type="tpdb"
             alt=""
-            src={data.posterUrl}
+            src={data.backdropUrl ?? data.posterUrl ?? ''}
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              filter: 'blur(16px)',
+              // Covers are portrait, so they only work as a blurred wash
+              filter: data.backdropUrl ? undefined : 'blur(16px)',
             }}
             fill
             priority
@@ -152,6 +161,14 @@ const XxxMovieDetailsContent = () => {
           </span>
         </div>
         <div className="media-actions">
+          <AdultMediaActions
+            mediaType="xxxmovie"
+            id={data.id}
+            title={data.title}
+            status={data.mediaInfo?.status}
+            onUserWatchlist={data.onUserWatchlist}
+            onChange={() => mutate()}
+          />
           <a href={data.tpdbUrl} target="_blank" rel="noreferrer">
             <Button buttonType="ghost">
               <ArrowTopRightOnSquareIcon />

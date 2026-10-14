@@ -92,8 +92,11 @@ export const sliderTitles = defineMessages('components.Discover', {
   popularScenes: 'Popular Scenes',
   newScenes: 'New Scenes',
   upcomingScenes: 'Upcoming Scenes',
-  adultStudios: 'Trending Studios',
-  adultNetworks: 'Trending Networks',
+  adultStudios: 'Studios',
+  adultNetworks: 'Networks',
+  // The editor also lists the TMDB studio and network rows
+  adultStudiosEdit: 'Studios (XXX)',
+  adultNetworksEdit: 'Networks (XXX)',
   newXxxMovies: 'New XXX Movies',
   popularXxxMovies: 'Popular XXX Movies',
   upcomingXxxMovies: 'Upcoming XXX Movies',

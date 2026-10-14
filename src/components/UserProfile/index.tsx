@@ -5,6 +5,7 @@ import ProgressCircle from '@app/components/Common/ProgressCircle';
 import RequestCard from '@app/components/RequestCard';
 import SceneRequestCard from '@app/components/RequestCard/SceneRequestCard';
 import Slider from '@app/components/Slider';
+import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import ProfileHeader from '@app/components/UserProfile/ProfileHeader';
 import useAdult from '@app/hooks/useAdult';
@@ -440,11 +441,12 @@ const UserProfile = () => {
                 ),
               })}
               items={watchlistItems?.results.map((item) => (
-                <TmdbTitleCard
-                  id={item.tmdbId}
-                  key={`watchlist-slider-item-${item.ratingKey}`}
+                <MediaTitleCard
+                  id={item.tmdbId ?? item.id}
+                  key={`watchlist-slider-item-${item.mediaType}-${item.id}-${item.ratingKey}`}
                   tmdbId={item.tmdbId}
-                  type={item.mediaType}
+                  externalId={item.externalId}
+                  mediaType={item.mediaType}
                 />
               ))}
             />

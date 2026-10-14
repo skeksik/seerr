@@ -10,6 +10,8 @@ export interface AdultRequestItemDetails {
   subtitle: string;
   href: string;
   imageUrl?: string;
+  // Wide artwork for row and card backgrounds
+  backdropUrl?: string;
   imageType: 'stashdb' | 'tpdb';
   // XXX movie covers are portrait, scene stills landscape
   portrait: boolean;
@@ -40,6 +42,11 @@ const useAdultRequestItem = (
       .join(' · '),
     href: `/${isScene ? 'scene' : 'xxxmovie'}/${id}`,
     imageUrl,
+    backdropUrl: !data
+      ? undefined
+      : 'posterUrl' in data
+        ? (data.backdropUrl ?? data.posterUrl)
+        : stashImageUrl((data as SceneDetails).imageUrl, 1280),
     imageType: isScene ? 'stashdb' : 'tpdb',
     portrait: !isScene,
   };
