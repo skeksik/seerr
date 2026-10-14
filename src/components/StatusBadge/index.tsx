@@ -28,6 +28,8 @@ interface StatusBadgeProps {
   inProgress?: boolean;
   plexUrl?: string;
   serviceUrl?: string;
+  // Defaults to Radarr or Sonarr by media type
+  serviceName?: string;
   tmdbId?: number | null;
   mediaType?: `${MediaType}`;
   title?: string | string[];
@@ -41,6 +43,7 @@ const StatusBadge = ({
   inProgress = false,
   plexUrl,
   serviceUrl,
+  serviceName,
   tmdbId,
   mediaType,
   title,
@@ -103,7 +106,13 @@ const StatusBadge = ({
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
       mediaLink = serviceUrl;
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
-        arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+        arr:
+          serviceName ??
+          (mediaType === 'scene'
+            ? 'Whisparr'
+            : mediaType === 'movie'
+              ? 'Radarr'
+              : 'Sonarr'),
       });
     }
   }

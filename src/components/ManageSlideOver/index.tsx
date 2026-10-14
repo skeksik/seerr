@@ -122,6 +122,11 @@ const ManageSlideOver = ({
       ? `/api/v1/media/${data.mediaInfo.id}/watch_data`
       : null
   );
+  const arrName = data.mediaInfo?.isAdult
+    ? 'Whisparr'
+    : mediaType === 'movie'
+      ? 'Radarr'
+      : 'Sonarr';
   const { data: radarrData } = useSWR<RadarrSettings[]>(
     hasPermission(Permission.ADMIN) ? '/api/v1/settings/radarr' : null
   );
@@ -471,7 +476,7 @@ const ManageSlideOver = ({
                       <ServerIcon />
                       <span>
                         {intl.formatMessage(messages.openarr, {
-                          arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                          arr: arrName,
                         })}
                       </span>
                     </Button>
@@ -492,7 +497,7 @@ const ManageSlideOver = ({
                         <TrashIcon />
                         <span>
                           {intl.formatMessage(messages.removearr, {
-                            arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                            arr: arrName,
                           })}
                         </span>
                       </ConfirmButton>
@@ -505,7 +510,7 @@ const ManageSlideOver = ({
                                 ? messages.movie
                                 : messages.tvshow
                             ),
-                            arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                            arr: arrName,
                           }
                         )}
                       </div>
@@ -634,7 +639,7 @@ const ManageSlideOver = ({
                         <ServerIcon />
                         <span>
                           {intl.formatMessage(messages.openarr4k, {
-                            arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                            arr: arrName,
                           })}
                         </span>
                       </Button>
@@ -651,7 +656,7 @@ const ManageSlideOver = ({
                           <TrashIcon />
                           <span>
                             {intl.formatMessage(messages.removearr4k, {
-                              arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                              arr: arrName,
                             })}
                           </span>
                         </ConfirmButton>
@@ -664,7 +669,7 @@ const ManageSlideOver = ({
                                   ? messages.movie
                                   : messages.tvshow
                               ),
-                              arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+                              arr: arrName,
                             }
                           )}
                         </div>

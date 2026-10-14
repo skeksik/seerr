@@ -62,6 +62,7 @@ interface ServerInstanceProps {
   externalUrl?: string;
   profileName: string;
   isSonarr?: boolean;
+  logo?: React.ReactNode;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -93,7 +94,7 @@ export type SonarrTestResponse = DVRTestResponse & {
     | null;
 };
 
-const ServerInstance = ({
+export const ServerInstance = ({
   name,
   hostname,
   port,
@@ -102,6 +103,7 @@ const ServerInstance = ({
   isDefault = false,
   isSSL = false,
   isSonarr = false,
+  logo,
   externalUrl,
   onEdit,
   onDelete,
@@ -170,11 +172,12 @@ const ServerInstance = ({
           rel="noopener noreferrer"
           className="opacity-50 hover:opacity-100"
         >
-          {isSonarr ? (
-            <SonarrLogo className="h-10 w-10 flex-shrink-0" />
-          ) : (
-            <RadarrLogo className="h-10 w-10 flex-shrink-0" />
-          )}
+          {logo ??
+            (isSonarr ? (
+              <SonarrLogo className="h-10 w-10 flex-shrink-0" />
+            ) : (
+              <RadarrLogo className="h-10 w-10 flex-shrink-0" />
+            ))}
         </a>
       </div>
       <div className="border-t border-gray-500">

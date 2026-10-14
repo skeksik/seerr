@@ -3,16 +3,22 @@ import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import Tag from '@app/components/Common/Tag';
+import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import StatusBadge from '@app/components/StatusBadge';
 import useAdult from '@app/hooks/useAdult';
+import { Permission, useUser } from '@app/hooks/useUser';
+import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
+import { Transition } from '@headlessui/react';
 import {
+  ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
+import { MediaStatus } from '@server/constants/media';
 import type { SceneDetails as SceneDetailsType } from '@server/models/Scene';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -57,7 +63,9 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
   const [showAllTags, setShowAllTags] = useState(false);
-  const { data, error } = useSWR<SceneDetailsType>(
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const { hasPermission } = useUser();
+  const { data, error, mutate } = useSWR<SceneDetailsType>(
     `/api/v1/scene/${router.query.sceneId}`,
     { fallbackData: scene }
   );
@@ -70,6 +78,10 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
     return <ErrorPage statusCode={404} />;
   }
 
+  const status = data.mediaInfo?.status ?? MediaStatus.UNKNOWN;
+  const canRequest =
+    hasPermission(Permission.REQUEST) &&
+    (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
   const attributes: React.ReactNode[] = [];
@@ -131,6 +143,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               title={data.title}
               inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
               mediaType="scene"
+              serviceUrl={data.mediaInfo?.serviceUrl}
             />
           </div>
           <h1 data-testid="media-title">
@@ -152,7 +165,36 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <span>{intl.formatMessage(messages.viewonstashdb)}</span>
             </Button>
           </a>
+          {canRequest && (
+            <Button
+              buttonType="primary"
+              className="ml-2"
+              onClick={() => setShowRequestModal(true)}
+            >
+              <ArrowDownTrayIcon />
+              <span>{intl.formatMessage(globalMessages.request)}</span>
+            </Button>
+          )}
         </div>
+        <Transition
+          as="div"
+          show={showRequestModal}
+          enter="transition-opacity duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="transition-opacity duration-300"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <SceneRequestModal
+            scene={data}
+            onCancel={() => setShowRequestModal(false)}
+            onComplete={() => {
+              setShowRequestModal(false);
+              mutate();
+            }}
+          />
+        </Transition>
       </div>
       <div className="media-overview">
         <div className="media-overview-left">

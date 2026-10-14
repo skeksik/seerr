@@ -66,6 +66,8 @@ export type RequestOverrides = {
 
 interface AdvancedRequesterProps {
   type: 'movie' | 'tv';
+  // Scenes and adult movies use Whisparr servers instead of Radarr's
+  service?: 'whisparr';
   tmdbId?: number;
   is4k: boolean;
   isAnime?: boolean;
@@ -78,6 +80,7 @@ interface AdvancedRequesterProps {
 
 const AdvancedRequester = ({
   type,
+  service,
   tmdbId,
   is4k = false,
   isAnime = false,
@@ -90,8 +93,9 @@ const AdvancedRequester = ({
   const intl = useIntl();
   const { addToast } = useToasts();
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
+  const serviceName = service ?? (type === 'movie' ? 'radarr' : 'sonarr');
   const { data, error } = useSWR<ServiceCommonServer[]>(
-    `/api/v1/service/${type === 'movie' ? 'radarr' : 'sonarr'}`,
+    `/api/v1/service/${serviceName}`,
     {
       refreshInterval: 0,
       refreshWhenHidden: false,
@@ -129,9 +133,7 @@ const AdvancedRequester = ({
   const { data: serverData, isValidating } =
     useSWR<ServiceCommonServerWithDetails>(
       selectedServer !== null
-        ? `/api/v1/service/${
-            type === 'movie' ? 'radarr' : 'sonarr'
-          }/${selectedServer}`
+        ? `/api/v1/service/${serviceName}/${selectedServer}`
         : null,
       {
         refreshInterval: 0,
@@ -341,7 +343,8 @@ const AdvancedRequester = ({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (tmdbId && serverData?.server.id === selectedServer) {
+      // Override rules only know Radarr and Sonarr servers
+      if (tmdbId && !service && serverData?.server.id === selectedServer) {
         try {
           const { data: override } = await axios.post<OverrideRulesResult>(
             '/api/v1/overrideRule/advancedRequest',

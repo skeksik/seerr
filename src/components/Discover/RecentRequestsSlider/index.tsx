@@ -65,12 +65,17 @@ const RecentRequestsSlider = () => {
       <Slider
         sliderKey="requests"
         isLoading={!requests}
-        items={(requests?.results ?? []).map((request) => (
-          <RequestCard
-            key={`request-slider-item-${request.id}`}
-            request={request}
-          />
-        ))}
+        // Adult titles stay off the shared Discover page
+        items={(requests?.results ?? [])
+          .filter(
+            (request) => request.type !== 'scene' && !request.media.isAdult
+          )
+          .map((request) => (
+            <RequestCard
+              key={`request-slider-item-${request.id}`}
+              request={request}
+            />
+          ))}
         placeholder={<RequestCard.Placeholder />}
       />
     </>
