@@ -185,7 +185,12 @@ class StashDbAPI extends ExternalAPI {
           per_page: perPage,
           sort,
           direction,
-          studios: criterion(studioIds, 'INCLUDES'),
+          studios: criterion(
+            studioIds?.length
+              ? await this.withChildStudios(studioIds)
+              : undefined,
+            'INCLUDES'
+          ),
           performers: criterion(performerIds, 'INCLUDES_ALL'),
           tags: criterion(tagIds, 'INCLUDES_ALL'),
           date,
@@ -195,6 +200,29 @@ class StashDbAPI extends ExternalAPI {
     );
 
     return data.queryScenes;
+  }
+
+  // Networks hold no scenes of their own, so a studio filter also takes in
+  // the studios under it
+  private async withChildStudios(ids: string[]): Promise<string[]> {
+    const data = await this.query<
+      Record<string, { child_studios: { id: string }[] } | null>
+    >(
+      `query (${ids.map((_, i) => `$s${i}: ID!`).join(', ')}) {
+        ${ids.map((_, i) => `s${i}: findStudio(id: $s${i}) { child_studios { id } }`).join('\n')}
+      }`,
+      Object.fromEntries(ids.map((id, i) => [`s${i}`, id])),
+      DETAILS_TTL
+    );
+
+    return [
+      ...new Set([
+        ...ids,
+        ...Object.values(data).flatMap(
+          (studio) => studio?.child_studios.map((child) => child.id) ?? []
+        ),
+      ]),
+    ];
   }
 
   public async getPerformer(id: string): Promise<StashDbPerformer | null> {

@@ -7770,6 +7770,12 @@ paths:
         - xxxmovies
       parameters:
         - in: query
+          name: source
+          description: Overrides the configured source
+          schema:
+            type: string
+            enum: [tpdb, tmdb]
+        - in: query
           name: page
           schema:
             type: number
@@ -7899,6 +7905,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/XxxMovieLookup'
+  /xxxmovie/match/{type}/{id}:
+    get:
+      summary: Match a StashDB studio or performer on ThePornDB
+      description: Performers match on their StashDB link, studios on their name.
+      tags:
+        - xxxmovies
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [studio, performer]
+        - in: path
+          name: id
+          required: true
+          description: StashDB studio or performer UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ThePornDB site or performer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  name:
+                    type: string
+        '404':
+          description: No match on ThePornDB
   /xxxmovie/{type}/{id}:
     get:
       summary: Name a ThePornDB studio or performer

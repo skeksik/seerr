@@ -18,17 +18,25 @@ export interface TpdbSiteSummary {
   parent?: { id: number; uuid: string; name: string } | null;
 }
 
+// Profile links by site name, e.g. { StashDB: 'https://stashdb.org/…' }
+export interface TpdbPerformerExtras {
+  gender?: string | null;
+  links?: Record<string, string> | null;
+}
+
 export interface TpdbPerformerSummary {
   id: string;
   _id: number;
   name: string;
   image?: string | null;
+  extras?: TpdbPerformerExtras | null;
   // The performer across all sites; site performers point to it
   parent?: {
     id: string;
     _id?: number;
     name: string;
     image?: string | null;
+    extras?: TpdbPerformerExtras | null;
   } | null;
 }
 

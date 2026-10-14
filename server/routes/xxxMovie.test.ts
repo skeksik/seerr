@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 
 import ExternalAPI from '@server/api/externalapi';
+import StashDbAPI from '@server/api/stashdb';
 import TpdbAPI from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import { MediaStatus, MediaType } from '@server/constants/media';
@@ -36,7 +37,17 @@ const movie: TpdbMovie = {
       id: 'site-performer',
       _id: 1815349,
       name: 'Erica Boyer',
-      parent: { id: 'performer', _id: 99899, name: 'Erica Boyer' },
+      parent: {
+        id: 'performer',
+        _id: 99899,
+        name: 'Erica Boyer',
+        extras: {
+          links: {
+            StashDB:
+              'https://stashdb.org/performers/3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c',
+          },
+        },
+      },
     },
   ],
   tags: [{ id: 70, name: 'Anal' }],
@@ -82,6 +93,7 @@ afterEach(() => {
   settings.main.enableAdult = false;
   settings.tpdb = { apiKey: '' };
   settings.xxxMovies = { source: XxxMovieSource.TPDB, tmdbCompanies: [] };
+  settings.stashdb = { endpoint: 'https://stashdb.org/graphql', apiKey: '' };
   mock.restoreAll();
 });
 
@@ -186,6 +198,45 @@ describe('GET /xxxmovie/discover', () => {
     assert.strictEqual(config?.params?.include_adult, true);
   });
 
+  it('pads release dates from the date picker', async () => {
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/xxxmovie/discover?releaseDate=2026-10-7');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(getMovies.mock.calls[0].arguments[0]?.date, {
+      value: '2026-10-07',
+      operation: '>=',
+    });
+  });
+
+  it('lists ThePornDB movies on request with the TMDB source', async () => {
+    getSettings().xxxMovies = {
+      source: XxxMovieSource.TMDB,
+      tmdbCompanies: [6463],
+    };
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [movie],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/xxxmovie/discover?source=tpdb&performer=99899'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.results[0].mediaType, 'xxxmovie');
+    assert.strictEqual(
+      getMovies.mock.calls[0].arguments[0]?.performerId,
+      99899
+    );
+  });
+
   it('rejects users without the adult permission', async () => {
     const agent = await loginAs('demo@seerr.dev', Permission.REQUEST);
 
@@ -209,7 +260,12 @@ describe('GET /xxxmovie/:id', () => {
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body.performers, [
-      { id: 'performer', tpdbId: 99899, name: 'Erica Boyer' },
+      {
+        id: 'performer',
+        tpdbId: 99899,
+        stashDbId: '3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c',
+        name: 'Erica Boyer',
+      },
     ]);
     assert.strictEqual(res.body.studio.name, 'The Classic Porn');
   });
@@ -218,5 +274,51 @@ describe('GET /xxxmovie/:id', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     assert.strictEqual((await agent.get('/xxxmovie/123')).status, 404);
+  });
+});
+
+describe('GET /xxxmovie/match/:type/:id', () => {
+  const STASH_ID = '3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c';
+
+  beforeEach(() => {
+    getSettings().stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'key',
+    };
+  });
+
+  it('matches StashDB performers on their ThePornDB link', async () => {
+    mock.method(StashDbAPI.prototype, 'getPerformer', async () => ({
+      id: STASH_ID,
+      name: 'Erica Boyer',
+    }));
+    const find = mock.method(
+      TpdbAPI.prototype,
+      'findPerformerByStashDbId',
+      async () => ({ id: 'performer', _id: 99899, name: 'Erica Boyer' })
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/xxxmovie/match/performer/${STASH_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, { id: 99899, name: 'Erica Boyer' });
+    assert.deepStrictEqual(find.mock.calls[0].arguments, [
+      STASH_ID,
+      'Erica Boyer',
+    ]);
+  });
+
+  it('returns 404 when ThePornDB has no such site', async () => {
+    mock.method(StashDbAPI.prototype, 'getStudio', async () => ({
+      id: STASH_ID,
+      name: 'Molly Little',
+    }));
+    mock.method(TpdbAPI.prototype, 'findSiteByName', async () => null);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/xxxmovie/match/studio/${STASH_ID}`);
+
+    assert.strictEqual(res.status, 404);
   });
 });

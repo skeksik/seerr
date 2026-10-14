@@ -1,3 +1,4 @@
+import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
 import type { MovieSortOptions } from '@server/api/themoviedb';
 import TheMovieDb from '@server/api/themoviedb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
@@ -9,6 +10,7 @@ import logger from '@server/logger';
 import { mapMovieResult } from '@server/models/Search';
 import type { XxxMovieListResponse } from '@server/models/XxxMovie';
 import { mapXxxMovieDetails, mapXxxMovieResult } from '@server/models/XxxMovie';
+import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction, Request } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -30,9 +32,10 @@ const ids = z
   .string()
   .regex(/^\d+(,\d+)*$/)
   .transform((value) => value.split(',').map(Number));
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const discoverQuery = z.object({
+  // Performer and studio pages always list ThePornDB movies
+  source: z.nativeEnum(XxxMovieSource).optional(),
   page: z.coerce.number().int().positive().default(1),
   sort: z.enum(xxxMovieSorts).default('released'),
   studio: z.coerce.number().int().positive().optional(),
@@ -41,7 +44,7 @@ const discoverQuery = z.object({
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   // ThePornDB takes one date bound, so both sources use one here
   released: z.enum(['after', 'before']).optional(),
-  releaseDate: date.optional(),
+  releaseDate: isoDate.optional(),
   upcoming: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
@@ -67,6 +70,10 @@ const handleError = (
 ) => {
   if (e instanceof TpdbNotConfiguredError) {
     return next({ status: 503, message: 'ThePornDB is not configured.' });
+  }
+
+  if (e instanceof StashDbNotConfiguredError) {
+    return next({ status: 503, message: 'StashDB is not configured.' });
   }
 
   logger.debug(message, { label: 'API', errorMessage: e.message, ...meta });
@@ -206,7 +213,8 @@ xxxMovieRoutes.get('/discover', async (req, res, next) => {
 
   try {
     const list =
-      getSettings().xxxMovies.source === XxxMovieSource.TMDB
+      (parsed.data.source ?? getSettings().xxxMovies.source) ===
+      XxxMovieSource.TMDB
         ? await discoverTmdb(req, parsed.data)
         : await discoverTpdb(parsed.data);
 
@@ -317,6 +325,47 @@ xxxMovieRoutes.get('/tags', async (req, res, next) => {
     });
   }
 });
+
+// The ThePornDB performer or site behind a StashDB performer or studio
+xxxMovieRoutes.get<{ type: string; id: string }>(
+  '/match/:type/:id',
+  async (req, res, next) => {
+    const id = z.string().uuid().safeParse(req.params.id);
+
+    if (!id.success || !['studio', 'performer'].includes(req.params.type)) {
+      return next({ status: 404, message: 'Not found.' });
+    }
+
+    try {
+      const stashDb = StashDbAPI.fromSettings();
+      const tpdb = TpdbAPI.fromSettings();
+      let match: { id: number; name: string } | null = null;
+
+      if (req.params.type === 'performer') {
+        const performer = await stashDb.getPerformer(id.data);
+        const found =
+          performer &&
+          (await tpdb.findPerformerByStashDbId(performer.id, performer.name));
+        match = found ? { id: found._id, name: found.name } : null;
+      } else {
+        const studio = await stashDb.getStudio(id.data);
+        const found = studio && (await tpdb.findSiteByName(studio.name));
+        match = found ? { id: found.id, name: found.name } : null;
+      }
+
+      if (!match) {
+        return next({ status: 404, message: 'No ThePornDB match.' });
+      }
+
+      return res.status(200).json(match);
+    } catch (e) {
+      return handleError(e, next, 'Unable to match on ThePornDB.', {
+        type: req.params.type,
+        id: id.data,
+      });
+    }
+  }
+);
 
 xxxMovieRoutes.get<{ type: string; id: string }>(
   '/:type/:id',

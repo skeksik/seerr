@@ -42,7 +42,7 @@ The Discover page gets adult rows at the bottom: trending, popular, new and upco
 
 Scenes are their own media type, separate from movies and series.
 
-Each scene page shows the StashDB details, performers, tags and more scenes from the same studio. Performer and studio pages list their scenes, with links to StashDB and the sites StashDB knows about.
+Each scene page shows the StashDB details, performers, tags and more scenes from the same studio. Performer and studio pages list their scenes, with links to StashDB and the sites StashDB knows about. A network's page also lists the scenes of the studios under it. With a ThePornDB key, these pages add an **XXX Movies** row: performers are matched on their StashDB link, studios on their name.
 
 ### Requesting Scenes
 

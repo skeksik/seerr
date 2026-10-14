@@ -74,6 +74,7 @@ describe('StashDbAPI', () => {
 
   it('filters scene queries by studio, performer and tag', async () => {
     const api = new TestStashDbAPI([
+      { data: { s0: { child_studios: [{ id: 'child' }] } } },
       { data: { queryScenes: { count: 0, scenes: [] } } },
     ]);
 
@@ -84,9 +85,13 @@ describe('StashDbAPI', () => {
       date: { value: '2026-01-01', modifier: 'GREATER_THAN' },
     });
 
-    const { input } = JSON.parse(api.requests[0].data).variables;
+    // Networks take in the studios under them
+    assert.deepStrictEqual(JSON.parse(api.requests[0].data).variables, {
+      s0: 'studio',
+    });
+    const { input } = JSON.parse(api.requests[1].data).variables;
     assert.deepStrictEqual(input.studios, {
-      value: ['studio'],
+      value: ['studio', 'child'],
       modifier: 'INCLUDES',
     });
     assert.deepStrictEqual(input.tags, {

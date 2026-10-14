@@ -1,3 +1,4 @@
+import { stashDbPerformerId } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
 import type { MovieResult } from '@server/models/Search';
@@ -24,6 +25,8 @@ export interface XxxMovieDetails extends XxxMovieResult {
     id: string;
     // Numeric id ThePornDB filters take
     tpdbId: number;
+    // StashDB performer, which has the performer page
+    stashDbId?: string;
     name: string;
     imageUrl?: string;
   }[];
@@ -80,6 +83,7 @@ export const mapXxxMovieDetails = (
   performers: (movie.performers ?? []).map((performer) => ({
     id: performer.parent?.id ?? performer.id,
     tpdbId: performer.parent?._id ?? performer._id,
+    stashDbId: stashDbPerformerId(performer.parent?.extras ?? performer.extras),
     name: performer.parent?.name ?? performer.name,
     imageUrl: performer.parent?.image ?? performer.image ?? undefined,
   })),

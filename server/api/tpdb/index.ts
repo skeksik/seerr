@@ -3,6 +3,7 @@ import type {
   TpdbMovie,
   TpdbMovieSort,
   TpdbPage,
+  TpdbPerformerExtras,
   TpdbPerformerSummary,
   TpdbSiteSummary,
   TpdbTag,
@@ -20,6 +21,15 @@ export class TpdbNotConfiguredError extends Error {
     this.name = 'TpdbNotConfiguredError';
   }
 }
+
+const STASHDB_PERFORMER =
+  /^https:\/\/stashdb\.org\/performers\/([0-9a-f-]{36})\/?$/i;
+
+// Performers link their StashDB profile; there is no lookup by StashDB id
+export const stashDbPerformerId = (
+  extras?: TpdbPerformerExtras | null
+): string | undefined =>
+  extras?.links?.StashDB?.match(STASHDB_PERFORMER)?.[1]?.toLowerCase();
 
 export interface TpdbMovieQuery {
   page?: number;
@@ -87,6 +97,8 @@ class TpdbAPI extends ExternalAPI {
           q: query,
           orderBy: sort ?? (query ? 'most_relevant' : 'recently_released'),
           site_id: siteId,
+          // Networks and parent sites take in the movies of their sites
+          site_operation: siteId ? 'Site/Parent/Network' : undefined,
           performer_id: performerId,
           // Tags are keyed by id; the name is ignored
           ...Object.fromEntries(
@@ -169,6 +181,28 @@ class TpdbAPI extends ExternalAPI {
       }
       throw e;
     }
+  }
+
+  public async findPerformerByStashDbId(
+    stashDbId: string,
+    name: string
+  ): Promise<TpdbPerformerSummary | null> {
+    const performers = await this.searchPerformers(name);
+
+    return (
+      performers.find(
+        (performer) => stashDbPerformerId(performer.extras) === stashDbId
+      ) ?? null
+    );
+  }
+
+  // Sites hold no StashDB links, so studios are matched on their name
+  public async findSiteByName(name: string): Promise<TpdbSiteSummary | null> {
+    const sites = (await this.searchSites(name)).filter(
+      (site) => site.name.toLowerCase() === name.toLowerCase()
+    );
+
+    return sites.find((site) => site.name === name) ?? sites[0] ?? null;
   }
 
   public async searchTags(query: string): Promise<TpdbTag[]> {
