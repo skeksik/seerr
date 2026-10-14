@@ -1,5 +1,6 @@
 import CachedImage from '@app/components/Common/CachedImage';
 import MiniQuotaDisplay from '@app/components/Layout/UserDropdown/MiniQuotaDisplay';
+import { useAdultAllowed } from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
 import { unsubscribeToPushNotifications } from '@app/utils/pushSubscriptionHelpers';
@@ -14,12 +15,18 @@ import {
   ArrowRightOnRectangleIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
-import { CogIcon, UserIcon } from '@heroicons/react/24/solid';
+import {
+  CogIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  UserIcon,
+} from '@heroicons/react/24/solid';
 import axios from 'axios';
 import type { LinkProps } from 'next/link';
 import Link from 'next/link';
 import { Fragment, forwardRef } from 'react';
 import { useIntl } from 'react-intl';
+import { mutate } from 'swr';
 
 const PUSH_CLEANUP_REQUEST_TIMEOUT_MS = 3000;
 // exceeds the request timeout so that fires first; the remainder covers the
@@ -32,6 +39,10 @@ const messages = defineMessages('components.Layout.UserDropdown', {
   settings: 'Settings',
   requests: 'Requests',
   signout: 'Sign Out',
+  safeMode: 'Safe Mode',
+  blurAdult: 'Blur Adult Artwork',
+  on: 'On',
+  off: 'Off',
 });
 
 const ForwardedLink = forwardRef<
@@ -50,6 +61,22 @@ ForwardedLink.displayName = 'ForwardedLink';
 const UserDropdown = () => {
   const intl = useIntl();
   const { user, revalidate, hasPermission } = useUser();
+  const adultAllowed = useAdultAllowed();
+
+  const toggleAdultSetting = async (
+    key: 'adultSafeMode' | 'blurAdultImages'
+  ) => {
+    if (!user) {
+      return;
+    }
+
+    await axios.post(`/api/v1/user/${user.id}/settings/adult`, {
+      [key]: !user.settings?.[key],
+    });
+    await revalidate();
+    // Lists fetched with the old setting still hold adult titles
+    mutate(() => true);
+  };
 
   const logout = async () => {
     const cleanUpPushSubscription = async () => {
@@ -199,6 +226,80 @@ const UserDropdown = () => {
                   </ForwardedLink>
                 )}
               </MenuItem>
+              {adultAllowed && (
+                <>
+                  <MenuItem>
+                    {({ active }) => (
+                      <button
+                        type="button"
+                        className={`flex w-full items-center rounded px-4 py-2 text-sm font-medium text-gray-200 transition duration-150 ease-in-out ${
+                          active
+                            ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white'
+                            : ''
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleAdultSetting('adultSafeMode');
+                        }}
+                      >
+                        <EyeSlashIcon className="mr-2 inline h-5 w-5" />
+                        <span className="flex-1 text-left">
+                          {intl.formatMessage(messages.safeMode)}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 text-xs ${
+                            user?.settings?.adultSafeMode
+                              ? 'bg-green-600 text-white'
+                              : 'bg-gray-600 text-gray-200'
+                          }`}
+                        >
+                          {intl.formatMessage(
+                            user?.settings?.adultSafeMode
+                              ? messages.on
+                              : messages.off
+                          )}
+                        </span>
+                      </button>
+                    )}
+                  </MenuItem>
+                  {!user?.settings?.adultSafeMode && (
+                    <MenuItem>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          className={`flex w-full items-center rounded px-4 py-2 text-sm font-medium text-gray-200 transition duration-150 ease-in-out ${
+                            active
+                              ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white'
+                              : ''
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toggleAdultSetting('blurAdultImages');
+                          }}
+                        >
+                          <EyeIcon className="mr-2 inline h-5 w-5" />
+                          <span className="flex-1 text-left">
+                            {intl.formatMessage(messages.blurAdult)}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 text-xs ${
+                              user?.settings?.blurAdultImages
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-600 text-gray-200'
+                            }`}
+                          >
+                            {intl.formatMessage(
+                              user?.settings?.blurAdultImages
+                                ? messages.on
+                                : messages.off
+                            )}
+                          </span>
+                        </button>
+                      )}
+                    </MenuItem>
+                  )}
+                </>
+              )}
               <MenuItem>
                 {({ active }) => (
                   <a

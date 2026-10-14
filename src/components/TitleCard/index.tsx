@@ -352,7 +352,7 @@ const TitleCard = ({
         isUpdating={isUpdating}
       />
       <div
-        className={`relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover outline-none ring-1 transition duration-300 ${
+        className={`group relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover outline-none ring-1 transition duration-300 ${
           showDetail
             ? 'scale-105 shadow-lg ring-gray-500'
             : 'scale-100 shadow ring-gray-700'
@@ -378,6 +378,7 @@ const TitleCard = ({
         <div className="absolute inset-0 h-full w-full overflow-hidden">
           <CachedImage
             type="tmdb"
+            adult={isAdult}
             className="absolute inset-0 h-full w-full"
             alt=""
             src={

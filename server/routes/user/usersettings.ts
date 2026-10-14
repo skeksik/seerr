@@ -167,6 +167,45 @@ userSettingsRoutes.post<
   }
 });
 
+// Adult content preferences, toggled from the user menu
+userSettingsRoutes.post<
+  { id: string },
+  { adultSafeMode: boolean; blurAdultImages: boolean },
+  { adultSafeMode?: boolean; blurAdultImages?: boolean }
+>('/adult', isOwnProfileOrAdmin(), async (req, res, next) => {
+  const userRepository = getRepository(User);
+
+  try {
+    const user = await userRepository.findOne({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!user) {
+      return next({ status: 404, message: 'User not found.' });
+    }
+
+    if (!user.settings) {
+      user.settings = new UserSettings({ user });
+    }
+
+    if (typeof req.body.adultSafeMode === 'boolean') {
+      user.settings.adultSafeMode = req.body.adultSafeMode;
+    }
+    if (typeof req.body.blurAdultImages === 'boolean') {
+      user.settings.blurAdultImages = req.body.blurAdultImages;
+    }
+
+    await userRepository.save(user);
+
+    return res.status(200).json({
+      adultSafeMode: user.settings.adultSafeMode,
+      blurAdultImages: user.settings.blurAdultImages,
+    });
+  } catch (e) {
+    next({ status: 500, message: e.message });
+  }
+});
+
 userSettingsRoutes.get<{ id: string }, { hasPassword: boolean }>(
   '/password',
   isOwnProfileOrAdmin(),

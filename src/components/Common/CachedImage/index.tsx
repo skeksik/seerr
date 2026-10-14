@@ -1,3 +1,4 @@
+import { useAdultBlur } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import type { ImageLoader, ImageProps } from 'next/image';
 import Image from 'next/image';
@@ -7,14 +8,24 @@ const imageLoader: ImageLoader = ({ src }) => src;
 export type CachedImageProps = ImageProps & {
   src: string;
   type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb' | 'tpdb';
+  // Adult TMDB artwork; StashDB and ThePornDB images always count as adult
+  adult?: boolean;
 };
 
 /**
  * The CachedImage component should be used wherever
  * we want to offer the option to locally cache images.
  **/
-const CachedImage = ({ src, type, ...props }: CachedImageProps) => {
+const CachedImage = ({
+  src,
+  type,
+  adult = false,
+  className,
+  ...props
+}: CachedImageProps) => {
   const { currentSettings } = useSettings();
+  const blurAdult = useAdultBlur();
+  const blur = blurAdult && (adult || type === 'stashdb' || type === 'tpdb');
 
   let imageUrl: string;
 
@@ -52,7 +63,15 @@ const CachedImage = ({ src, type, ...props }: CachedImageProps) => {
     return null;
   }
 
-  return <Image unoptimized loader={imageLoader} src={imageUrl} {...props} />;
+  return (
+    <Image
+      unoptimized
+      loader={imageLoader}
+      src={imageUrl}
+      className={blur ? `adult-blur ${className ?? ''}` : className}
+      {...props}
+    />
+  );
 };
 
 export default CachedImage;

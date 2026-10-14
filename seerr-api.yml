@@ -5877,6 +5877,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserSettings'
+  /user/{userId}/settings/adult:
+    post:
+      summary: Update adult content preferences
+      description: Turns safe mode (hide all adult content) and blurred adult artwork on or off. Only the user or an admin can change these.
+      tags:
+        - users
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adultSafeMode:
+                  type: boolean
+                blurAdultImages:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adultSafeMode:
+                    type: boolean
+                  blurAdultImages:
+                    type: boolean
   /user/{userId}/settings/password:
     get:
       summary: Get password page informatiom

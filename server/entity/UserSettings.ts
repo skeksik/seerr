@@ -85,6 +85,14 @@ export class UserSettings {
   @Column({ nullable: true })
   public watchlistSyncTv?: boolean;
 
+  // Hides adult content without taking the permission away
+  @Column({ default: false })
+  public adultSafeMode: boolean;
+
+  // Blurs adult artwork until it is hovered
+  @Column({ default: false })
+  public blurAdultImages: boolean;
+
   @Column({
     type: 'text',
     nullable: true,
