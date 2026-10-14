@@ -56,8 +56,14 @@ const SceneBrowseContent = () => {
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
 
+  // StashDB's trending order only holds recently active scenes, so a
+  // filtered list would show just a handful; filters default to newest first
   const sort =
-    typeof router.query.sort === 'string' ? router.query.sort : 'trending';
+    typeof router.query.sort === 'string'
+      ? router.query.sort
+      : countAdultFilters(router.query) > 0
+        ? 'date'
+        : 'trending';
   const filters = Object.fromEntries(
     apiParams
       .map((key) => [key, router.query[key]] as const)
