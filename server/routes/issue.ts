@@ -1,4 +1,5 @@
 import { IssueStatus, IssueType } from '@server/constants/issue';
+import { MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Issue from '@server/entity/Issue';
 import IssueComment from '@server/entity/IssueComment';
@@ -8,6 +9,7 @@ import type {
   IssueRequestBody,
   IssueResultsResponse,
 } from '@server/interfaces/api/issueInterfaces';
+import { canViewAdult, isAdultMedia } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
@@ -81,6 +83,16 @@ issueRoutes.get<Record<string, string>, IssueResultsResponse>(
       query = query.andWhere('createdBy.id = :id', { id: createdBy });
     }
 
+    if (!canViewAdult(req.user)) {
+      query = query.andWhere(
+        'media.mediaType NOT IN (:...adultTypes) AND media.isAdult = :notAdult',
+        {
+          adultTypes: [MediaType.SCENE, MediaType.XXX_MOVIE],
+          notAdult: false,
+        }
+      );
+    }
+
     const [issues, issueCount] = await query
       .orderBy(sortFilter, 'DESC')
       .take(pageSize)
@@ -118,7 +130,7 @@ issueRoutes.post<Record<string, string>, Issue, IssueRequestBody>(
       where: { id: req.body.mediaId },
     });
 
-    if (!media) {
+    if (!media || (isAdultMedia(media) && !canViewAdult(req.user))) {
       return next({ status: 404, message: 'Media does not exist.' });
     }
 
@@ -264,6 +276,10 @@ issueRoutes.get<{ issueId: string }>(
           status: 403,
           message: 'You do not have permission to view this issue.',
         });
+      }
+
+      if (isAdultMedia(issue.media) && !canViewAdult(req.user)) {
+        return next({ status: 404, message: 'Issue not found.' });
       }
 
       return res.status(200).json(issue);

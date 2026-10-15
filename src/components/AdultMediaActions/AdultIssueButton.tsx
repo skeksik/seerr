@@ -1,0 +1,58 @@
+import Button from '@app/components/Common/Button';
+import Tooltip from '@app/components/Common/Tooltip';
+import IssueModal from '@app/components/IssueModal';
+import { Permission, useUser } from '@app/hooks/useUser';
+import defineMessages from '@app/utils/defineMessages';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { MediaStatus } from '@server/constants/media';
+import { useState } from 'react';
+import { useIntl } from 'react-intl';
+
+const messages = defineMessages('components.AdultMediaActions', {
+  reportissue: 'Report an Issue',
+});
+
+interface AdultIssueButtonProps {
+  mediaType: 'scene' | 'xxxmovie';
+  id: string;
+  status?: MediaStatus;
+}
+
+// Like movies, issues can be reported once the title is available
+const AdultIssueButton = ({ mediaType, id, status }: AdultIssueButtonProps) => {
+  const intl = useIntl();
+  const { hasPermission } = useUser();
+  const [showIssueModal, setShowIssueModal] = useState(false);
+
+  if (
+    (status !== MediaStatus.AVAILABLE &&
+      status !== MediaStatus.PARTIALLY_AVAILABLE) ||
+    !hasPermission([Permission.CREATE_ISSUES, Permission.MANAGE_ISSUES], {
+      type: 'or',
+    })
+  ) {
+    return null;
+  }
+
+  return (
+    <>
+      <IssueModal
+        onCancel={() => setShowIssueModal(false)}
+        show={showIssueModal}
+        mediaType={mediaType}
+        externalId={id}
+      />
+      <Tooltip content={intl.formatMessage(messages.reportissue)}>
+        <Button
+          buttonType="warning"
+          onClick={() => setShowIssueModal(true)}
+          className="ml-2 first:ml-0"
+        >
+          <ExclamationTriangleIcon />
+        </Button>
+      </Tooltip>
+    </>
+  );
+};
+
+export default AdultIssueButton;

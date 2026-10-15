@@ -1,5 +1,6 @@
 import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
+import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
@@ -200,6 +201,11 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <span>{intl.formatMessage(globalMessages.request)}</span>
             </Button>
           )}
+          <AdultIssueButton
+            mediaType="scene"
+            id={data.id}
+            status={data.mediaInfo?.status}
+          />
           <AdultManageButton
             mediaType="scene"
             data={data}

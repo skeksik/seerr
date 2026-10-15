@@ -4,6 +4,7 @@ import { MediaType } from '@server/constants/media';
 import IssueComment from '@server/entity/IssueComment';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
+import { describeAdultMedia } from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
@@ -27,7 +28,7 @@ export class IssueCommentSubscriber implements EntitySubscriberInterface<IssueCo
     entity: IssueComment
   ) {
     let title: string;
-    let image: string;
+    let image: string | undefined;
     const tmdb = new TheMovieDb();
 
     try {
@@ -46,7 +47,12 @@ export class IssueCommentSubscriber implements EntitySubscriberInterface<IssueCo
         where: { id: issue.media.id },
       });
 
-      if (media.mediaType === MediaType.MOVIE) {
+      if (
+        media.mediaType === MediaType.SCENE ||
+        media.mediaType === MediaType.XXX_MOVIE
+      ) {
+        ({ title, image } = await describeAdultMedia(media));
+      } else if (media.mediaType === MediaType.MOVIE) {
         const movie = await tmdb.getMovie({ movieId: requireTmdbId(media) });
 
         title = `${movie.title}${

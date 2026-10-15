@@ -248,3 +248,68 @@ describe('GET /issueComment/:commentId', () => {
     assertNoCredentials(res.body);
   });
 });
+
+describe('adult media issues', () => {
+  async function seedScene() {
+    return getRepository(Media).save(
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: '01a138c1-a8cf-74b2-a8bb-e617e9c6f20f',
+        tmdbId: null,
+        status: MediaStatus.AVAILABLE,
+      })
+    );
+  }
+
+  it('lets adult viewers report scenes', async () => {
+    getSettings().main.enableAdult = true;
+
+    try {
+      const media = await seedScene();
+      const agent = await loginAs('admin@seerr.dev', 'test1234');
+      const res = await agent.post('/issue').send({
+        issueType: IssueType.VIDEO,
+        message: 'Wrong scene downloaded.',
+        mediaId: media.id,
+      });
+
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(res.body.media.mediaType, MediaType.SCENE);
+    } finally {
+      getSettings().main.enableAdult = false;
+    }
+  });
+
+  it('hides scene issues while adult content is off', async () => {
+    const media = await seedScene();
+    const admin = await getRepository(User).findOneOrFail({
+      where: { email: 'admin@seerr.dev' },
+    });
+    const issue = await getRepository(Issue).save(
+      new Issue({
+        createdBy: admin,
+        issueType: IssueType.VIDEO,
+        media,
+        comments: [],
+      })
+    );
+    const agent = await loginAs('admin@seerr.dev', 'test1234');
+
+    const list = await agent.get('/issue');
+    assert.strictEqual(
+      list.body.results.some((i: { id: number }) => i.id === issue.id),
+      false
+    );
+    assert.strictEqual((await agent.get(`/issue/${issue.id}`)).status, 404);
+    assert.strictEqual(
+      (
+        await agent.post('/issue').send({
+          issueType: IssueType.VIDEO,
+          message: 'Hidden.',
+          mediaId: media.id,
+        })
+      ).status,
+      404
+    );
+  });
+});

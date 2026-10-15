@@ -19,6 +19,7 @@
   "components.AdultMediaActions.managescene": "Manage Scene",
   "components.AdultMediaActions.managexxxmovie": "Manage XXX Movie",
   "components.AdultMediaActions.removefromwatchlist": "Remove From Watchlist",
+  "components.AdultMediaActions.reportissue": "Report an Issue",
   "components.AdultMediaActions.watchlistDeleted": "<strong>{title}</strong> Removed from watchlist successfully!",
   "components.AdultMediaActions.watchlistError": "Something went wrong. Please try again.",
   "components.AdultMediaActions.watchlistSuccess": "<strong>{title}</strong> added to watchlist successfully!",

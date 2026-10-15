@@ -6,12 +6,15 @@ import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
+import { stashImageUrl } from '@app/utils/stashImage';
 import { Label, Radio, RadioGroup } from '@headlessui/react';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import type Issue from '@server/entity/Issue';
 import type { MovieDetails } from '@server/models/Movie';
+import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
+import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
 import Link from 'next/link';
@@ -39,8 +42,44 @@ const messages = defineMessages('components.IssueModal.CreateIssueModal', {
   submitissue: 'Submit Issue',
 });
 
-const isMovie = (movie: MovieDetails | TvDetails): movie is MovieDetails => {
-  return (movie as MovieDetails).title !== undefined;
+type IssueMediaDetails =
+  | MovieDetails
+  | TvDetails
+  | SceneDetails
+  | XxxMovieDetails;
+
+const isTv = (media: IssueMediaDetails): media is TvDetails =>
+  (media as TvDetails).name !== undefined;
+
+// Scenes and XXX movies use their own image hosts for the backdrop
+const backdropFor = (
+  mediaType: CreateIssueModalProps['mediaType'],
+  data?: IssueMediaDetails
+): { backdrop?: string; backdropType: 'tmdb' | 'stashdb' | 'tpdb' } => {
+  if (mediaType === 'scene') {
+    return {
+      backdrop: stashImageUrl(
+        (data as SceneDetails | undefined)?.imageUrl,
+        1280
+      ),
+      backdropType: 'stashdb',
+    };
+  }
+
+  if (mediaType === 'xxxmovie') {
+    const movie = data as XxxMovieDetails | undefined;
+    return {
+      backdrop: movie?.backdropUrl ?? movie?.posterUrl,
+      backdropType: 'tpdb',
+    };
+  }
+
+  return {
+    backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
+      (data as MovieDetails | TvDetails | undefined)?.backdropPath
+    }`,
+    backdropType: 'tmdb',
+  };
 };
 
 const classNames = (...classes: string[]) => {
@@ -48,8 +87,10 @@ const classNames = (...classes: string[]) => {
 };
 
 interface CreateIssueModalProps {
-  mediaType: 'movie' | 'tv';
+  mediaType: 'movie' | 'tv' | 'scene' | 'xxxmovie';
   tmdbId?: number;
+  // StashDB scene or ThePornDB movie id
+  externalId?: string;
   onCancel?: () => void;
 }
 
@@ -57,20 +98,27 @@ const CreateIssueModal = ({
   onCancel,
   mediaType,
   tmdbId,
+  externalId,
 }: CreateIssueModalProps) => {
   const intl = useIntl();
   const settings = useSettings();
   const { hasPermission } = useUser();
   const { addToast } = useToasts();
-  const { data, error } = useSWR<MovieDetails | TvDetails>(
-    tmdbId ? `/api/v1/${mediaType}/${tmdbId}` : null
+  const id =
+    mediaType === 'scene' || mediaType === 'xxxmovie' ? externalId : tmdbId;
+  const { data, error } = useSWR<IssueMediaDetails>(
+    id ? `/api/v1/${mediaType}/${id}` : null
   );
 
-  if (!tmdbId) {
+  if (!id) {
     return null;
   }
 
-  const availableSeasons = (data?.mediaInfo?.seasons ?? [])
+  const title = data && (isTv(data) ? data.name : data.title);
+
+  const availableSeasons = (
+    data && isTv(data) ? (data.mediaInfo?.seasons ?? []) : []
+  )
     .filter(
       (season) =>
         season.status === MediaStatus.AVAILABLE ||
@@ -115,7 +163,7 @@ const CreateIssueModal = ({
               <>
                 <div>
                   {intl.formatMessage(messages.toastSuccessCreate, {
-                    title: isMovie(data) ? data.title : data.name,
+                    title,
                     strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
                   })}
                 </div>
@@ -152,14 +200,14 @@ const CreateIssueModal = ({
             backgroundClickable
             onCancel={onCancel}
             title={intl.formatMessage(messages.reportissue)}
-            subTitle={data && isMovie(data) ? data?.title : data?.name}
+            subTitle={title}
             cancelText={intl.formatMessage(globalMessages.close)}
             onOk={() => handleSubmit()}
             okText={intl.formatMessage(messages.submitissue)}
             loading={!data && !error}
-            backdrop={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${data?.backdropPath}`}
+            {...backdropFor(mediaType, data)}
           >
-            {mediaType === 'tv' && data && !isMovie(data) && (
+            {mediaType === 'tv' && data && isTv(data) && (
               <>
                 <div className="form-row">
                   <label htmlFor="problemSeason" className="text-label">

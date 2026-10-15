@@ -2,6 +2,7 @@ import TheMovieDb from '@server/api/themoviedb';
 import { IssueStatus, IssueType, IssueTypeName } from '@server/constants/issue';
 import { MediaType } from '@server/constants/media';
 import Issue from '@server/entity/Issue';
+import { describeAdultMedia } from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
@@ -22,11 +23,16 @@ export class IssueSubscriber implements EntitySubscriberInterface<Issue> {
 
   private async sendIssueNotification(entity: Issue, type: Notification) {
     let title: string;
-    let image: string;
+    let image: string | undefined;
     const tmdb = new TheMovieDb();
 
     try {
-      if (entity.media.mediaType === MediaType.MOVIE) {
+      if (
+        entity.media.mediaType === MediaType.SCENE ||
+        entity.media.mediaType === MediaType.XXX_MOVIE
+      ) {
+        ({ title, image } = await describeAdultMedia(entity.media));
+      } else if (entity.media.mediaType === MediaType.MOVIE) {
         const movie = await tmdb.getMovie({
           movieId: requireTmdbId(entity.media),
         });

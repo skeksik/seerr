@@ -6,6 +6,7 @@ import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { Watchlist } from '@server/entity/Watchlist';
+import { mapSceneResult } from '@server/models/Scene';
 import type { EntityManager } from 'typeorm';
 
 export const adultIdField = (
@@ -60,3 +61,40 @@ export const isOnWatchlist = async (
   getRepository(Watchlist).exist({
     where: { mediaType, externalId, requestedBy: { id: user.id } },
   });
+
+// Notification subject and image for a scene or XXX movie, like the TMDB
+// title and poster for movies
+export const describeAdultMedia = async (
+  media: Media
+): Promise<{ title: string; image?: string }> => {
+  if (media.mediaType === MediaType.SCENE && media.stashId) {
+    const scene = await StashDbAPI.fromSettings().getScene(media.stashId);
+
+    if (!scene) {
+      throw new Error(`Scene ${media.stashId} not found on StashDB`);
+    }
+
+    const details = mapSceneResult(scene);
+    return {
+      title: `${details.title}${
+        details.releaseDate ? ` (${details.releaseDate.slice(0, 4)})` : ''
+      }`,
+      image: details.imageUrl ? `${details.imageUrl}?size=600` : undefined,
+    };
+  }
+
+  if (media.mediaType === MediaType.XXX_MOVIE && media.tpdbId) {
+    const movie = await TpdbAPI.fromSettings().getMovie(media.tpdbId);
+
+    if (!movie) {
+      throw new Error(`Movie ${media.tpdbId} not found on ThePornDB`);
+    }
+
+    return {
+      title: `${movie.title}${movie.date ? ` (${movie.date.slice(0, 4)})` : ''}`,
+      image: movie.posters?.large ?? movie.image ?? undefined,
+    };
+  }
+
+  throw new Error(`Media ${media.id} is not a scene or XXX movie`);
+};

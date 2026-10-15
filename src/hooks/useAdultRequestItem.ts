@@ -5,7 +5,9 @@ import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import useSWR from 'swr';
 
 export interface AdultRequestItemDetails {
+  loading: boolean;
   title?: string;
+  releaseDate?: string;
   // Studio and year
   subtitle: string;
   href: string;
@@ -25,7 +27,7 @@ const useAdultRequestItem = (
 ): AdultRequestItemDetails => {
   const isScene = media.mediaType === 'scene';
   const id = isScene ? media.stashId : media.tpdbId;
-  const { data } = useSWR<SceneDetails | XxxMovieDetails>(
+  const { data, error } = useSWR<SceneDetails | XxxMovieDetails>(
     load && id ? `/api/v1/${isScene ? 'scene' : 'xxxmovie'}/${id}` : null
   );
 
@@ -36,7 +38,9 @@ const useAdultRequestItem = (
       : stashImageUrl((data as SceneDetails).imageUrl, imageSize);
 
   return {
+    loading: load && !!id && !data && !error,
     title: data?.title,
+    releaseDate: data?.releaseDate,
     subtitle: [data?.studio?.name, data?.releaseDate?.slice(0, 4)]
       .filter(Boolean)
       .join(' · '),

@@ -1,5 +1,6 @@
 import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
+import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
@@ -178,6 +179,11 @@ const XxxMovieDetailsContent = () => {
               <span>{intl.formatMessage(globalMessages.request)}</span>
             </Button>
           )}
+          <AdultIssueButton
+            mediaType="xxxmovie"
+            id={data.id}
+            status={data.mediaInfo?.status}
+          />
           <AdultManageButton
             mediaType="xxxmovie"
             data={data}
