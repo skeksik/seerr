@@ -215,7 +215,7 @@ const AdultFilterSlideover = ({
           <div className="relative z-40 flex space-x-2">
             <select
               id="released"
-              className="w-44 flex-shrink-0"
+              className="w-44 flex-none"
               value={released}
               onChange={(e) =>
                 batchUpdate({
