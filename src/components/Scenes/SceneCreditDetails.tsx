@@ -1,3 +1,4 @@
+import AdultProfileLinks from '@app/components/AdultProfileLinks';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import ImageFader from '@app/components/Common/ImageFader';
@@ -45,7 +46,6 @@ const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   present: 'present',
   partOf: 'Part of {studio}',
   alsoknownas: 'Also Known As: {names}',
-  viewonstashdb: 'View on StashDB',
   openinwhisparr: 'Open in Whisparr',
   monitor: 'Monitor in Whisparr',
   monitored: 'Monitored in Whisparr',
@@ -228,7 +228,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     id ? `/api/v1/scene/${type}/${id}` : null
   );
   // Movies come from ThePornDB, where performers and studios have own ids
-  const { data: tpdbMatch } = useSWR<{ id: number }>(
+  const { data: tpdbMatch } = useSWR<{ id: number; url?: string }>(
     id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
     { shouldRetryOnError: false }
   );
@@ -362,30 +362,22 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
                 })}
               </div>
             )}
-            {data.urls.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-x-3 lg:justify-start">
-                {data.urls.map(({ url, site }) => (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-gray-400 transition duration-300 hover:text-white hover:underline"
-                  >
-                    {site}
-                  </a>
-                ))}
-              </div>
-            )}
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-            <a href={data.stashDbUrl} target="_blank" rel="noreferrer">
-              <Button buttonType="ghost">
-                <ArrowTopRightOnSquareIcon />
-                <span>{intl.formatMessage(messages.viewonstashdb)}</span>
-              </Button>
-            </a>
-            {data.whisparr && (
+          <div className="mt-3">
+            <AdultProfileLinks
+              links={[
+                { url: data.stashDbUrl, site: 'StashDB' },
+                // StashDB often lists ThePornDB itself
+                ...(tpdbMatch?.url &&
+                !data.urls.some(({ url }) => url.includes('theporndb.net'))
+                  ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
+                  : []),
+                ...data.urls,
+              ]}
+            />
+          </div>
+          {data.whisparr && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
               <MonitorControls
                 type={type}
                 id={data.id}
@@ -393,8 +385,8 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
                 status={data.whisparr}
                 onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
       {/* Above the backdrop carousel, which spans the top of the page */}
@@ -431,8 +423,8 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             hideWhenEmpty
           />
         )}
-        <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
-          <div className="slider-header">
+        <div className="mb-4 mt-6 flex flex-col justify-between lg:flex-row lg:items-center">
+          <div className="slider-header !my-0">
             {/* The Scenes tab, filtered to this performer or studio */}
             <Link href={`/scenes?${type}=${data.id}`} className="slider-title">
               <span>{intl.formatMessage(messages.scenes)}</span>

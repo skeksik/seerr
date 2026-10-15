@@ -38,13 +38,13 @@ Scene and XXX movie cards work like movie cards: hover one for its details and t
 
 ### Discover Rows
 
-The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and XXX movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
+The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Their titles and **See All** cards open every StashDB studio or network, searchable by name. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and XXX movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
 
 ## Scenes
 
 Scenes are their own media type, separate from movies and series.
 
-Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags. Performer and studio pages list their scenes, with links to StashDB and the sites StashDB knows about. A network's page also lists the scenes of the studios under it. With a ThePornDB key, these pages add an **XXX Movies** row: performers are matched on their StashDB link, studios on their name.
+Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags. Performer and studio pages list their scenes; the **Scenes** title opens the Scenes tab filtered to them. Their links to StashDB, ThePornDB and the sites StashDB knows about show as logos, or by name for sites without one. A network's page also lists its studios and the scenes of all of them. With a ThePornDB key, these pages add an **XXX Movies** row. Studios are matched on their name. Performers are matched on the StashDB link ThePornDB keeps for them, or else on their name plus a profile link both sites share, such as IAFD; the same match lets XXX movie cast members open their StashDB page.
 
 ### Detail Pages
 
