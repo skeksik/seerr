@@ -44,7 +44,17 @@ The Discover page gets adult rows at the bottom: trending, popular, new and upco
 
 Scenes are their own media type, separate from movies and series.
 
-Each scene page shows the StashDB details, performers, tags and more scenes from the same studio. Performer and studio pages list their scenes, with links to StashDB and the sites StashDB knows about. A network's page also lists the scenes of the studios under it. With a ThePornDB key, these pages add an **XXX Movies** row: performers are matched on their StashDB link, studios on their name.
+Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags. Performer and studio pages list their scenes, with links to StashDB and the sites StashDB knows about. A network's page also lists the scenes of the studios under it. With a ThePornDB key, these pages add an **XXX Movies** row: performers are matched on their StashDB link, studios on their name.
+
+### Detail Pages
+
+Scene and XXX movie pages are laid out like movie pages:
+
+- A **More from** banner for the studio, like the collection banner on movies, opens the studio's titles.
+- **Recommendations** lists other titles with any of the same performers. For scenes these are the most popular on StashDB; for XXX movies, the newest released on ThePornDB.
+- **Similar** looks at content rather than people. For scenes, Seerr takes the 100 most popular StashDB scenes sharing at least one tag and ranks them by how many tags they share (top 40). For XXX movies it uses ThePornDB's own similar list, about 9 movies.
+- The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site.
+- Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and XXX movies work like movie issues, and only users with adult access see them.
 
 ### Requesting Scenes
 
