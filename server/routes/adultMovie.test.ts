@@ -225,36 +225,6 @@ describe('GET /adultmovie/:id', () => {
     assert.strictEqual(res.body.studio.name, 'The Classic Porn');
   });
 
-  it('links the studio to the StashDB studio of the same name', async () => {
-    getSettings().stashdb = {
-      endpoint: 'https://stashdb.test/graphql',
-      apiKey: 'key',
-    };
-    mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
-    const searchStudios = mock.method(
-      StashDbAPI.prototype,
-      'searchStudios',
-      async () => [
-        { id: 'other', name: 'The Classic Porn Network' },
-        { id: 'studio', name: 'the classic porn' },
-      ]
-    );
-    const agent = await loginAs('admin@seerr.dev');
-
-    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
-
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(
-      searchStudios.mock.calls[0].arguments[0],
-      'The Classic Porn'
-    );
-    assert.deepStrictEqual(res.body.studio, {
-      id: 37335,
-      name: 'The Classic Porn',
-      stashDbId: 'studio',
-    });
-  });
-
   it('returns 404 for ids that are not UUIDs', async () => {
     const agent = await loginAs('admin@seerr.dev');
 

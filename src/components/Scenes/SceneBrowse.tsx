@@ -74,10 +74,11 @@ const SceneBrowseContent = () => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<SceneResult>('/api/v1/scene/discover', {
-    ...filters,
-    sort,
-  });
+  } = useDiscover<SceneResult>(
+    '/api/v1/scene/discover',
+    { ...filters, sort },
+    { filteredPages: true }
+  );
 
   if (error) {
     return <ErrorPage statusCode={500} />;

@@ -60,7 +60,14 @@ const useDiscover = <
 >(
   endpoint: string,
   options?: O,
-  { hideAvailable = true, hideBlocklisted = true, hideRequested = true } = {}
+  {
+    hideAvailable = true,
+    hideBlocklisted = true,
+    hideRequested = true,
+    // Pages the server filters can come back short, or empty, before the
+    // last one, so only the page count tells the end
+    filteredPages = false,
+  } = {}
 ): DiscoverResult<T, S> => {
   const settings = useSettings();
   const { hasPermission } = useUser();
@@ -154,12 +161,18 @@ const useDiscover = <
     });
   }
 
-  const isEmpty = !isLoadingInitialData && titles?.length === 0;
-  const isReachingEnd =
-    isEmpty ||
-    (!!data && (data[data?.length - 1]?.results.length ?? 0) < 20) ||
-    (!!data && (data[data?.length - 1]?.totalResults ?? 0) <= size * 20) ||
-    (!!data && (data[data?.length - 1]?.totalResults ?? 0) < 41);
+  const lastPage = data?.[data.length - 1];
+  const pagesDone = !!lastPage && lastPage.page >= lastPage.totalPages;
+  const isEmpty =
+    !isLoadingInitialData &&
+    titles?.length === 0 &&
+    (!filteredPages || pagesDone);
+  const isReachingEnd = filteredPages
+    ? isEmpty || pagesDone
+    : isEmpty ||
+      (!!data && (data[data?.length - 1]?.results.length ?? 0) < 20) ||
+      (!!data && (data[data?.length - 1]?.totalResults ?? 0) <= size * 20) ||
+      (!!data && (data[data?.length - 1]?.totalResults ?? 0) < 41);
 
   useEffect(() => {
     if (error && titles.length) {

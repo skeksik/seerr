@@ -13,6 +13,7 @@ import {
   classifyMovie,
   hiddenOrientations,
   isHidden,
+  tagsBeside,
   tagsNeeded,
 } from '@server/lib/orientation';
 import logger from '@server/logger';
@@ -148,22 +149,28 @@ interface MoviePlan {
 
 // The ThePornDB query for the picked filters, and what is left to filter
 // here
+// Narrowed to the orientations needed without straight, those shown beside
+// it, or none
+type Narrow = 'needed' | 'beside' | 'none';
+
 const planMovies = (
   user: User | undefined,
   filters: MovieFilters,
-  narrow = true
+  narrow: Narrow = 'needed'
 ): MoviePlan => {
   const hidden = hiddenOrientations(user, filters.orientation);
   const picked = filters.tags ?? [];
   const anyTag = filters.tagMode === 'or';
-  const needed = tagsNeeded(hidden).flatMap((key) => {
+  const needed = (
+    narrow === 'beside' ? tagsBeside(hidden) : tagsNeeded(hidden)
+  ).flatMap((key) => {
     const id = TPDB_ORIENTATION_TAG_IDS[key];
     return id ? [id] : [];
   });
   // Without straight, movies tagged with a shown orientation are asked for:
   // any of them without picked tags, or the one shown next to all of those
   const narrowed =
-    narrow &&
+    narrow !== 'none' &&
     needed.length > 0 &&
     (!picked.length || (needed.length === 1 && !anyTag));
 
@@ -200,8 +207,9 @@ const planMovies = (
         tagIds: filters.tagsExclude,
       },
     },
-    // Hiding straight without asking for other tags leaves few per page
-    dense: hidden.has('straight') && !narrowed,
+    // Hiding any without asking for tags leaves few per page, as most
+    // movies are unidentified
+    dense: hidden.size > 0 && !narrowed,
     narrowed,
   };
 };
@@ -329,6 +337,20 @@ const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   title: 'recently_released',
 };
 
+// Joined lists keep a release date order
+const mergeByDate = (
+  movies: TpdbMovie[],
+  joined: TpdbMovie[],
+  sort: TpdbMovieSort
+): TpdbMovie[] => {
+  const all = [...movies, ...joined];
+  if (sort !== 'recently_released' && sort !== 'former_released') {
+    return all;
+  }
+  const sign = sort === 'recently_released' ? -1 : 1;
+  return all.sort((a, b) => sign * (a.date ?? '').localeCompare(b.date ?? ''));
+};
+
 const discoverTpdb = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
@@ -342,34 +364,47 @@ const discoverTpdb = async (
     maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
   } as const;
   // Unidentified movies carry no orientation tag, so when they show next
-  // to tagged ones they are read apart and joined in
+  // to tagged ones they are read apart and joined in; so are tagged ones
+  // next to straight, which would be few among the rest
   const unidentified =
     plan.narrowed && !plan.filter.hidden.has('unidentified')
-      ? planMovies(user, filters, false)
+      ? planMovies(user, filters, 'none')
       : undefined;
+  const beside = plan.narrowed
+    ? undefined
+    : planMovies(user, filters, 'beside');
+  const tagged = beside?.narrowed ? beside : undefined;
+  const extraPlan = unidentified ?? tagged;
   const [list, extra] = await Promise.all([
     tpdb.getMovies({
       ...plan.query,
       ...query,
       perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
     }),
-    unidentified
+    extraPlan
       ? tpdb.getMovies({
-          ...unidentified.query,
+          ...extraPlan.query,
           ...query,
           perPage: DENSE_PAGE_SIZE,
         })
       : undefined,
   ]);
-  const movies = [
-    ...filterMovies(list.data, plan.filter),
-    ...(unidentified && extra
-      ? filterMovies(extra.data, {
-          ...unidentified.filter,
-          hidden: new Set(ORIENTATIONS.filter((key) => key !== 'unidentified')),
-        })
-      : []),
-  ];
+  const shown = filterMovies(list.data, plan.filter);
+  const joined =
+    extraPlan && extra
+      ? filterMovies(
+          extra.data.filter(({ id }) => !shown.some((m) => m.id === id)),
+          unidentified
+            ? {
+                ...unidentified.filter,
+                hidden: new Set(
+                  ORIENTATIONS.filter((key) => key !== 'unidentified')
+                ),
+              }
+            : extraPlan.filter
+        )
+      : [];
+  const movies = mergeByDate(shown, joined, query.sort);
 
   return {
     page,
@@ -698,9 +733,9 @@ adultMovieRoutes.get<{ type: string; id: string }>(
       }
 
       const details = mapAdultStudioDetails(site, sites);
-      const match = await withStashDbStudio(details);
-
-      return res.status(200).json({ ...details, stashDbId: match?.stashDbId });
+      return res
+        .status(200)
+        .json({ ...details, stashDbId: await stashDbStudioId(details) });
     } catch (e) {
       return handleError(e, next, 'Unable to retrieve filter.', {
         type: req.params.type,
@@ -710,24 +745,20 @@ adultMovieRoutes.get<{ type: string; id: string }>(
   }
 );
 
-// Studio links go to the StashDB studio page when StashDB has the studio
-const withStashDbStudio = async (
-  studio?: AdultMovieStudio
-): Promise<AdultMovieStudio | undefined> => {
-  if (!studio) {
-    return undefined;
-  }
-
+// The StashDB studio of the same name, for the studio page's scenes
+const stashDbStudioId = async (
+  studio: AdultMovieStudio
+): Promise<string | undefined> => {
   try {
     const match = await StashDbAPI.fromSettings().findStudioByName(studio.name);
-    return match ? { ...studio, stashDbId: match.id } : studio;
+    return match?.id;
   } catch (e) {
     logger.debug('No StashDB studio for ThePornDB site.', {
       label: 'API',
       site: studio.name,
       errorMessage: e.message,
     });
-    return studio;
+    return undefined;
   }
 };
 
@@ -776,15 +807,9 @@ adultMovieRoutes.get('/:id', async (req, res, next) => {
 
     const media = await Media.getMediaByTpdbId(movie.id);
     const details = mapAdultMovieDetails(movie, media?.filter(req.user));
-    const [studio, network] = await Promise.all([
-      withStashDbStudio(details.studio),
-      withStashDbStudio(details.network),
-    ]);
 
     return res.status(200).json({
       ...details,
-      studio,
-      network,
       onUserWatchlist: await isOnWatchlist(
         MediaType.ADULT_MOVIE,
         movie.id,

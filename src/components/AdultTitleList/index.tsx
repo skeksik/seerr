@@ -43,7 +43,9 @@ const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
     fetchMore,
     error,
   } = useDiscover<SceneResult | AdultMovieResult>(
-    `/api/v1/${mediaType}/${id}/${list}`
+    `/api/v1/${mediaType}/${id}/${list}`,
+    undefined,
+    { filteredPages: true }
   );
 
   if (error || titleError) {

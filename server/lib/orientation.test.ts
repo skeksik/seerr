@@ -127,6 +127,18 @@ describe('tagHint', () => {
     });
     assert.strictEqual(tagHint('Straight Hair'), undefined);
   });
+
+  it('reads the performer behind the camera from point of view tags', () => {
+    assert.deepStrictEqual(tagHint('Male - POV'), {
+      cast: { male: 1, female: 0, trans: 0 },
+    });
+    assert.deepStrictEqual(tagHint('Blowjob - POV')?.cast?.male, 1);
+    assert.deepStrictEqual(tagHint('POV')?.cast?.male, 1);
+    assert.deepStrictEqual(tagHint('Pussy Licking - POV')?.cast?.female, 1);
+    assert.deepStrictEqual(tagHint('Trans - POV')?.cast?.trans, 1);
+    assert.strictEqual(tagHint('Kissing - POV'), undefined);
+    assert.strictEqual(tagHint('Non-POV'), undefined);
+  });
 });
 
 describe('classifyMovie', () => {
@@ -138,6 +150,13 @@ describe('classifyMovie', () => {
     // Not an orientation
     assert.deepStrictEqual(classifyMovie(movie([], ['Straight Hair'])), [
       'unidentified',
+    ]);
+  });
+
+  it('counts the man behind a point of view camera', () => {
+    // A lone woman would suit lesbian too
+    assert.deepStrictEqual(classifyMovie(movie(['Female'], ['Male - POV'])), [
+      'straight',
     ]);
   });
 

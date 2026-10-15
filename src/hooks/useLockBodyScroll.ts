@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
 
+// Modals and slide-overs can lock at once, so the body is unlocked when the
+// last of them lets go, back to its own styles from before the first
+let locks = 0;
+let unlocked: { overflow: string; touchAction: string } | undefined;
+
 /**
  * Hook to lock the body scroll whenever a component is mounted or
  * whenever isLocked is set to true.
@@ -15,20 +20,26 @@ export const useLockBodyScroll = (
   disabled?: boolean
 ): void => {
   useEffect(() => {
-    const originalOverflowStyle = window.getComputedStyle(
-      document.body
-    ).overflow;
-    const originalTouchActionStyle = window.getComputedStyle(
-      document.body
-    ).touchAction;
-    if (isLocked && !disabled) {
+    if (!isLocked || disabled) {
+      return;
+    }
+
+    if (locks === 0) {
+      unlocked = {
+        overflow: document.body.style.overflow,
+        touchAction: document.body.style.touchAction,
+      };
       document.body.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
     }
+    locks += 1;
+
     return () => {
-      if (!disabled) {
-        document.body.style.overflow = originalOverflowStyle;
-        document.body.style.touchAction = originalTouchActionStyle;
+      locks -= 1;
+      if (locks === 0 && unlocked) {
+        document.body.style.overflow = unlocked.overflow;
+        document.body.style.touchAction = unlocked.touchAction;
+        unlocked = undefined;
       }
     };
   }, [isLocked, disabled]);

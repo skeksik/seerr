@@ -65,10 +65,11 @@ const AdultMoviesContent = () => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<AdultMovieResult>('/api/v1/adultmovie/discover', {
-    ...filters,
-    sort,
-  });
+  } = useDiscover<AdultMovieResult>(
+    '/api/v1/adultmovie/discover',
+    { ...filters, sort },
+    { filteredPages: true }
+  );
 
   if (error) {
     return <ErrorPage statusCode={500} />;

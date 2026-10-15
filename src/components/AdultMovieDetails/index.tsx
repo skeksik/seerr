@@ -55,11 +55,9 @@ const messages = defineMessages('components.AdultMovieDetails', {
 
 const TAG_LIMIT = 20;
 
-// The StashDB studio page when StashDB has the studio, else ThePornDB's
+// Like the cast, studios open their ThePornDB page
 const studioHref = (studio: AdultMovieStudio): string =>
-  studio.stashDbId
-    ? `/discover/scenes/studio/${studio.stashDbId}`
-    : `/discover/adultmovies/studio/${studio.id}`;
+  `/discover/adultmovies/studio/${studio.id}`;
 
 const AdultMovieDetailsContent = () => {
   const intl = useIntl();

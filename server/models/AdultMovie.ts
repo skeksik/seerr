@@ -23,12 +23,10 @@ export interface AdultMovieResult {
   orientations?: Orientation[];
 }
 
-// A ThePornDB site, and the StashDB studio of the same name that has the
-// studio page
+// A ThePornDB site
 export interface AdultMovieStudio {
   id: number;
   name: string;
-  stashDbId?: string;
 }
 
 export interface AdultMovieDetails extends AdultMovieResult {

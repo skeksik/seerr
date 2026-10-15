@@ -67,6 +67,25 @@ export const tagHint = (name: string): TagHint | undefined => {
       cast: { male: count('B'), female: count('G'), trans: count('T') },
     };
   }
+  // Point of view tags stand for the performer behind the camera, who is
+  // rarely listed: a woman for "Female - POV" and "Pussy Licking - POV", a
+  // trans performer for "Trans - POV", and a man for plain "POV" and the
+  // other acts
+  const pov = name.match(/^(?:(.+?) - )?POV$/i);
+  if (pov) {
+    const subject = (pov[1] ?? '').toLowerCase();
+    if (['kissing', 'rimming', 'cuckold', 'mixed'].includes(subject)) {
+      return undefined;
+    }
+    return {
+      cast:
+        subject === 'female' || subject === 'pussy licking'
+          ? { male: 0, female: 1, trans: 0 }
+          : subject === 'trans'
+            ? { male: 0, female: 0, trans: 1 }
+            : { male: 1, female: 0, trans: 0 },
+    };
+  }
   const audience = name.match(/\((Lesbian|Gay|Straight|Trans|Mixed)\)\s*$/i);
   if (audience) {
     const value = audience[1].toLowerCase();
@@ -244,6 +263,20 @@ export const tagsNeeded = (hidden: Set<Orientation>): Orientation[] => {
   );
   return shown.length > 0 && !shown.includes('straight') ? shown : [];
 };
+
+// Shown next to straight, which no tag stands for, while others are hidden:
+// lists read titles tagged with these apart, as among the rest they would
+// be few and far between
+export const tagsBeside = (hidden: Set<Orientation>): Orientation[] =>
+  hidden.has('straight') ||
+  ![...hidden].some((orientation) => orientation !== 'unidentified')
+    ? []
+    : ORIENTATIONS.filter(
+        (orientation) =>
+          orientation !== 'straight' &&
+          orientation !== 'unidentified' &&
+          !hidden.has(orientation)
+      );
 
 // A title is left out when it has a hidden feature, or when none of its
 // orientations is shown

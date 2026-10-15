@@ -26,6 +26,7 @@ import {
   hiddenOrientations,
   isHidden,
   tagHint,
+  tagsBeside,
   tagsNeeded,
 } from '@server/lib/orientation';
 import { Permission } from '@server/lib/permissions';
@@ -192,8 +193,8 @@ interface SceneContext {
   tagIds: StashDbOrientationTagIds;
 }
 
-// Names that find StashDB's group tags
-const GROUP_TAG_SEARCHES = ['some (', 'Gangbang (', 'Orgy ('];
+// Names that find StashDB's group and point of view tags
+const GROUP_TAG_SEARCHES = ['some (', 'Gangbang (', 'Orgy (', 'POV'];
 
 // Orientation tag ids for this stash-box instance; without them the cast
 // alone decides
@@ -266,11 +267,15 @@ interface ScenePlan {
 
 // The stash-box query for the picked filters, and what is left to filter
 // here
+// Narrowed to the orientations needed without straight, those shown beside
+// it, or none
+type Narrow = 'needed' | 'beside' | 'none';
+
 const planScenes = (
   user: User | undefined,
   filters: SceneFilters,
   { tagIds: orientationIds }: SceneContext,
-  narrow = true
+  narrow: Narrow = 'needed'
 ): ScenePlan => {
   const hidden = hiddenOrientations(user, filters.orientation);
   const idsOf = (keys: Orientation[]) =>
@@ -283,11 +288,13 @@ const planScenes = (
     ...(filters.tag ? [filters.tag] : []),
   ];
   const anyTag = filters.tagMode === 'or';
-  const needed = idsOf(tagsNeeded(hidden));
+  const needed = idsOf(
+    narrow === 'beside' ? tagsBeside(hidden) : tagsNeeded(hidden)
+  );
   // Without straight, scenes tagged with a shown orientation are asked for:
   // any of them without picked tags, or the one shown next to all of those
   const narrowed =
-    narrow &&
+    narrow !== 'none' &&
     needed.length > 0 &&
     (!picked.length || (needed.length === 1 && !anyTag));
   const tagIds = !narrowed
@@ -429,18 +436,24 @@ sceneRoutes.get('/discover', async (req, res, next) => {
       : sceneSorts[sort];
     const query = { page, sort: order, direction, timeout: LIST_TIMEOUT };
     // Unidentified scenes carry no orientation tag, so when they show next
-    // to tagged ones they are read apart and joined in
+    // to tagged ones they are read apart and joined in; so are tagged ones
+    // next to straight, which would be few among the rest
     const unidentified =
       plan.narrowed && !plan.filter.hidden.has('unidentified')
-        ? planScenes(req.user, filters, context, false)
+        ? planScenes(req.user, filters, context, 'none')
         : undefined;
+    const beside = plan.narrowed
+      ? undefined
+      : planScenes(req.user, filters, context, 'beside');
+    const extraPlan = unidentified ?? (beside?.narrowed ? beside : undefined);
     const [list, extra] = await Promise.all([
       api.queryScenes({ ...plan.query, ...query, perPage }),
-      unidentified
+      extraPlan
         ? api.queryScenes({
-            ...unidentified.query,
+            ...extraPlan.query,
             ...query,
-            perPage: DENSE_PAGE_SIZE,
+            // Tagged ones keep pace with the rest
+            perPage: unidentified ? DENSE_PAGE_SIZE : perPage,
           })
         : undefined,
     ]);
@@ -450,29 +463,46 @@ sceneRoutes.get('/discover', async (req, res, next) => {
         perPage,
         context,
       }),
-      unidentified && extra
+      extraPlan && extra
         ? mapSceneList(extra, page, req.user, {
-            filter: {
-              ...unidentified.filter,
-              hidden: new Set(
-                ORIENTATIONS.filter((key) => key !== 'unidentified')
-              ),
-            },
-            perPage: DENSE_PAGE_SIZE,
+            filter: unidentified
+              ? {
+                  ...unidentified.filter,
+                  hidden: new Set(
+                    ORIENTATIONS.filter((key) => key !== 'unidentified')
+                  ),
+                }
+              : extraPlan.filter,
+            perPage: unidentified ? DENSE_PAGE_SIZE : perPage,
             context,
           })
         : undefined,
     ]);
 
-    return res.status(200).json(
-      rest
-        ? {
-            ...main,
-            totalPages: Math.max(main.totalPages, rest.totalPages),
-            results: [...main.results, ...rest.results],
-          }
-        : main
-    );
+    if (!rest) {
+      return res.status(200).json(main);
+    }
+
+    // Joined lists keep a release date order
+    const results = [
+      ...main.results,
+      ...rest.results.filter(
+        ({ id }) => !main.results.some((scene) => scene.id === id)
+      ),
+    ];
+    if (order === 'DATE') {
+      const sign = direction === 'DESC' ? -1 : 1;
+      results.sort(
+        (a, b) =>
+          sign * (a.releaseDate ?? '').localeCompare(b.releaseDate ?? '')
+      );
+    }
+
+    return res.status(200).json({
+      ...main,
+      totalPages: Math.max(main.totalPages, rest.totalPages),
+      results,
+    });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {
       query: req.query,
