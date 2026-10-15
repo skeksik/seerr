@@ -1,3 +1,4 @@
+import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
@@ -8,6 +9,7 @@ import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
+import StudioBanner from '@app/components/StudioBanner';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -15,10 +17,7 @@ import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
-import {
-  ArrowDownTrayIcon,
-  ArrowTopRightOnSquareIcon,
-} from '@heroicons/react/24/solid';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import type { XxxMovieDetails as XxxMovieDetailsType } from '@server/models/XxxMovie';
 import Link from 'next/link';
@@ -30,16 +29,14 @@ import useSWR from 'swr';
 const messages = defineMessages('components.XxxMovieDetails', {
   overview: 'Overview',
   overviewunavailable: 'Overview unavailable.',
-  performers: 'Performers',
+  cast: 'Cast',
   releasedate: 'Release Date',
   duration: 'Duration',
   studio: 'Studio',
   network: 'Network',
   director: 'Director',
-  links: 'Links',
-  studioSite: 'Studio Site',
-  viewontpdb: 'View on ThePornDB',
-  moreFromStudio: 'More from {studio}',
+  recommendations: 'Recommendations',
+  similar: 'Similar',
   minutes: '{minutes} min',
   showalltags: 'Show all {count} tags',
 });
@@ -146,6 +143,7 @@ const XxxMovieDetailsContent = () => {
               title={data.title}
               inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
               mediaType="xxxmovie"
+              externalId={data.id}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
           </div>
@@ -170,12 +168,6 @@ const XxxMovieDetailsContent = () => {
             onUserWatchlist={data.onUserWatchlist}
             onChange={() => mutate()}
           />
-          <a href={data.tpdbUrl} target="_blank" rel="noreferrer">
-            <Button buttonType="ghost">
-              <ArrowTopRightOnSquareIcon />
-              <span>{intl.formatMessage(messages.viewontpdb)}</span>
-            </Button>
-          </a>
           {canRequest && (
             <Button
               buttonType="primary"
@@ -262,6 +254,14 @@ const XxxMovieDetailsContent = () => {
           )}
         </div>
         <div className="media-overview-right">
+          {data.studio && (
+            <StudioBanner
+              href={`/xxxmovies?studio=${data.studio.id}`}
+              studio={data.studio.name}
+              imageUrl={data.backdropUrl ?? data.posterUrl}
+              imageType="tpdb"
+            />
+          )}
           <div className="media-facts">
             {data.releaseDate && (
               <div className="media-fact">
@@ -304,23 +304,17 @@ const XxxMovieDetailsContent = () => {
                 </span>
               </div>
             )}
-            {data.url && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.links)}</span>
-                <span className="media-fact-value">
-                  <a href={data.url} target="_blank" rel="noreferrer">
-                    {intl.formatMessage(messages.studioSite)}
-                  </a>
-                </span>
-              </div>
-            )}
+            <div className="media-fact">
+              <AdultLinkBlock tpdbUrl={data.tpdbUrl} studioUrl={data.url} />
+            </div>
           </div>
         </div>
       </div>
       {data.performers.length > 0 && (
         <PerformerSlider
           sliderKey="xxx-movie-performers"
-          title={intl.formatMessage(messages.performers)}
+          title={intl.formatMessage(messages.cast)}
+          linkUrl={`/xxxmovie/${data.id}/cast`}
           imageType="tpdb"
           performers={data.performers.map((performer) => ({
             id: performer.id,
@@ -333,18 +327,20 @@ const XxxMovieDetailsContent = () => {
           }))}
         />
       )}
-      {data.studio && (
-        <XxxMovieSlider
-          sliderKey={`xxx-studio-${data.studio.id}`}
-          title={intl.formatMessage(messages.moreFromStudio, {
-            studio: data.studio.name,
-          })}
-          url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&studio=${data.studio.id}`}
-          linkUrl={`/xxxmovies?studio=${data.studio.id}`}
-          hideWhenEmpty
-          excludeId={data.id}
-        />
-      )}
+      <XxxMovieSlider
+        sliderKey="xxx-recommendations"
+        title={intl.formatMessage(messages.recommendations)}
+        url={`/api/v1/xxxmovie/${data.id}/recommendations?page=1`}
+        linkUrl={`/xxxmovie/${data.id}/recommendations`}
+        hideWhenEmpty
+      />
+      <XxxMovieSlider
+        sliderKey="xxx-similar"
+        title={intl.formatMessage(messages.similar)}
+        url={`/api/v1/xxxmovie/${data.id}/similar`}
+        linkUrl={`/xxxmovie/${data.id}/similar`}
+        hideWhenEmpty
+      />
       <div className="extra-bottom-space relative" />
     </div>
   );

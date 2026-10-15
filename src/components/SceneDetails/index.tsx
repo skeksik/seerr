@@ -1,3 +1,4 @@
+import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import Button from '@app/components/Common/Button';
@@ -10,6 +11,7 @@ import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import StatusBadge from '@app/components/StatusBadge';
+import StudioBanner from '@app/components/StudioBanner';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -17,11 +19,7 @@ import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
-import {
-  ArrowDownTrayIcon,
-  ArrowTopRightOnSquareIcon,
-  PlayIcon,
-} from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { SceneDetails as SceneDetailsType } from '@server/models/Scene';
 import Link from 'next/link';
@@ -33,7 +31,7 @@ import useSWR from 'swr';
 const messages = defineMessages('components.SceneDetails', {
   overview: 'Overview',
   overviewunavailable: 'Overview unavailable.',
-  performers: 'Performers',
+  cast: 'Cast',
   releasedate: 'Release Date',
   productiondate: 'Production Date',
   duration: 'Duration',
@@ -42,8 +40,8 @@ const messages = defineMessages('components.SceneDetails', {
   code: 'Studio Code',
   director: 'Director',
   links: 'Links',
-  viewonstashdb: 'View on StashDB',
-  moreFromStudio: 'More from {studio}',
+  recommendations: 'Recommendations',
+  similar: 'Similar',
   minutes: '{minutes} min',
   showalltags: 'Show all {count} tags',
   playonstash: 'Play on Stash',
@@ -153,6 +151,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               title={data.title}
               inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
               mediaType="scene"
+              externalId={data.id}
               plexUrl={data.mediaInfo?.mediaUrl}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
@@ -191,12 +190,6 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               />
             </div>
           )}
-          <a href={data.stashDbUrl} target="_blank" rel="noreferrer">
-            <Button buttonType="ghost">
-              <ArrowTopRightOnSquareIcon />
-              <span>{intl.formatMessage(messages.viewonstashdb)}</span>
-            </Button>
-          </a>
           {canRequest && (
             <Button
               buttonType="primary"
@@ -283,6 +276,14 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           )}
         </div>
         <div className="media-overview-right">
+          {data.studio && (
+            <StudioBanner
+              href={`/scenes/studio/${data.studio.id}`}
+              studio={data.studio.name}
+              imageUrl={stashImageUrl(data.imageUrl, 1280)}
+              imageType="stashdb"
+            />
+          )}
           <div className="media-facts">
             {data.releaseDate && (
               <div className="media-fact">
@@ -362,13 +363,20 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
                 </span>
               </div>
             )}
+            <div className="media-fact">
+              <AdultLinkBlock
+                stashUrl={data.mediaInfo?.mediaUrl}
+                stashDbUrl={data.stashDbUrl}
+              />
+            </div>
           </div>
         </div>
       </div>
       {data.performers.length > 0 && (
         <PerformerSlider
           sliderKey="scene-performers"
-          title={intl.formatMessage(messages.performers)}
+          title={intl.formatMessage(messages.cast)}
+          linkUrl={`/scene/${data.id}/cast`}
           imageType="stashdb"
           performers={data.performers.map((performer) => ({
             id: performer.id,
@@ -379,18 +387,20 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           }))}
         />
       )}
-      {data.studio && (
-        <SceneSlider
-          sliderKey={`scene-studio-${data.studio.id}`}
-          title={intl.formatMessage(messages.moreFromStudio, {
-            studio: data.studio.name,
-          })}
-          url={`/api/v1/scene/discover?sort=date&page=1&studio=${data.studio.id}`}
-          linkUrl={`/scenes/studio/${data.studio.id}`}
-          hideWhenEmpty
-          excludeId={data.id}
-        />
-      )}
+      <SceneSlider
+        sliderKey="scene-recommendations"
+        title={intl.formatMessage(messages.recommendations)}
+        url={`/api/v1/scene/${data.id}/recommendations?page=1`}
+        linkUrl={`/scene/${data.id}/recommendations`}
+        hideWhenEmpty
+      />
+      <SceneSlider
+        sliderKey="scene-similar"
+        title={intl.formatMessage(messages.similar)}
+        url={`/api/v1/scene/${data.id}/similar?page=1`}
+        linkUrl={`/scene/${data.id}/similar`}
+        hideWhenEmpty
+      />
       <div className="extra-bottom-space relative" />
     </div>
   );
