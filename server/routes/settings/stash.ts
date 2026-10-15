@@ -1,4 +1,4 @@
-import StashAPI from '@server/api/stash';
+import StashAPI, { stashUrl } from '@server/api/stash';
 import { stashScanner } from '@server/lib/scanners/stash';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -6,15 +6,31 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 const stashSettingsSchema = z.object({
-  url: z.string().url(),
+  hostname: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[^/:\s]+$/),
+  port: z.coerce.number().int().min(1).max(65535),
+  useSsl: z.boolean(),
+  // A leading slash and no trailing one, like Jellyfin's
+  urlBase: z
+    .string()
+    .regex(/^(\/.*[^/])?$/)
+    .optional(),
   apiKey: z.string().min(1),
   externalUrl: z.string().url().or(z.literal('')).optional(),
 });
 
+type StashSettingsBody = z.infer<typeof stashSettingsSchema>;
+
 const stashRoutes = Router();
 
-const testConnection = (settings: z.infer<typeof stashSettingsSchema>) =>
-  new StashAPI(settings).getVersion();
+const testConnection = (settings: StashSettingsBody) =>
+  new StashAPI({
+    url: stashUrl(settings),
+    apiKey: settings.apiKey,
+  }).getVersion();
 
 stashRoutes.get('/', (_req, res) => {
   res.status(200).json(getSettings().stash);
@@ -40,7 +56,7 @@ stashRoutes.post('/', async (req, res, next) => {
   const settings = getSettings();
   settings.stash = {
     ...parsed.data,
-    url: parsed.data.url.replace(/\/+$/, ''),
+    urlBase: parsed.data.urlBase ?? '',
     externalUrl: parsed.data.externalUrl?.replace(/\/+$/, ''),
   };
   await settings.save();

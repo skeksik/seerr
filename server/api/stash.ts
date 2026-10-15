@@ -1,4 +1,5 @@
 import ExternalAPI from '@server/api/externalapi';
+import type { StashSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 
 // Minimal client for the Stash GraphQL API (https://github.com/stashapp/stash).
@@ -32,6 +33,20 @@ const SCENE_FIELDS =
 export const normalizeEndpoint = (endpoint: string): string =>
   endpoint.trim().replace(/\/+$/, '').toLowerCase();
 
+// Stash's address from its settings, e.g. http://stash:9999; default ports
+// are left out so play links stay clean
+export const stashUrl = ({
+  hostname,
+  port,
+  useSsl,
+  urlBase,
+}: Pick<StashSettings, 'hostname' | 'port' | 'useSsl' | 'urlBase'>): string => {
+  const defaultPort = useSsl ? 443 : 80;
+  return `${useSsl ? 'https' : 'http'}://${hostname}${
+    Number(port) === defaultPort ? '' : `:${port}`
+  }${urlBase ?? ''}`;
+};
+
 export class StashNotConfiguredError extends Error {
   constructor() {
     super('Stash is not configured');
@@ -49,8 +64,8 @@ class StashAPI extends ExternalAPI {
   }
 
   public static isConfigured(): boolean {
-    const { url, apiKey } = getSettings().stash;
-    return !!url && !!apiKey;
+    const { hostname, apiKey } = getSettings().stash;
+    return !!hostname && !!apiKey;
   }
 
   public static fromSettings(): StashAPI {
@@ -58,7 +73,8 @@ class StashAPI extends ExternalAPI {
       throw new StashNotConfiguredError();
     }
 
-    return new StashAPI(getSettings().stash);
+    const settings = getSettings().stash;
+    return new StashAPI({ url: stashUrl(settings), apiKey: settings.apiKey });
   }
 
   private async query<T>(

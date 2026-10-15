@@ -14,9 +14,23 @@ Stash does not handle sign-in. Users still sign in with your main media server o
 
 Go to **Settings &rarr; Stash**. The tab shows while adult content is enabled.
 
-#### URL
+The fields work like the [Jellyfin settings](/using-seerr/settings/mediaserver).
 
-The address Seerr uses to reach Stash, for example `http://stash:9999`.
+#### Hostname or IP Address
+
+The address Seerr uses to reach Stash, for example `stash` or `192.168.1.10`, without `http://`.
+
+#### Port
+
+Stash listens on `9999` by default. Turning on **Use SSL** switches it to `443`.
+
+#### Use SSL
+
+Connect over HTTPS, for example when Stash sits behind a reverse proxy.
+
+#### URL Base
+
+Only needed when Stash is served under a sub-path, such as `/stash`.
 
 #### API Key
 
@@ -24,7 +38,7 @@ Generate one in Stash under **Settings &rarr; Security &rarr; Authentication**.
 
 #### External URL
 
-Optional. Used for **Play on Stash** links when the URL above is not reachable from your browser.
+Optional. Used for **Play on Stash** links when the address above is not reachable from your browser.
 
 Use **Test** to check the connection before saving.
 

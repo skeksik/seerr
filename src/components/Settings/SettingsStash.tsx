@@ -19,12 +19,19 @@ import useSWR from 'swr';
 import * as Yup from 'yup';
 
 const messages = defineMessages('components.Settings.SettingsStash', {
-  stashSettings: 'Stash',
+  stashSettings: 'Stash Settings',
   stashSettingsDescription:
     'Optionally connect Stash as a library for scenes. Scenes that Stash has matched to StashDB are marked available and get a Play on Stash link. Find the API key under Settings → Security in Stash.',
-  url: 'URL',
+  hostname: 'Hostname or IP Address',
+  port: 'Port',
+  enablessl: 'Use SSL',
+  urlBase: 'URL Base',
   apiKey: 'API Key',
   externalUrl: 'External URL',
+  validationHostname: 'You must provide a valid hostname or IP address',
+  validationPort: 'You must provide a valid port number',
+  validationUrlBaseLeadingSlash: 'URL base must have a leading slash',
+  validationUrlBaseTrailingSlash: 'URL base must not end in a trailing slash',
   validationUrl: 'You must provide a valid URL',
   validationApiKey: 'You must provide an API key',
   toastTestSuccess: 'Connected to Stash {version}!',
@@ -66,10 +73,28 @@ const SettingsStash = () => {
     revalidateSync();
   };
 
+  // The Jellyfin settings' validation
   const schema = Yup.object().shape({
-    url: Yup.string()
-      .required(intl.formatMessage(messages.validationUrl))
-      .url(intl.formatMessage(messages.validationUrl)),
+    hostname: Yup.string()
+      .required(intl.formatMessage(messages.validationHostname))
+      .matches(/^[^/:\s]+$/, intl.formatMessage(messages.validationHostname)),
+    port: Yup.number()
+      .typeError(intl.formatMessage(messages.validationPort))
+      .integer(intl.formatMessage(messages.validationPort))
+      .min(1, intl.formatMessage(messages.validationPort))
+      .max(65535, intl.formatMessage(messages.validationPort))
+      .required(intl.formatMessage(messages.validationPort)),
+    urlBase: Yup.string()
+      .test(
+        'leading-slash',
+        intl.formatMessage(messages.validationUrlBaseLeadingSlash),
+        (value) => !value || value.startsWith('/')
+      )
+      .test(
+        'trailing-slash',
+        intl.formatMessage(messages.validationUrlBaseTrailingSlash),
+        (value) => !value || !value.endsWith('/')
+      ),
     externalUrl: Yup.string().url(intl.formatMessage(messages.validationUrl)),
     apiKey: Yup.string().required(
       intl.formatMessage(messages.validationApiKey)
@@ -142,7 +167,7 @@ const SettingsStash = () => {
             ) : (
               <Button
                 buttonType="warning"
-                disabled={!data?.url}
+                disabled={!data?.hostname}
                 onClick={() => toggleScan(true)}
               >
                 <MagnifyingGlassIcon />
@@ -165,7 +190,10 @@ const SettingsStash = () => {
       ) : (
         <Formik
           initialValues={{
-            url: data?.url ?? '',
+            hostname: data?.hostname ?? '',
+            port: data?.port ?? 9999,
+            useSsl: data?.useSsl ?? false,
+            urlBase: data?.urlBase ?? '',
             apiKey: data?.apiKey ?? '',
             externalUrl: data?.externalUrl ?? '',
           }}
@@ -173,7 +201,10 @@ const SettingsStash = () => {
           validationSchema={schema}
           onSubmit={async (values) => {
             try {
-              await axios.post('/api/v1/settings/stash', values);
+              await axios.post('/api/v1/settings/stash', {
+                ...values,
+                port: Number(values.port),
+              });
               addToast(intl.formatMessage(messages.toastSaveSuccess), {
                 autoDismiss: true,
                 appearance: 'success',
@@ -195,25 +226,64 @@ const SettingsStash = () => {
             handleSubmit,
             isSubmitting,
             isValid,
+            setFieldValue,
           }) => (
             <form className="section" onSubmit={handleSubmit}>
               <div className="form-row">
-                <label htmlFor="stashUrl" className="text-label">
-                  {intl.formatMessage(messages.url)}
+                <label htmlFor="stashHostname" className="text-label">
+                  {intl.formatMessage(messages.hostname)}
                   <span className="label-required">*</span>
                 </label>
                 <div className="form-input-area">
                   <div className="form-input-field">
+                    <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
+                      {values.useSsl ? 'https://' : 'http://'}
+                    </span>
                     <Field
                       type="text"
                       inputMode="url"
-                      id="stashUrl"
-                      name="url"
+                      id="stashHostname"
+                      name="hostname"
+                      className="rounded-r-only"
                     />
                   </div>
-                  {errors.url && touched.url && (
-                    <div className="error">{errors.url}</div>
+                  {errors.hostname && touched.hostname && (
+                    <div className="error">{errors.hostname}</div>
                   )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashPort" className="text-label">
+                  {intl.formatMessage(messages.port)}
+                  <span className="label-required">*</span>
+                </label>
+                <div className="form-input-area">
+                  <Field
+                    type="text"
+                    inputMode="numeric"
+                    id="stashPort"
+                    name="port"
+                    className="short"
+                  />
+                  {errors.port && touched.port && (
+                    <div className="error">{errors.port}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashUseSsl" className="checkbox-label">
+                  {intl.formatMessage(messages.enablessl)}
+                </label>
+                <div className="form-input-area">
+                  <Field
+                    type="checkbox"
+                    id="stashUseSsl"
+                    name="useSsl"
+                    onChange={() => {
+                      setFieldValue('useSsl', !values.useSsl);
+                      setFieldValue('port', values.useSsl ? 9999 : 443);
+                    }}
+                  />
                 </div>
               </div>
               <div className="form-row">
@@ -227,6 +297,24 @@ const SettingsStash = () => {
                   </div>
                   {errors.apiKey && touched.apiKey && (
                     <div className="error">{errors.apiKey}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashUrlBase" className="text-label">
+                  {intl.formatMessage(messages.urlBase)}
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <Field
+                      type="text"
+                      inputMode="url"
+                      id="stashUrlBase"
+                      name="urlBase"
+                    />
+                  </div>
+                  {errors.urlBase && touched.urlBase && (
+                    <div className="error">{errors.urlBase}</div>
                   )}
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
+import { stashUrl } from '@server/api/stash';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -356,8 +357,10 @@ class Media {
   public setPlexUrls(): void {
     // Scenes play from Stash whatever the main media server is
     if (this.mediaType === MediaType.SCENE) {
-      const { url, externalUrl } = getSettings().stash;
-      const stashHost = (externalUrl || url).replace(/\/+$/, '');
+      const stash = getSettings().stash;
+      const stashHost = stash.hostname
+        ? (stash.externalUrl || stashUrl(stash)).replace(/\/+$/, '')
+        : '';
 
       if (this.stashMediaId && stashHost) {
         this.mediaUrl = `${stashHost}/scenes/${this.stashMediaId}`;

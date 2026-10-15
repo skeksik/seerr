@@ -26,13 +26,23 @@ setupTestDb();
 
 beforeEach(() => {
   const settings = getSettings();
-  settings.stash = { url: 'http://stash.test', apiKey: 'key' };
+  settings.stash = {
+    hostname: 'stash.test',
+    port: 80,
+    useSsl: false,
+    apiKey: 'key',
+  };
   settings.stashdb = { endpoint: 'https://stashdb.org/graphql', apiKey: 'k' };
   mock.method(StashAPI.prototype, 'getUnidentifiedScenes', async () => []);
 });
 
 afterEach(() => {
-  getSettings().stash = { url: '', apiKey: '' };
+  getSettings().stash = {
+    hostname: '',
+    port: 9999,
+    useSsl: false,
+    apiKey: '',
+  };
   getSettings().whisparr = [];
   mock.restoreAll();
 });
@@ -87,7 +97,12 @@ describe('StashScanner', () => {
   });
 
   it('does nothing while Stash is not configured', async () => {
-    getSettings().stash = { url: '', apiKey: '' };
+    getSettings().stash = {
+      hostname: '',
+      port: 9999,
+      useSsl: false,
+      apiKey: '',
+    };
     const linked = mock.method(
       StashAPI.prototype,
       'getLinkedScenes',

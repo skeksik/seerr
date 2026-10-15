@@ -72,15 +72,19 @@ export interface StashDbSettings {
 }
 
 // Stash is a companion library for scenes, not a login media server
-// ThePornDB's REST API, which lists movies; its GraphQL endpoint is a
-// stash-box for scenes only
+// ThePornDB's REST API. Its stash-box GraphQL endpoint finds movies but
+// returns no lists, which browsing needs
 export interface TpdbSettings {
   url: string;
   apiKey: string;
 }
 
+// Entered like the Jellyfin server, address part by part
 export interface StashSettings {
-  url: string;
+  hostname: string;
+  port: number;
+  useSsl: boolean;
+  urlBase?: string;
   apiKey: string;
   externalUrl?: string;
 }
@@ -497,7 +501,10 @@ class Settings {
         apiKey: '',
       },
       stash: {
-        url: '',
+        hostname: '',
+        port: 9999,
+        useSsl: false,
+        urlBase: '',
         apiKey: '',
       },
       tpdb: {
