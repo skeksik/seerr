@@ -7,6 +7,7 @@ import Modal from '@app/components/Common/Modal';
 import PageTitle from '@app/components/Common/PageTitle';
 import CompanyCard from '@app/components/CompanyCard';
 import SceneList from '@app/components/Scenes/SceneList';
+import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
 import Slider from '@app/components/Slider';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
@@ -228,7 +229,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     id ? `/api/v1/scene/${type}/${id}` : null
   );
   // Movies come from ThePornDB, where performers and studios have own ids
-  const { data: tpdbMatch } = useSWR<{ id: number; url?: string }>(
+  const { data: tpdbMatch } = useSWR<{ id: number }>(
     id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
     { shouldRetryOnError: false }
   );
@@ -347,6 +348,11 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
         )}
         <div className="w-full text-center text-gray-300 lg:text-left">
           <h1 className="text-3xl text-white lg:text-4xl">{data.name}</h1>
+          <div className="mt-2">
+            <AdultProfileLinks
+              links={[{ url: data.stashDbUrl, site: 'StashDB' }, ...data.urls]}
+            />
+          </div>
           <div className="mb-2 mt-2 space-y-1 text-xs text-white sm:text-sm lg:text-base">
             {attributes.length > 0 && <div>{attributes.join(' | ')}</div>}
             {partOf && <div>{partOf}</div>}
@@ -362,19 +368,6 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
                 })}
               </div>
             )}
-          </div>
-          <div className="mt-3">
-            <AdultProfileLinks
-              links={[
-                { url: data.stashDbUrl, site: 'StashDB' },
-                // StashDB often lists ThePornDB itself
-                ...(tpdbMatch?.url &&
-                !data.urls.some(({ url }) => url.includes('theporndb.net'))
-                  ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
-                  : []),
-                ...data.urls,
-              ]}
-            />
           </div>
           {data.whisparr && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
@@ -394,23 +387,33 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
         {!isPerformer(data) && data.studios.length > 0 && (
           <>
             <div className="slider-header">
-              <div className="slider-title">
+              <Link
+                href={`/scenes/studio/${data.id}/studios`}
+                className="slider-title"
+              >
                 <span>{intl.formatMessage(messages.studios)}</span>
-              </div>
+                <ArrowRightCircleIcon />
+              </Link>
             </div>
             <Slider
               sliderKey={`network-studios-${data.id}`}
               isLoading={false}
               isEmpty={false}
-              items={data.studios.map((studio) => (
-                <CompanyCard
-                  key={`network-studio-${studio.id}`}
-                  name={studio.name}
-                  image={stashImageUrl(studio.imageUrl, 300)}
-                  imageType="stashdb"
-                  url={`/scenes/studio/${studio.id}`}
-                />
-              ))}
+              items={[
+                ...data.studios.map((studio) => (
+                  <CompanyCard
+                    key={`network-studio-${studio.id}`}
+                    name={studio.name}
+                    image={stashImageUrl(studio.imageUrl, 300)}
+                    imageType="stashdb"
+                    url={`/scenes/studio/${studio.id}`}
+                  />
+                )),
+                <SeeAllStudiosCard
+                  key="network-studios-all"
+                  url={`/scenes/studio/${data.id}/studios`}
+                />,
+              ]}
             />
           </>
         )}

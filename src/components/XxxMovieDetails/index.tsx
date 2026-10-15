@@ -49,11 +49,11 @@ const messages = defineMessages('components.XxxMovieDetails', {
 
 const TAG_LIMIT = 20;
 
-// The StashDB studio page when StashDB has the studio, else its XXX movies
+// The StashDB studio page when StashDB has the studio, else ThePornDB's
 const studioHref = (studio: XxxMovieStudio): string =>
   studio.stashDbId
     ? `/scenes/studio/${studio.stashDbId}`
-    : `/xxxmovies?studio=${studio.id}`;
+    : `/xxxmovies/studio/${studio.id}`;
 
 const XxxMovieDetailsContent = () => {
   const intl = useIntl();
@@ -336,10 +336,10 @@ const XxxMovieDetailsContent = () => {
           performers={data.performers.map((performer) => ({
             id: performer.id,
             name: performer.name,
-            // Performer pages come from StashDB; the rest get their movies
+            // StashDB pages when ThePornDB links one, else ThePornDB pages
             href: performer.stashDbId
               ? `/scenes/performer/${performer.stashDbId}`
-              : `/xxxmovies?performer=${performer.tpdbId}`,
+              : `/xxxmovies/performer/${performer.tpdbId}`,
             imageUrl: performer.imageUrl,
           }))}
         />

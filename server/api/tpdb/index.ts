@@ -174,6 +174,16 @@ class TpdbAPI extends ExternalAPI {
     }
   }
 
+  // The sites of a network
+  public async getNetworkSites(id: number): Promise<TpdbSiteSummary[]> {
+    const response = await this.get<TpdbPage<TpdbSiteSummary>>(
+      '/sites',
+      { params: { network_id: id, per_page: 100 } },
+      DETAILS_TTL
+    );
+    return response.data.filter((site) => site.id !== id);
+  }
+
   public async searchPerformers(
     query: string
   ): Promise<TpdbPerformerSummary[]> {

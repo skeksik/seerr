@@ -22,12 +22,19 @@ export interface TpdbSiteSummary {
 export interface TpdbPerformerExtras {
   gender?: string | null;
   links?: Record<string, string> | null;
+  birthday?: string | null;
+  birthplace?: string | null;
+  career_start_year?: number | null;
+  career_end_year?: number | null;
 }
 
 export interface TpdbPerformerSummary {
   id: string;
   _id: number;
   name: string;
+  // Only on the performer endpoint
+  bio?: string | null;
+  aliases?: string[] | null;
   image?: string | null;
   extras?: TpdbPerformerExtras | null;
   // The performer across all sites; site performers point to it

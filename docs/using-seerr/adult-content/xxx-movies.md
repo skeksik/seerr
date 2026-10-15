@@ -23,7 +23,7 @@ Go to **Settings &rarr; Metadata Providers**. The **Adult Content** section show
 - The **XXX Movies** tab sorts by release date, date added to ThePornDB or duration. ThePornDB has no popularity order.
 - It filters by release date, one studio (ThePornDB takes a single site per query; networks include their sites), any number of performers (a movie must feature all of them) and tags.
 - Release dates in the future are often placeholders on ThePornDB, so the default list stops at today. **Upcoming XXX Movies** on Discover shows the rest.
-- Studio links open the StashDB studio page when StashDB has a studio of the same name, and the studio's XXX movies otherwise.
+- Cast and studio links open the StashDB page when ThePornDB links the performer to StashDB, or StashDB has a studio of the same name. Otherwise they open a ThePornDB page with the performer's bio and profile links, or the studio's sites, and their XXX movies.
 
 ## Images
 

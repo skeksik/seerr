@@ -7,6 +7,10 @@ import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
 import logger from '@server/logger';
+import {
+  mapXxxPerformerDetails,
+  mapXxxStudioDetails,
+} from '@server/models/XxxCredit';
 import type {
   XxxMovieListResponse,
   XxxMovieStudio,
@@ -416,16 +420,30 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
 
     try {
       const tpdb = TpdbAPI.fromSettings();
-      const found =
-        req.params.type === 'studio'
-          ? await tpdb.getSite(id)
-          : await tpdb.getPerformer(id);
 
-      if (!found) {
+      if (req.params.type === 'performer') {
+        const performer = await tpdb.getPerformer(id);
+
+        if (!performer) {
+          return next({ status: 404, message: 'Not found.' });
+        }
+
+        return res.status(200).json(mapXxxPerformerDetails(performer));
+      }
+
+      const [site, sites] = await Promise.all([
+        tpdb.getSite(id),
+        tpdb.getNetworkSites(id),
+      ]);
+
+      if (!site) {
         return next({ status: 404, message: 'Not found.' });
       }
 
-      return res.status(200).json({ id, name: found.name });
+      const details = mapXxxStudioDetails(site, sites);
+      const match = await withStashDbStudio(details);
+
+      return res.status(200).json({ ...details, stashDbId: match?.stashDbId });
     } catch (e) {
       return handleError(e, next, 'Unable to retrieve filter.', {
         type: req.params.type,

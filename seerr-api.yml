@@ -8036,7 +8036,8 @@ paths:
           description: No match on ThePornDB
   /xxxmovie/studio/{id}:
     get:
-      summary: Name a ThePornDB studio
+      summary: Get a ThePornDB studio
+      description: Details for the studio page; filters use its name.
       tags:
         - xxxmovies
       parameters:
@@ -8047,7 +8048,7 @@ paths:
             type: number
       responses:
         '200':
-          description: Name
+          description: The studio
           content:
             application/json:
               schema:
@@ -8057,9 +8058,37 @@ paths:
                     type: number
                   name:
                     type: string
+                  imageUrl:
+                    type: string
+                  url:
+                    type: string
+                  network:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      name:
+                        type: string
+                  sites:
+                    type: array
+                    description: The sites of a network
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        name:
+                          type: string
+                        imageUrl:
+                          type: string
+                  stashDbId:
+                    type: string
+                  tpdbUrl:
+                    type: string
   /xxxmovie/performer/{id}:
     get:
-      summary: Name a ThePornDB performer
+      summary: Get a ThePornDB performer
+      description: Details for the performer page; filters use its name.
       tags:
         - xxxmovies
       parameters:
@@ -8070,7 +8099,7 @@ paths:
             type: number
       responses:
         '200':
-          description: Name
+          description: The performer
           content:
             application/json:
               schema:
@@ -8079,6 +8108,35 @@ paths:
                   id:
                     type: number
                   name:
+                    type: string
+                  imageUrl:
+                    type: string
+                  bio:
+                    type: string
+                  aliases:
+                    type: array
+                    items:
+                      type: string
+                  birthDate:
+                    type: string
+                  birthplace:
+                    type: string
+                  careerStart:
+                    type: number
+                  careerEnd:
+                    type: number
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        site:
+                          type: string
+                  stashDbId:
+                    type: string
+                  tpdbUrl:
                     type: string
   /xxxmovie/{xxxMovieId}:
     get:
@@ -8224,7 +8282,7 @@ paths:
   /scene/studios:
     get:
       summary: List StashDB studios or networks
-      description: All studios, or the top-level studios that have studios under them, by name or newest first.
+      description: Studios without studios under them, or the networks that have some, by name or newest first.
       tags:
         - scenes
       parameters:

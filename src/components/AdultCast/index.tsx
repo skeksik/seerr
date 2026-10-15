@@ -80,7 +80,7 @@ const AdultCastContent = ({ mediaType }: AdultCastProps) => {
                   href={
                     performer.stashDbId
                       ? `/scenes/performer/${performer.stashDbId}`
-                      : `/xxxmovies?performer=${performer.tpdbId}`
+                      : `/xxxmovies/performer/${performer.tpdbId}`
                   }
                   image={
                     performer.imageUrl

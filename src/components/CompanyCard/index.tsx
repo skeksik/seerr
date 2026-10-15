@@ -6,8 +6,8 @@ interface CompanyCardProps {
   name: string;
   image?: string;
   url: string;
-  // Adult studio logos come from StashDB
-  imageType?: 'tmdb' | 'stashdb';
+  // Adult studio logos come from StashDB or ThePornDB
+  imageType?: 'tmdb' | 'stashdb' | 'tpdb';
 }
 
 const CompanyCard = ({
@@ -49,8 +49,11 @@ const CompanyCard = ({
             fill
           />
         ) : (
-          <div className="relative z-40 flex h-full w-full items-center justify-center text-center text-xl font-bold text-gray-200">
-            {name}
+          <div className="relative z-40 flex h-full w-full items-center justify-center overflow-hidden text-center text-xl font-bold text-gray-200">
+            {/* Sliders keep their items on one line; long names wrap here */}
+            <span className="line-clamp-3 whitespace-normal break-words">
+              {name}
+            </span>
           </div>
         )}
       </div>

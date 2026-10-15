@@ -339,8 +339,11 @@ sceneRoutes.get('/studios', async (req, res, next) => {
       totalResults: count,
       results: lists
         .flatMap((list) => list.studios)
-        .filter(
-          (studio) => type === 'studios' || studio.child_studios.length > 0
+        // Networks are listed apart, so each list holds one kind
+        .filter((studio) =>
+          type === 'networks'
+            ? studio.child_studios.length > 0
+            : studio.child_studios.length === 0
         )
         .map(
           (studio): SceneFilterDetails => ({
