@@ -229,7 +229,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     id ? `/api/v1/scene/${type}/${id}` : null
   );
   // Movies come from ThePornDB, where performers and studios have own ids
-  const { data: tpdbMatch } = useSWR<{ id: number }>(
+  const { data: tpdbMatch } = useSWR<{ id: number; url?: string }>(
     id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
     { shouldRetryOnError: false }
   );
@@ -350,7 +350,14 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           <h1 className="text-3xl text-white lg:text-4xl">{data.name}</h1>
           <div className="mt-2">
             <AdultProfileLinks
-              links={[{ url: data.stashDbUrl, site: 'StashDB' }, ...data.urls]}
+              links={[
+                { url: data.stashDbUrl, site: 'StashDB' },
+                // Only performers ThePornDB itself links to this one
+                ...(tpdbMatch?.url
+                  ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
+                  : []),
+                ...data.urls,
+              ]}
             />
           </div>
           <div className="mb-2 mt-2 space-y-1 text-xs text-white sm:text-sm lg:text-base">

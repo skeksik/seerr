@@ -8,7 +8,8 @@ const imageLoader: ImageLoader = ({ src }) => src;
 export type CachedImageProps = ImageProps & {
   src: string;
   type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb' | 'tpdb';
-  // Adult TMDB artwork; StashDB and ThePornDB images always count as adult
+  // Adult TMDB artwork; StashDB and ThePornDB images count as adult unless
+  // told otherwise, like stash-box's site icons
   adult?: boolean;
 };
 
@@ -19,13 +20,13 @@ export type CachedImageProps = ImageProps & {
 const CachedImage = ({
   src,
   type,
-  adult = false,
+  adult,
   className,
   ...props
 }: CachedImageProps) => {
   const { currentSettings } = useSettings();
   const blurAdult = useAdultBlur();
-  const blur = blurAdult && (adult || type === 'stashdb' || type === 'tpdb');
+  const blur = blurAdult && (adult ?? (type === 'stashdb' || type === 'tpdb'));
 
   let imageUrl: string;
 

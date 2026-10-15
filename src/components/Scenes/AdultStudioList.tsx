@@ -23,6 +23,8 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
   search: 'Search by name',
   sortName: 'Name (A-Z)',
   sortNewest: 'Newest on StashDB',
+  sortTrending: 'Trending',
+  sortPopular: 'Popularity',
   noResults: 'No Results',
 });
 
@@ -36,11 +38,22 @@ interface AdultStudioListProps {
   type: 'studios' | 'networks';
 }
 
-// Every StashDB studio or network, behind the rows of the same name
+const sortOptions = [
+  ['trending', messages.sortTrending],
+  ['popular', messages.sortPopular],
+  ['name', messages.sortName],
+  ['newest', messages.sortNewest],
+] as const;
+
+type StudioSort = (typeof sortOptions)[number][0];
+
+// Every StashDB studio or network, behind the rows of the same name, which
+// start out like the rows. Trending and popularity rank those of the most
+// trending or popular scenes
 const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const [search, debouncedSearch, setSearch] = useDebouncedState('');
-  const [sort, setSort] = useState<'name' | 'newest'>('name');
+  const [sort, setSort] = useState<StudioSort>('trending');
   const { data, error, size, setSize, isValidating } =
     useSWRInfinite<StudioPage>(
       (index: number, previous: StudioPage | null) =>
@@ -91,14 +104,13 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
               name="sortBy"
               className="rounded-r-only"
               value={sort}
-              onChange={(e) => setSort(e.target.value as 'name' | 'newest')}
+              onChange={(e) => setSort(e.target.value as StudioSort)}
             >
-              <option value="name">
-                {intl.formatMessage(messages.sortName)}
-              </option>
-              <option value="newest">
-                {intl.formatMessage(messages.sortNewest)}
-              </option>
+              {sortOptions.map(([value, message]) => (
+                <option key={value} value={value}>
+                  {intl.formatMessage(message)}
+                </option>
+              ))}
             </select>
           </div>
         </div>

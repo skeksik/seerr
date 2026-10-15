@@ -7,6 +7,7 @@ import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
 import logger from '@server/logger';
+import type { SiteLink } from '@server/models/Scene';
 import {
   mapXxxPerformerDetails,
   mapXxxStudioDetails,
@@ -272,14 +273,20 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
     try {
       const stashDb = StashDbAPI.fromSettings();
       const tpdb = TpdbAPI.fromSettings();
-      let match: { id: number; name: string } | null = null;
+      let match: { id: number; name: string; url?: string } | null = null;
 
       if (req.params.type === 'performer') {
         const performer = await stashDb.getPerformer(id.data);
         const found =
           performer &&
           (await tpdb.findPerformerByStashDbId(performer.id, performer.name));
-        match = found ? { id: found._id, name: found.name } : null;
+        match = found
+          ? {
+              id: found._id,
+              name: found.name,
+              url: `https://theporndb.net/performers/${found.id}`,
+            }
+          : null;
       } else {
         const studio = await stashDb.getStudio(id.data);
         const found = studio && (await tpdb.findSiteByName(studio.name));
@@ -428,7 +435,11 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
           return next({ status: 404, message: 'Not found.' });
         }
 
-        return res.status(200).json(mapXxxPerformerDetails(performer));
+        const details = mapXxxPerformerDetails(performer);
+
+        return res
+          .status(200)
+          .json({ ...details, links: await withSiteIcons(details.links) });
       }
 
       const [site, sites] = await Promise.all([
@@ -471,6 +482,35 @@ const withStashDbStudio = async (
       errorMessage: e.message,
     });
     return studio;
+  }
+};
+
+const siteHost = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+// ThePornDB links carry no icons, so borrow StashDB's for the same sites
+const withSiteIcons = async (links: SiteLink[]): Promise<SiteLink[]> => {
+  try {
+    const sites = await StashDbAPI.fromSettings().getSites();
+
+    return links.map((link) => {
+      const host = siteHost(link.url);
+      const site = sites.find(
+        (site) => site.icon && site.url && siteHost(site.url) === host
+      );
+      return site?.icon ? { ...link, icon: site.icon } : link;
+    });
+  } catch (e) {
+    logger.debug('No StashDB site icons for ThePornDB links.', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return links;
   }
 };
 

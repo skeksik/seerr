@@ -23,6 +23,7 @@ import ImdbLogo from '@app/assets/services/imdb.svg';
 import StashLogo from '@app/assets/services/stash.svg';
 import TmdbLogo from '@app/assets/services/tmdb.svg';
 import TpdbIcon from '@app/assets/services/tpdb-icon.svg';
+import CachedImage from '@app/components/Common/CachedImage';
 import Tooltip from '@app/components/Common/Tooltip';
 
 type Logo = React.FC<React.SVGProps<SVGSVGElement>>;
@@ -69,6 +70,8 @@ export interface ProfileLink {
   url: string;
   // Site name, shown on hover
   site: string;
+  // stash-box's icon for the site, for sites without a logo here
+  icon?: string;
 }
 
 // The TMDB and IMDb logos of a person page, for StashDB performers and
@@ -85,9 +88,12 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
     const found = logos.find(([pattern]) => pattern.test(host));
     return found ? [{ ...link, Logo: found[1], size: found[2] }] : [];
   });
-  // Sites without a logo are listed by name, so they stay apart
+  const withIcon = unique.filter(
+    (link) => link.icon && !withLogo.some(({ url }) => url === link.url)
+  );
+  // Sites with neither are listed by name, so they stay apart
   const named = unique.filter(
-    (link) => !withLogo.some(({ url }) => url === link.url)
+    (link) => !link.icon && !withLogo.some(({ url }) => url === link.url)
   );
 
   return (
@@ -102,6 +108,27 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
             className="flex h-6 items-center text-white opacity-50 transition duration-300 hover:opacity-100"
           >
             <Logo className={size ?? 'h-5 w-5 fill-current'} />
+          </a>
+        </Tooltip>
+      ))}
+      {withIcon.map(({ url, site, icon }) => (
+        <Tooltip key={url} content={site}>
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={site}
+            className="flex h-6 items-center opacity-50 transition duration-300 hover:opacity-100"
+          >
+            <CachedImage
+              type="stashdb"
+              src={icon as string}
+              alt=""
+              width={20}
+              height={20}
+              adult={false}
+              className="h-5 w-5 rounded-sm"
+            />
           </a>
         </Tooltip>
       ))}

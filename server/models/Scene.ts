@@ -4,9 +4,11 @@ import type {
   StashDbPerformer,
   StashDbPerformerSummary,
   StashDbScene,
+  StashDbSceneStudio,
   StashDbSceneSummary,
   StashDbStudio,
   StashDbStudioSummary,
+  StashDbUrl,
 } from '@server/api/stashdb/interfaces';
 import type Media from '@server/entity/Media';
 
@@ -56,7 +58,7 @@ export interface SceneDetails extends SceneResult {
   productionDate?: string;
   code?: string;
   director?: string;
-  urls: { url: string; site: string }[];
+  urls: SiteLink[];
   tags: { id: string; name: string }[];
   // Scene page on the configured stash-box instance
   stashDbUrl: string;
@@ -85,7 +87,7 @@ export interface ScenePerformerDetails extends SceneFilterDetails {
   careerEnd?: number;
   country?: string;
   sceneCount: number;
-  urls: { url: string; site: string }[];
+  urls: SiteLink[];
   stashDbUrl: string;
   whisparr?: WhisparrMonitorStatus;
 }
@@ -95,7 +97,7 @@ export interface SceneStudioDetails extends SceneFilterDetails {
   parent?: { id: string; name: string };
   // A network's studios, by name
   studios: SceneFilterDetails[];
-  urls: { url: string; site: string }[];
+  urls: SiteLink[];
   stashDbUrl: string;
   whisparr?: WhisparrMonitorStatus;
 }
@@ -106,6 +108,20 @@ export interface SceneListResponse {
   totalResults: number;
   results: SceneResult[];
 }
+
+// A profile or scene link; the icon is stash-box's favicon for the site
+export interface SiteLink {
+  url: string;
+  site: string;
+  icon?: string;
+}
+
+const mapUrls = (urls: StashDbUrl[]): SiteLink[] =>
+  urls.map(({ url, site }) => ({
+    url,
+    site: site.name,
+    icon: site.icon || undefined,
+  }));
 
 // stash-box lists images largest first, but nothing guarantees it
 export const pickImage = (images: StashDbImage[]): string | undefined =>
@@ -162,7 +178,7 @@ export const mapSceneDetails = (
   productionDate: scene.production_date ?? undefined,
   code: scene.code ?? undefined,
   director: scene.director ?? undefined,
-  urls: scene.urls.map(({ url, site }) => ({ url, site: site.name })),
+  urls: mapUrls(scene.urls),
   tags: scene.tags.map(({ id, name }) => ({ id, name })),
   stashDbUrl: `${stashDbOrigin}/scenes/${scene.id}`,
 });
@@ -184,7 +200,7 @@ export const mapPerformerDetails = (
   careerEnd: performer.career_end_year ?? undefined,
   country: performer.country ?? undefined,
   sceneCount: performer.scene_count,
-  urls: performer.urls.map(({ url, site }) => ({ url, site: site.name })),
+  urls: mapUrls(performer.urls),
   stashDbUrl: `${stashDbOrigin}/performers/${performer.id}`,
 });
 
@@ -204,6 +220,54 @@ export const mapStudioDetails = (
       imageUrl: pickImage(child.images),
     }))
     .sort((a, b) => a.name.localeCompare(b.name)),
-  urls: studio.urls.map(({ url, site }) => ({ url, site: site.name })),
+  urls: mapUrls(studio.urls),
   stashDbUrl: `${stashDbOrigin}/studios/${studio.id}`,
 });
+
+// Studios or networks by how many of the given scenes they have, most
+// first. Networks are the top of each studio's tree that has studios under
+// it; studios are those with none
+export const rankStudios = (
+  studios: StashDbSceneStudio[],
+  type: 'studios' | 'networks'
+): SceneFilterDetails[] => {
+  const networkIds = new Set(
+    studios.flatMap((studio) =>
+      [studio.parent?.id, studio.parent?.parent?.id].filter(
+        (id): id is string => !!id
+      )
+    )
+  );
+  const counts = new Map<
+    string,
+    { studio: SceneFilterDetails; count: number }
+  >();
+
+  for (const studio of studios) {
+    const entry =
+      type === 'networks'
+        ? (studio.parent?.parent ??
+          studio.parent ??
+          (networkIds.has(studio.id) ? studio : undefined))
+        : networkIds.has(studio.id)
+          ? undefined
+          : studio;
+    if (!entry) {
+      continue;
+    }
+    const current = counts.get(entry.id);
+    counts.set(entry.id, {
+      studio: current?.studio ?? {
+        id: entry.id,
+        name: entry.name,
+        imageUrl: pickImage(entry.images),
+      },
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+
+  // Map keeps first-seen order, so ties stay in scene order
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count)
+    .map(({ studio }) => studio);
+};

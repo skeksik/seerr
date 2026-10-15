@@ -2407,6 +2407,9 @@ components:
                     type: string
                   site:
                     type: string
+                  icon:
+                    type: string
+                    description: The site's icon on StashDB
             tags:
               type: array
               items:
@@ -2452,6 +2455,9 @@ components:
                 type: string
               site:
                 type: string
+              icon:
+                type: string
+                description: The site's icon on StashDB
         stashDbUrl:
           type: string
         whisparr:
@@ -8032,6 +8038,9 @@ paths:
                     type: number
                   name:
                     type: string
+                  url:
+                    type: string
+                    description: The performer's ThePornDB page; performers only
         '404':
           description: No match on ThePornDB
   /xxxmovie/studio/{id}:
@@ -8134,6 +8143,9 @@ paths:
                           type: string
                         site:
                           type: string
+                        icon:
+                          type: string
+                          description: The site's icon on StashDB
                   stashDbId:
                     type: string
                   tpdbUrl:
@@ -8260,7 +8272,7 @@ paths:
   /scene/trending-studios:
     get:
       summary: Trending StashDB studios or networks
-      description: Studios, or their parent networks, ranked by how many trending scenes they have.
+      description: Studios, or the networks at the top of their tree, ranked by how many of the top trending scenes they have.
       tags:
         - scenes
       parameters:
@@ -8282,7 +8294,7 @@ paths:
   /scene/studios:
     get:
       summary: List StashDB studios or networks
-      description: Studios without studios under them, or the networks that have some, by name or newest first.
+      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have.
       tags:
         - scenes
       parameters:
@@ -8302,7 +8314,7 @@ paths:
           name: sort
           schema:
             type: string
-            enum: [name, newest]
+            enum: [name, newest, trending, popular]
             default: name
         - in: query
           name: query

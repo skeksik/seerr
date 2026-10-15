@@ -87,7 +87,7 @@ router.get<{
       imageData = await initTvdbImageProxy().getImage(imagePath);
     } else if (
       req.params.type === 'stashdb' &&
-      /^\/images\/[0-9a-f-]+$/.test(imagePath)
+      /^\/images\/(site\/)?[0-9a-f-]+$/.test(imagePath)
     ) {
       const size = String(req.query.size ?? '');
       imageData = await initStashDbImageProxy().getImage(

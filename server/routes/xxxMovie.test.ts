@@ -303,7 +303,11 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     const res = await agent.get(`/xxxmovie/match/performer/${STASH_ID}`);
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.body, { id: 99899, name: 'Erica Boyer' });
+    assert.deepStrictEqual(res.body, {
+      id: 99899,
+      name: 'Erica Boyer',
+      url: 'https://theporndb.net/performers/performer',
+    });
     assert.deepStrictEqual(find.mock.calls[0].arguments, [
       STASH_ID,
       'Erica Boyer',
@@ -321,5 +325,48 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     const res = await agent.get(`/xxxmovie/match/studio/${STASH_ID}`);
 
     assert.strictEqual(res.status, 404);
+  });
+});
+
+describe('GET /xxxmovie/:type/:id', () => {
+  beforeEach(() => {
+    getSettings().stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'key',
+    };
+  });
+
+  it('gives ThePornDB links the StashDB icon of their site', async () => {
+    mock.method(TpdbAPI.prototype, 'getPerformer', async () => ({
+      id: 'performer',
+      _id: 99899,
+      name: 'Erica Boyer',
+      extras: {
+        links: {
+          Twitter: 'https://twitter.com/erica',
+          Blog: 'https://blog.test/erica',
+        },
+      },
+    }));
+    mock.method(StashDbAPI.prototype, 'getSites', async () => [
+      {
+        name: 'Twitter',
+        url: 'https://www.twitter.com/',
+        icon: 'https://stashdb.test/images/site/twitter',
+      },
+    ]);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/xxxmovie/performer/99899');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body.links, [
+      {
+        url: 'https://twitter.com/erica',
+        site: 'Twitter',
+        icon: 'https://stashdb.test/images/site/twitter',
+      },
+      { url: 'https://blog.test/erica', site: 'Blog' },
+    ]);
   });
 });

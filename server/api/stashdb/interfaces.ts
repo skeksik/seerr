@@ -15,7 +15,25 @@ export interface StashDbImage {
 
 export interface StashDbUrl {
   url: string;
-  site: { name: string };
+  // The site's favicon, served by stash-box
+  site: { name: string; icon?: string | null };
+}
+
+export interface StashDbSite {
+  name: string;
+  url?: string | null;
+  icon?: string | null;
+}
+
+// The studio of a ranked scene, with its network up to two levels up
+export interface StashDbSceneStudio extends StashDbStudioRef {
+  parent?: (StashDbStudioRef & { parent?: StashDbStudioRef | null }) | null;
+}
+
+export interface StashDbStudioRef {
+  id: string;
+  name: string;
+  images: StashDbImage[];
 }
 
 export interface StashDbStudioSummary {

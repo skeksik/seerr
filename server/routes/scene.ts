@@ -27,6 +27,7 @@ import {
   mapSceneResult,
   mapStudioDetails,
   pickImage,
+  rankStudios,
 } from '@server/models/Scene';
 import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction, Request } from 'express';
@@ -257,29 +258,11 @@ sceneRoutes.get('/trending-studios', async (req, res, next) => {
   const type = req.query.type === 'networks' ? 'networks' : 'studios';
 
   try {
-    const studios = await StashDbAPI.fromSettings().getTrendingStudios();
-    const counts = new Map<string, SceneFilterDetails & { count: number }>();
+    const studios = await StashDbAPI.fromSettings().getSceneStudios('TRENDING');
 
-    for (const studio of studios) {
-      const entry = type === 'networks' ? studio.parent : studio;
-      if (!entry) {
-        continue;
-      }
-      const current = counts.get(entry.id);
-      counts.set(entry.id, {
-        id: entry.id,
-        name: entry.name,
-        imageUrl: entry.imageUrl,
-        count: (current?.count ?? 0) + 1,
-      });
-    }
-
-    return res.status(200).json(
-      [...counts.values()]
-        .sort((a, b) => b.count - a.count)
-        .slice(0, TRENDING_STUDIO_LIMIT)
-        .map(({ id, name, imageUrl }) => ({ id, name, imageUrl }))
-    );
+    return res
+      .status(200)
+      .json(rankStudios(studios, type).slice(0, TRENDING_STUDIO_LIMIT));
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve trending studios.', {
       type,
@@ -293,13 +276,14 @@ const lookupQuery = z.object({ query: z.string().trim().min(1) });
 const studioListQuery = z.object({
   type: z.enum(['studios', 'networks']).default('studios'),
   page: z.coerce.number().int().positive().default(1),
-  sort: z.enum(['name', 'newest']).default('name'),
+  sort: z.enum(['name', 'newest', 'trending', 'popular']).default('name'),
   query: z.string().trim().optional(),
 });
 
 // Networks are top-level studios with studios under them; StashDB cannot
 // filter on that, so each page reads this many top-level studios
 const NETWORK_PAGE_READS = 3;
+const RANKED_PAGE_SIZE = 40;
 
 // The full lists behind the Studios and Networks rows
 sceneRoutes.get('/studios', async (req, res, next) => {
@@ -312,6 +296,29 @@ sceneRoutes.get('/studios', async (req, res, next) => {
   const { type, page, sort, query } = parsed.data;
   try {
     const api = StashDbAPI.fromSettings();
+
+    if (sort === 'trending' || sort === 'popular') {
+      const ranked = rankStudios(
+        await api.getSceneStudios(
+          sort === 'trending' ? 'TRENDING' : 'POPULARITY'
+        ),
+        type
+      ).filter(
+        (studio) =>
+          !query || studio.name.toLowerCase().includes(query.toLowerCase())
+      );
+
+      return res.status(200).json({
+        page,
+        totalPages: Math.ceil(ranked.length / RANKED_PAGE_SIZE),
+        totalResults: ranked.length,
+        results: ranked.slice(
+          (page - 1) * RANKED_PAGE_SIZE,
+          page * RANKED_PAGE_SIZE
+        ),
+      });
+    }
+
     const reads =
       type === 'networks'
         ? Array.from(

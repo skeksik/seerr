@@ -7,6 +7,8 @@ import type {
   StashDbScene,
   StashDbSceneList,
   StashDbSceneSort,
+  StashDbSceneStudio,
+  StashDbSite,
   StashDbStudio,
   StashDbStudioSummary,
   StashDbTag,
@@ -37,7 +39,7 @@ const SCENE_FIELDS = `
   code
   director
   deleted
-  urls { url site { name } }
+  urls { url site { name icon } }
   tags { id name description }
 `;
 
@@ -46,6 +48,10 @@ const SCENE_LIST_FIELDS = `count scenes { ${SCENE_SUMMARY_FIELDS} }`;
 // Details rarely change once a scene is approved; lists move with new releases.
 const DETAILS_TTL = 21600;
 const LIST_TTL = 3600;
+// Scenes read to rank studios by; one request takes a few seconds
+const RANKED_SCENES = 5000;
+// The Studios and Networks rows ask for the same ranking at once
+const pendingSceneStudios = new Map<string, Promise<StashDbSceneStudio[]>>();
 
 export class StashDbNotConfiguredError extends Error {
   constructor() {
@@ -250,7 +256,7 @@ class StashDbAPI extends ExternalAPI {
           id name disambiguation gender aliases birth_date country scene_count
           career_start_year career_end_year
           images { ${IMAGE_FIELDS} }
-          urls { url site { name } }
+          urls { url site { name icon } }
         }
       }`,
       { id },
@@ -267,7 +273,7 @@ class StashDbAPI extends ExternalAPI {
           id name aliases
           parent { id name }
           images { ${IMAGE_FIELDS} }
-          urls { url site { name } }
+          urls { url site { name icon } }
           child_studios { id name images { ${IMAGE_FIELDS} } }
         }
       }`,
@@ -329,50 +335,60 @@ class StashDbAPI extends ExternalAPI {
     return data.queryStudios;
   }
 
-  // Studios behind the trending scenes, most frequent first
-  public async getTrendingStudios(): Promise<
-    {
-      id: string;
-      name: string;
-      imageUrl?: string;
-      parent?: { id: string; name: string; imageUrl?: string };
-    }[]
-  > {
-    type StudioRef = { id: string; name: string; images: { url: string }[] };
+  // The studios of the most trending or popular scenes, one per scene, for
+  // ranking studios; stash-box cannot sort studios on either
+  public async getSceneStudios(
+    sort: 'TRENDING' | 'POPULARITY'
+  ): Promise<StashDbSceneStudio[]> {
+    const pending = pendingSceneStudios.get(sort);
+    if (pending) {
+      return pending;
+    }
+
+    const request = this.querySceneStudios(sort).finally(() =>
+      pendingSceneStudios.delete(sort)
+    );
+    pendingSceneStudios.set(sort, request);
+    return request;
+  }
+
+  private async querySceneStudios(
+    sort: 'TRENDING' | 'POPULARITY'
+  ): Promise<StashDbSceneStudio[]> {
+    const studio = `id name images { ${IMAGE_FIELDS} }`;
     const data = await this.query<{
-      queryScenes: {
-        scenes: { studio?: (StudioRef & { parent?: StudioRef }) | null }[];
-      };
+      queryScenes: { scenes: { studio?: StashDbSceneStudio | null }[] };
     }>(
-      `query {
-        queryScenes(input: { sort: TRENDING, direction: DESC, per_page: 100 }) {
-          scenes {
-            studio { id name images { url } parent { id name images { url } } }
-          }
+      `query ($input: SceneQueryInput!) {
+        queryScenes(input: $input) {
+          scenes { studio { ${studio} parent { ${studio} parent { ${studio} } } } }
         }
       }`,
-      {},
-      LIST_TTL
+      {
+        input: {
+          sort,
+          direction: 'DESC',
+          per_page: RANKED_SCENES,
+        },
+      },
+      LIST_TTL,
+      60000
     );
 
     return data.queryScenes.scenes.flatMap(({ studio }) =>
-      studio
-        ? [
-            {
-              id: studio.id,
-              name: studio.name,
-              imageUrl: studio.images[0]?.url,
-              parent: studio.parent
-                ? {
-                    id: studio.parent.id,
-                    name: studio.parent.name,
-                    imageUrl: studio.parent.images[0]?.url,
-                  }
-                : undefined,
-            },
-          ]
-        : []
+      studio ? [studio] : []
     );
+  }
+
+  // The sites links can belong to, with their favicons
+  public async getSites(): Promise<StashDbSite[]> {
+    const data = await this.query<{ querySites: { sites: StashDbSite[] } }>(
+      'query { querySites { sites { name url icon } } }',
+      {},
+      DETAILS_TTL
+    );
+
+    return data.querySites.sites;
   }
 
   // The studio with exactly this name, like ThePornDB's findSiteByName

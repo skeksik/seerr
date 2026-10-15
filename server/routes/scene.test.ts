@@ -375,6 +375,82 @@ describe('GET /scene/discover', () => {
   });
 });
 
+describe('studio rankings', () => {
+  const image = (id: string) => [
+    { id, url: `https://stashdb.test/images/${id}`, width: 300, height: 100 },
+  ];
+  const ref = (id: string) => ({ id, name: id, images: image(id) });
+  // Two scenes of studio a and one of b under network n, one of network n
+  // itself, and one of top-level studio c
+  const studios = [
+    { ...ref('a'), parent: ref('n') },
+    { ...ref('b'), parent: ref('n') },
+    { ...ref('a'), parent: ref('n') },
+    ref('n'),
+    ref('c'),
+  ];
+
+  it('ranks studios by their trending scenes, leaving out networks', async () => {
+    const getSceneStudios = mock.method(
+      StashDbAPI.prototype,
+      'getSceneStudios',
+      async () => studios
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/scene/studios?sort=trending');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((studio: { id: string }) => studio.id),
+      ['a', 'b', 'c']
+    );
+    assert.strictEqual(
+      res.body.results[0].imageUrl,
+      'https://stashdb.test/images/a'
+    );
+    assert.strictEqual(res.body.totalPages, 1);
+    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
+      'TRENDING',
+    ]);
+  });
+
+  it('ranks networks by the popular scenes of their studios', async () => {
+    const getSceneStudios = mock.method(
+      StashDbAPI.prototype,
+      'getSceneStudios',
+      async () => [...studios, { ...ref('d'), parent: ref('m') }]
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/scene/studios?type=networks&sort=popular&query=N'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((studio: { id: string }) => studio.id),
+      ['n']
+    );
+    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
+      'POPULARITY',
+    ]);
+  });
+
+  it('starts the trending rows the same way', async () => {
+    mock.method(StashDbAPI.prototype, 'getSceneStudios', async () => studios);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/scene/trending-studios?type=networks');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.map((studio: { id: string }) => studio.id),
+      ['n']
+    );
+  });
+});
+
 describe('GET /scene/search', () => {
   it('requires a query', async () => {
     const agent = await loginAs('admin@seerr.dev');

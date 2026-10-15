@@ -672,6 +672,8 @@
   "components.Scenes.AdultStudioList.search": "Search by name",
   "components.Scenes.AdultStudioList.sortName": "Name (A-Z)",
   "components.Scenes.AdultStudioList.sortNewest": "Newest on StashDB",
+  "components.Scenes.AdultStudioList.sortPopular": "Popularity",
+  "components.Scenes.AdultStudioList.sortTrending": "Trending",
   "components.Scenes.AdultStudioList.studios": "Studios",
   "components.Scenes.NetworkStudioList.search": "Search by name",
   "components.Scenes.NetworkStudioList.sites": "Sites",

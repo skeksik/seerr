@@ -3,6 +3,7 @@ import type {
   TpdbPerformerSummary,
   TpdbSiteSummary,
 } from '@server/api/tpdb/interfaces';
+import type { SiteLink } from '@server/models/Scene';
 
 // ThePornDB performers and studios, for their pages and filter names
 
@@ -17,7 +18,7 @@ export interface XxxPerformerDetails {
   birthplace?: string;
   careerStart?: number;
   careerEnd?: number;
-  links: { url: string; site: string }[];
+  links: SiteLink[];
   // StashDB performer ThePornDB links to, which has the scenes page
   stashDbId?: string;
   tpdbUrl: string;
