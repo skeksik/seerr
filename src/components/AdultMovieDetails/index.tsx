@@ -258,7 +258,7 @@ const AdultMovieDetailsContent = () => {
               {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
                 (tag) => (
                   <Link
-                    href={`/discover/adultmovies?tags=${tag.id}`}
+                    href={`/discover/adultmovies?sort=released&tags=${tag.id}`}
                     key={`tag-${tag.id}`}
                     className="mb-2 mr-2 inline-flex last:mr-0"
                   >
