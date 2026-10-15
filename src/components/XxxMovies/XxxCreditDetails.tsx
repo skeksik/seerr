@@ -260,13 +260,14 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
           title={intl.formatMessage(globalMessages.xxxMovies)}
           url={moviesUrl}
           linkUrl={`/xxxmovies?${type}=${data.id}`}
+          hideWhenEmpty
         />
         {data.stashDbId && (
           <SceneSlider
             sliderKey={`scenes-${type}-${data.stashDbId}`}
             title={intl.formatMessage(messages.scenes)}
             url={`/api/v1/scene/discover?page=1&sort=date&${type}=${data.stashDbId}`}
-            linkUrl={`/scenes?${type}=${data.stashDbId}`}
+            linkUrl={`/scenes?sort=date&${type}=${data.stashDbId}`}
             hideWhenEmpty
           />
         )}

@@ -12,7 +12,7 @@ import {
   BarsArrowDownIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/solid';
-import type { SceneFilterDetails } from '@server/models/Scene';
+import type { MergedStudio } from '@server/lib/mergedStudios';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWRInfinite from 'swr/infinite';
@@ -31,7 +31,7 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
 interface StudioPage {
   page: number;
   totalPages: number;
-  results: SceneFilterDetails[];
+  results: MergedStudio[];
 }
 
 interface AdultStudioListProps {
@@ -49,7 +49,8 @@ type StudioSort = (typeof sortOptions)[number][0];
 
 // Every StashDB studio or network, behind the rows of the same name, which
 // start out like the rows. Trending and popularity rank those of the most
-// trending or popular scenes
+// trending or popular scenes. By name, studios take in ThePornDB's sites
+// StashDB has no studio for
 const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const [search, debouncedSearch, setSearch] = useDebouncedState('');
@@ -123,13 +124,24 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
             {studios.map((studio) => (
               <li key={`${type}-${studio.id}`}>
-                <CompanyCard
-                  fullWidth
-                  name={studio.name}
-                  image={stashImageUrl(studio.imageUrl, 300)}
-                  imageType="stashdb"
-                  url={`/scenes/studio/${studio.id}`}
-                />
+                {/* ThePornDB sites StashDB has no studio for open their page */}
+                {studio.source === 'tpdb' ? (
+                  <CompanyCard
+                    fullWidth
+                    name={studio.name}
+                    image={studio.imageUrl}
+                    imageType="tpdb"
+                    url={`/xxxmovies/studio/${studio.id}`}
+                  />
+                ) : (
+                  <CompanyCard
+                    fullWidth
+                    name={studio.name}
+                    image={stashImageUrl(studio.imageUrl, 300)}
+                    imageType="stashdb"
+                    url={`/scenes/studio/${studio.id}`}
+                  />
+                )}
               </li>
             ))}
           </ul>

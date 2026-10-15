@@ -330,10 +330,8 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             <AdultProfileLinks
               links={[
                 { url: data.stashDbUrl, site: 'StashDB' },
-                // Performers ThePornDB links to this one, studios by name,
-                // unless StashDB lists a ThePornDB page already
-                ...(tpdbMatch?.url &&
-                !data.urls.some(({ url }) => url.includes('theporndb.net'))
+                // Performers ThePornDB links to this one, studios by name
+                ...(tpdbMatch?.url
                   ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
                   : []),
                 ...data.urls,
@@ -420,7 +418,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           sliderKey={`scenes-${type}-${data.id}`}
           title={intl.formatMessage(messages.scenes)}
           url={scenesUrl}
-          linkUrl={`/scenes?${type}=${data.id}`}
+          linkUrl={`/scenes?sort=date&${type}=${data.id}`}
         />
         {tpdbMatch && (
           <XxxMovieSlider

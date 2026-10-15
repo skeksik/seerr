@@ -77,11 +77,7 @@ const AdultCastContent = ({ mediaType }: AdultCastProps) => {
                 <PersonCard
                   personId={performer.id}
                   name={performer.name}
-                  href={
-                    performer.stashDbId
-                      ? `/scenes/performer/${performer.stashDbId}`
-                      : `/xxxmovies/performer/${performer.tpdbId}`
-                  }
+                  href={`/xxxmovies/performer/${performer.tpdbId}`}
                   image={
                     performer.imageUrl
                       ? { src: performer.imageUrl, type: 'tpdb' }

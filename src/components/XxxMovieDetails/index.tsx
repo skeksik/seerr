@@ -2,7 +2,6 @@ import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
-import Badge from '@app/components/Common/Badge';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -92,6 +91,20 @@ const XxxMovieDetailsContent = () => {
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
   const attributes: React.ReactNode[] = [];
 
+  // Sexual preferences, which the Filters panel goes by, boxed like a
+  // movie's certification
+  if (data.orientations?.length) {
+    attributes.push(
+      <span className="flex gap-1">
+        {data.orientations.map((orientation) => (
+          <span key={orientation} className="rounded-md border p-0.5 py-0">
+            {intl.formatMessage(orientationMessages[orientation])}
+          </span>
+        ))}
+      </span>
+    );
+  }
+
   if (data.studio) {
     attributes.push(
       <Link href={studioHref(data.studio)}>{data.studio.name}</Link>
@@ -158,12 +171,6 @@ const XxxMovieDetailsContent = () => {
               externalId={data.id}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
-            {/* Sexual preferences, which the Filters panel goes by */}
-            {data.orientations?.map((orientation) => (
-              <Badge key={orientation} badgeType="dark">
-                {intl.formatMessage(orientationMessages[orientation])}
-              </Badge>
-            ))}
           </div>
           <h1 data-testid="media-title">
             {data.title} {year && <span className="media-year">({year})</span>}
@@ -365,10 +372,7 @@ const XxxMovieDetailsContent = () => {
           performers={data.performers.map((performer) => ({
             id: performer.id,
             name: performer.name,
-            // StashDB pages when ThePornDB links one, else ThePornDB pages
-            href: performer.stashDbId
-              ? `/scenes/performer/${performer.stashDbId}`
-              : `/xxxmovies/performer/${performer.tpdbId}`,
+            href: `/xxxmovies/performer/${performer.tpdbId}`,
             imageUrl: performer.imageUrl,
           }))}
         />

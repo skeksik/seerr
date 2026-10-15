@@ -8696,7 +8696,7 @@ paths:
   /scene/studios:
     get:
       summary: List StashDB studios or networks
-      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have.
+      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have. By name, studios also list the ThePornDB sites no StashDB studio has the name of, marked with source tpdb.
       tags:
         - scenes
       parameters:
@@ -8740,7 +8740,16 @@ paths:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/SceneFilterDetails'
+                      allOf:
+                        - $ref: '#/components/schemas/SceneFilterDetails'
+                        - type: object
+                          properties:
+                            source:
+                              type: string
+                              enum: [tpdb]
+                            imageType:
+                              type: string
+                              enum: [tpdb]
   /scene/search:
     get:
       summary: Search scenes

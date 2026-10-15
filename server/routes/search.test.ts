@@ -108,25 +108,20 @@ describe('GET /search', () => {
     assert.strictEqual(res.body.totalPages, 4);
   });
 
-  it('adds ThePornDB performers that are not on the StashDB list', async () => {
-    const stashDbLink = (id: string) => ({
-      links: { StashDB: `https://stashdb.org/performers/${id}` },
-    });
+  it('adds ThePornDB performers after StashDB ones', async () => {
     mock.method(TpdbAPI.prototype, 'searchPerformers', async () => [
-      // The StashDB result again
+      // Also the StashDB result, but listed with its ThePornDB page
       {
         id: 'a',
         _id: 1,
         name: 'Molly Little',
-        extras: stashDbLink('bcb98a6e-08f3-48a9-90d5-f223901a56a5'),
-      },
-      // On StashDB, but not among its results
-      {
-        id: 'b',
-        _id: 2,
-        name: 'Molly Jane',
-        image: 'https://cdn.theporndb.net/performer/b.jpg',
-        extras: stashDbLink('0b9b6a4e-6f5e-4f43-9a7b-1a2b3c4d5e6f'),
+        image: 'https://cdn.theporndb.net/performer/a.jpg',
+        extras: {
+          links: {
+            StashDB:
+              'https://stashdb.org/performers/bcb98a6e-08f3-48a9-90d5-f223901a56a5',
+          },
+        },
       },
       { id: 'c', _id: 3, name: 'Molly Mae' },
     ]);
@@ -137,10 +132,12 @@ describe('GET /search', () => {
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body.results.slice(1, 3), [
       {
-        id: '0b9b6a4e-6f5e-4f43-9a7b-1a2b3c4d5e6f',
+        id: '1',
         mediaType: 'performer',
-        name: 'Molly Jane',
-        imageUrl: 'https://cdn.theporndb.net/performer/b.jpg',
+        name: 'Molly Little',
+        disambiguation: 'ThePornDB',
+        imageUrl: 'https://cdn.theporndb.net/performer/a.jpg',
+        source: 'tpdb',
         imageType: 'tpdb',
       },
       {

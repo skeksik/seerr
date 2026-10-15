@@ -1,7 +1,7 @@
 import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbSearchMultiResponse } from '@server/api/themoviedb/interfaces';
-import TpdbAPI, { stashDbPerformerId } from '@server/api/tpdb';
+import TpdbAPI from '@server/api/tpdb';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
@@ -42,8 +42,8 @@ const tryAdultSource = async <T>(
   }
 };
 
-// StashDB performers lead the first page, then ThePornDB's that do not link
-// to one of them; ThePornDB movies join TMDB's results page by page
+// StashDB performers lead the first page, then ThePornDB's; ThePornDB
+// movies join TMDB's results page by page
 const searchAdult = async (
   query: string,
   page: number,
@@ -77,27 +77,18 @@ const searchAdult = async (
       imageUrl: performer.imageUrl,
     })
   );
-  // Like cast links, a ThePornDB performer linked to StashDB opens the
-  // StashDB page
-  const tpdbResults = (tpdbPerformers ?? [])
-    .slice(0, PERFORMER_LIMIT)
-    .flatMap((performer): PerformerResult[] => {
-      const stashDbId = stashDbPerformerId(performer.extras);
-      if (stashDbId && stashDbResults.some(({ id }) => id === stashDbId)) {
-        return [];
-      }
-      return [
-        {
-          id: stashDbId ?? String(performer._id),
-          mediaType: 'performer',
-          name: performer.name,
-          disambiguation: stashDbId ? undefined : 'ThePornDB',
-          imageUrl: performer.image ?? undefined,
-          source: stashDbId ? undefined : 'tpdb',
-          imageType: 'tpdb',
-        },
-      ];
-    });
+  // ThePornDB performers open their ThePornDB page, next to StashDB's
+  const tpdbResults = (tpdbPerformers ?? []).slice(0, PERFORMER_LIMIT).map(
+    (performer): PerformerResult => ({
+      id: String(performer._id),
+      mediaType: 'performer',
+      name: performer.name,
+      disambiguation: 'ThePornDB',
+      imageUrl: performer.image ?? undefined,
+      source: 'tpdb',
+      imageType: 'tpdb',
+    })
+  );
   const performerResults = [...stashDbResults, ...tpdbResults];
   // Disabled and unchecked sexual preferences stay out of search too
   const hidden = hiddenOrientations(user);
