@@ -1,5 +1,7 @@
+import StashLogo from '@app/assets/services/stash.svg';
+import TpdbLogo from '@app/assets/services/tpdb.svg';
 import defineMessages from '@app/utils/defineMessages';
-import { GlobeAltIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { GlobeAltIcon } from '@heroicons/react/24/outline';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.AdultLinkBlock', {
@@ -15,10 +17,10 @@ interface AdultLinkBlockProps {
 }
 
 const linkClass =
-  'flex items-center gap-1 text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
+  'flex items-center gap-1.5 text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
 
-// ExternalLinkBlock for scenes and XXX movies; their services have no
-// logos in Seerr, so they are named
+// ExternalLinkBlock for scenes and XXX movies. StashDB has no logo of its
+// own, so it shares the Stash box with its name next to it
 const AdultLinkBlock = ({
   stashUrl,
   stashDbUrl,
@@ -36,7 +38,7 @@ const AdultLinkBlock = ({
           target="_blank"
           rel="noreferrer"
         >
-          <PlayIcon className="h-4 w-4" />
+          <StashLogo className="h-5 w-auto" />
           <span>Stash</span>
         </a>
       )}
@@ -47,17 +49,19 @@ const AdultLinkBlock = ({
           target="_blank"
           rel="noreferrer"
         >
-          StashDB
+          <StashLogo className="h-5 w-auto" />
+          <span>StashDB</span>
         </a>
       )}
       {tpdbUrl && (
         <a
           href={tpdbUrl}
-          className={linkClass}
+          className="w-24 opacity-50 transition duration-300 hover:opacity-100"
           target="_blank"
           rel="noreferrer"
+          aria-label="ThePornDB"
         >
-          ThePornDB
+          <TpdbLogo />
         </a>
       )}
       {studioUrl && (
