@@ -17,10 +17,14 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
+import { linkLabel } from '@app/utils/linkLabel';
 import { Transition } from '@headlessui/react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
-import type { XxxMovieDetails as XxxMovieDetailsType } from '@server/models/XxxMovie';
+import type {
+  XxxMovieDetails as XxxMovieDetailsType,
+  XxxMovieStudio,
+} from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Fragment, useState } from 'react';
@@ -36,6 +40,7 @@ const messages = defineMessages('components.XxxMovieDetails', {
   studio: 'Studio',
   network: 'Network',
   director: 'Director',
+  links: 'Links',
   recommendations: 'Recommendations',
   similar: 'Similar',
   minutes: '{minutes} min',
@@ -43,6 +48,12 @@ const messages = defineMessages('components.XxxMovieDetails', {
 });
 
 const TAG_LIMIT = 20;
+
+// The StashDB studio page when StashDB has the studio, else its XXX movies
+const studioHref = (studio: XxxMovieStudio): string =>
+  studio.stashDbId
+    ? `/scenes/studio/${studio.stashDbId}`
+    : `/xxxmovies?studio=${studio.id}`;
 
 const XxxMovieDetailsContent = () => {
   const intl = useIntl();
@@ -81,9 +92,7 @@ const XxxMovieDetailsContent = () => {
 
   if (data.studio) {
     attributes.push(
-      <Link href={`/xxxmovies?studio=${data.studio.id}`}>
-        {data.studio.name}
-      </Link>
+      <Link href={studioHref(data.studio)}>{data.studio.name}</Link>
     );
   }
 
@@ -262,7 +271,7 @@ const XxxMovieDetailsContent = () => {
         <div className="media-overview-right">
           {data.studio && (
             <StudioBanner
-              href={`/xxxmovies?studio=${data.studio.id}`}
+              href={studioHref(data.studio)}
               studio={data.studio.name}
               studioId={data.studio.id}
               mediaType="xxxmovie"
@@ -296,9 +305,7 @@ const XxxMovieDetailsContent = () => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.studio)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/xxxmovies?studio=${data.studio.id}`}>
-                    {data.studio.name}
-                  </Link>
+                  <Link href={studioHref(data.studio)}>{data.studio.name}</Link>
                 </span>
               </div>
             )}
@@ -306,14 +313,24 @@ const XxxMovieDetailsContent = () => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.network)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/xxxmovies?studio=${data.network.id}`}>
+                  <Link href={studioHref(data.network)}>
                     {data.network.name}
                   </Link>
                 </span>
               </div>
             )}
+            {data.url && (
+              <div className="media-fact">
+                <span>{intl.formatMessage(messages.links)}</span>
+                <span className="media-fact-value">
+                  <a href={data.url} target="_blank" rel="noreferrer">
+                    {linkLabel(data.url)}
+                  </a>
+                </span>
+              </div>
+            )}
             <div className="media-fact">
-              <AdultLinkBlock tpdbUrl={data.tpdbUrl} studioUrl={data.url} />
+              <AdultLinkBlock tpdbUrl={data.tpdbUrl} />
             </div>
           </div>
         </div>

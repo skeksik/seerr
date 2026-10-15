@@ -67,6 +67,8 @@ export interface StashDbSceneQuery {
   withTags?: boolean;
   // stash-box takes a single date bound
   date?: { value: string; modifier: 'GREATER_THAN' | 'LESS_THAN' };
+  // For queries known to be slow, in place of the client's 15s
+  timeout?: number;
 }
 
 export interface StashDbLookup {
@@ -104,13 +106,14 @@ class StashDbAPI extends ExternalAPI {
   private async query<T>(
     query: string,
     variables: Record<string, unknown> = {},
-    ttl?: number
+    ttl?: number,
+    timeout?: number
   ): Promise<T> {
     const body = { query, variables };
     const response = await this.post<StashDbGraphqlResponse<T>>(
       '',
       body,
-      undefined,
+      timeout ? { timeout } : undefined,
       ttl
     );
 
@@ -176,6 +179,7 @@ class StashDbAPI extends ExternalAPI {
     date,
     any,
     withTags = false,
+    timeout,
   }: StashDbSceneQuery = {}): Promise<StashDbSceneList> {
     const criterion = (
       ids: string[] | undefined,
@@ -207,7 +211,8 @@ class StashDbAPI extends ExternalAPI {
           date,
         },
       },
-      LIST_TTL
+      LIST_TTL,
+      timeout
     );
 
     return data.queryScenes;
@@ -314,6 +319,15 @@ class StashDbAPI extends ExternalAPI {
           ]
         : []
     );
+  }
+
+  // The studio with exactly this name, like ThePornDB's findSiteByName
+  public async findStudioByName(name: string): Promise<StashDbLookup | null> {
+    const studios = (await this.searchStudios(name)).filter(
+      (studio) => studio.name.toLowerCase() === name.toLowerCase()
+    );
+
+    return studios.find((studio) => studio.name === name) ?? studios[0] ?? null;
   }
 
   public async searchStudios(term: string): Promise<StashDbLookup[]> {

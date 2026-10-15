@@ -18,6 +18,7 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
+import { linkLabel } from '@app/utils/linkLabel';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
 import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
@@ -50,14 +51,6 @@ const messages = defineMessages('components.SceneDetails', {
 
 // StashDB scenes often carry 70+ tags
 const TAG_LIMIT = 20;
-
-const linkLabel = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-};
 
 interface SceneDetailsProps {
   scene?: SceneDetailsType;

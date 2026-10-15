@@ -11,7 +11,10 @@ import { isOnWatchlist } from '@server/lib/adultMedia';
 import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapMovieResult } from '@server/models/Search';
-import type { XxxMovieListResponse } from '@server/models/XxxMovie';
+import type {
+  XxxMovieListResponse,
+  XxxMovieStudio,
+} from '@server/models/XxxMovie';
 import { mapXxxMovieDetails, mapXxxMovieResult } from '@server/models/XxxMovie';
 import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction, Request } from 'express';
@@ -517,6 +520,27 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
   }
 );
 
+// Studio links go to the StashDB studio page when StashDB has the studio
+const withStashDbStudio = async (
+  studio?: XxxMovieStudio
+): Promise<XxxMovieStudio | undefined> => {
+  if (!studio) {
+    return undefined;
+  }
+
+  try {
+    const match = await StashDbAPI.fromSettings().findStudioByName(studio.name);
+    return match ? { ...studio, stashDbId: match.id } : studio;
+  } catch (e) {
+    logger.debug('No StashDB studio for ThePornDB site.', {
+      label: 'API',
+      site: studio.name,
+      errorMessage: e.message,
+    });
+    return studio;
+  }
+};
+
 xxxMovieRoutes.get('/:id', async (req, res, next) => {
   const parsed = z.string().uuid().safeParse(req.params.id);
 
@@ -532,9 +556,16 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
     }
 
     const media = await Media.getMediaByTpdbId(movie.id);
+    const details = mapXxxMovieDetails(movie, media?.filter(req.user));
+    const [studio, network] = await Promise.all([
+      withStashDbStudio(details.studio),
+      withStashDbStudio(details.network),
+    ]);
 
     return res.status(200).json({
-      ...mapXxxMovieDetails(movie, media?.filter(req.user)),
+      ...details,
+      studio,
+      network,
       onUserWatchlist: await isOnWatchlist(
         MediaType.XXX_MOVIE,
         movie.id,

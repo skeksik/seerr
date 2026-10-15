@@ -20,11 +20,20 @@ export interface XxxMovieResult {
   mediaInfo?: Media;
 }
 
+// A ThePornDB site, and the StashDB studio of the same name that has the
+// studio page
+export interface XxxMovieStudio {
+  id: number;
+  name: string;
+  stashDbId?: string;
+}
+
 export interface XxxMovieDetails extends XxxMovieResult {
   // Set by the details routes for the viewer
   onUserWatchlist?: boolean;
   backCoverUrl?: string;
-  network?: { id: number; name: string };
+  studio?: XxxMovieStudio;
+  network?: XxxMovieStudio;
   performers: {
     id: string;
     // Numeric id ThePornDB filters take
