@@ -2,8 +2,12 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
+import { stashImageUrl } from '@app/utils/stashImage';
+import type { SceneListResponse } from '@server/models/Scene';
+import type { XxxMovieListResponse } from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 const messages = defineMessages('components.StudioBanner', {
   moreFrom: 'More from {studio}',
@@ -12,17 +16,46 @@ const messages = defineMessages('components.StudioBanner', {
 interface StudioBannerProps {
   href: string;
   studio: string;
-  imageUrl?: string;
-  imageType: 'stashdb' | 'tpdb';
+  // StashDB studio or ThePornDB site whose latest release is the backdrop
+  studioId: string | number;
+  mediaType: 'scene' | 'xxxmovie';
+  // The title the page is about, so the banner shows a different one
+  currentId: string;
+  // Until that loads, or when the studio has nothing else
+  fallbackImageUrl?: string;
 }
+
+// Tomorrow, so scenes released today count as released
+const releasedBy = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+};
 
 // The movie page's collection banner, for a studio's other titles
 const StudioBanner = ({
   href,
   studio,
-  imageUrl,
-  imageType,
+  studioId,
+  mediaType,
+  currentId,
+  fallbackImageUrl,
 }: StudioBannerProps) => {
+  const { data } = useSWR<SceneListResponse | XxxMovieListResponse>(
+    mediaType === 'scene'
+      ? `/api/v1/scene/discover?sort=date&released=before&releaseDate=${releasedBy()}&studio=${studioId}&page=1`
+      : `/api/v1/xxxmovie/discover?source=tpdb&sort=released&studio=${studioId}&page=1`
+  );
+  const latest = data?.results.find((result) => result.id !== currentId);
+  const latestImage = !latest
+    ? undefined
+    : latest.mediaType === 'scene'
+      ? stashImageUrl(latest.imageUrl, 1280)
+      : latest.mediaType === 'xxxmovie'
+        ? (latest.backdropUrl ?? latest.posterUrl)
+        : undefined;
+  const imageUrl = latestImage ?? fallbackImageUrl;
+  const imageType = mediaType === 'scene' ? 'stashdb' : 'tpdb';
   const intl = useIntl();
 
   return (

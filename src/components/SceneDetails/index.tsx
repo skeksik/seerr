@@ -286,8 +286,10 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             <StudioBanner
               href={`/scenes/studio/${data.studio.id}`}
               studio={data.studio.name}
-              imageUrl={stashImageUrl(data.imageUrl, 1280)}
-              imageType="stashdb"
+              studioId={data.studio.id}
+              mediaType="scene"
+              currentId={data.id}
+              fallbackImageUrl={stashImageUrl(data.imageUrl, 1280)}
             />
           )}
           <div className="media-facts">

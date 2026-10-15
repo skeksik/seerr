@@ -264,8 +264,10 @@ const XxxMovieDetailsContent = () => {
             <StudioBanner
               href={`/xxxmovies?studio=${data.studio.id}`}
               studio={data.studio.name}
-              imageUrl={data.backdropUrl ?? data.posterUrl}
-              imageType="tpdb"
+              studioId={data.studio.id}
+              mediaType="xxxmovie"
+              currentId={data.id}
+              fallbackImageUrl={data.backdropUrl ?? data.posterUrl}
             />
           )}
           <div className="media-facts">
