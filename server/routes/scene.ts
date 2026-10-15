@@ -24,6 +24,7 @@ import {
   classifyScene,
   hiddenOrientations,
   isHidden,
+  tagHint,
   tagsNeeded,
 } from '@server/lib/orientation';
 import { Permission } from '@server/lib/permissions';
@@ -190,6 +191,9 @@ interface SceneContext {
   tagIds: StashDbOrientationTagIds;
 }
 
+// Names that find StashDB's group tags
+const GROUP_TAG_SEARCHES = ['some (', 'Gangbang (', 'Orgy ('];
+
 // Orientation tag ids for this stash-box instance; without them the cast
 // alone decides
 const orientationTagIds = async (
@@ -199,11 +203,24 @@ const orientationTagIds = async (
     const names = Object.values(STASHDB_ORIENTATION_TAGS).filter(
       (name): name is string => !!name
     );
-    const ids = await api.getTagIds([
-      ...names,
-      ...Object.values(STASHDB_MISSING_PERFORMER_TAGS),
+    const [ids, groupTags] = await Promise.all([
+      api.getTagIds([
+        ...names,
+        ...Object.values(STASHDB_MISSING_PERFORMER_TAGS),
+      ]),
+      // Group tags, like "Threesome (BGG)" or "Orgy (Lesbian)"
+      Promise.all(GROUP_TAG_SEARCHES.map((name) => api.queryTags(name)))
+        .then((lists) => lists.flat())
+        // The cast still decides without them
+        .catch(() => []),
     ]);
     return {
+      groups: Object.fromEntries(
+        groupTags.flatMap((tag) => {
+          const hint = tagHint(tag.name);
+          return hint ? [[tag.id, hint]] : [];
+        })
+      ),
       orientations: Object.fromEntries(
         ORIENTATIONS.flatMap((orientation) => {
           const name = STASHDB_ORIENTATION_TAGS[orientation];
@@ -233,12 +250,17 @@ const sceneContext = async (api: StashDbAPI): Promise<SceneContext> => {
 // Lists read this many scenes a page when most may be filtered out here
 const DENSE_PAGE_SIZE = 100;
 
+// Filtered lists can take StashDB longer than the client's 15s
+const LIST_TIMEOUT = 60000;
+
 const emptyList: StashDbSceneList = { count: 0, scenes: [] };
 
 interface ScenePlan {
   query: StashDbSceneQuery;
   filter: SceneListFilter;
   dense: boolean;
+  // Asked for tagged scenes only, which leaves out unidentified ones
+  narrowed: boolean;
 }
 
 // The stash-box query for the picked filters, and what is left to filter
@@ -246,7 +268,8 @@ interface ScenePlan {
 const planScenes = (
   user: User | undefined,
   filters: SceneFilters,
-  { tagIds: orientationIds }: SceneContext
+  { tagIds: orientationIds }: SceneContext,
+  narrow = true
 ): ScenePlan => {
   const hidden = hiddenOrientations(user, filters.orientation);
   const idsOf = (keys: Orientation[]) =>
@@ -263,7 +286,9 @@ const planScenes = (
   // Without straight, scenes tagged with a shown orientation are asked for:
   // any of them without picked tags, or the one shown next to all of those
   const narrowed =
-    needed.length > 0 && (!picked.length || (needed.length === 1 && !anyTag));
+    narrow &&
+    needed.length > 0 &&
+    (!picked.length || (needed.length === 1 && !anyTag));
   const tagIds = !narrowed
     ? picked
     : picked.length
@@ -304,6 +329,7 @@ const planScenes = (
     filter: { hidden, exclude },
     // Hiding straight without asking for other tags leaves few per page
     dense: hidden.has('straight') && !narrowed,
+    narrowed,
   };
 };
 
@@ -400,20 +426,51 @@ sceneRoutes.get('/discover', async (req, res, next) => {
     const [order, direction] = filters.upcoming
       ? (['DATE', 'ASC'] as const)
       : sceneSorts[sort];
-    const list = await api.queryScenes({
-      ...plan.query,
-      page,
-      perPage,
-      sort: order,
-      direction,
-    });
-
-    return res.status(200).json(
-      await mapSceneList(list, page, req.user, {
+    const query = { page, sort: order, direction, timeout: LIST_TIMEOUT };
+    // Unidentified scenes carry no orientation tag, so when they show next
+    // to tagged ones they are read apart and joined in
+    const unidentified =
+      plan.narrowed && !plan.filter.hidden.has('unidentified')
+        ? planScenes(req.user, filters, context, false)
+        : undefined;
+    const [list, extra] = await Promise.all([
+      api.queryScenes({ ...plan.query, ...query, perPage }),
+      unidentified
+        ? api.queryScenes({
+            ...unidentified.query,
+            ...query,
+            perPage: DENSE_PAGE_SIZE,
+          })
+        : undefined,
+    ]);
+    const [main, rest] = await Promise.all([
+      mapSceneList(list, page, req.user, {
         filter: plan.filter,
         perPage,
         context,
-      })
+      }),
+      unidentified && extra
+        ? mapSceneList(extra, page, req.user, {
+            filter: {
+              ...unidentified.filter,
+              hidden: new Set(
+                ORIENTATIONS.filter((key) => key !== 'unidentified')
+              ),
+            },
+            perPage: DENSE_PAGE_SIZE,
+            context,
+          })
+        : undefined,
+    ]);
+
+    return res.status(200).json(
+      rest
+        ? {
+            ...main,
+            totalPages: Math.max(main.totalPages, rest.totalPages),
+            results: [...main.results, ...rest.results],
+          }
+        : main
     );
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {

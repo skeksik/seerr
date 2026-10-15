@@ -496,17 +496,29 @@ const TitleCard = ({
                           : intl.formatMessage(globalMessages.tvshow)}
                 </div>
               </div>
-              {/* Sexual preferences, which the Filters panel goes by */}
-              {orientations
-                ?.filter((orientation) => orientation !== 'unidentified')
-                .map((orientation) => (
-                  <div
-                    key={orientation}
-                    className="rounded-full bg-gray-900/80 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-gray-200 shadow-md"
-                  >
-                    {intl.formatMessage(orientationMessages[orientation])}
-                  </div>
-                ))}
+              {/* Sexual preferences, which the Filters panel goes by, by
+                  their first letter */}
+              {orientations?.some((value) => value !== 'unidentified') && (
+                <div className="flex gap-1">
+                  {orientations
+                    .filter((orientation) => orientation !== 'unidentified')
+                    .map((orientation) => {
+                      const name = intl.formatMessage(
+                        orientationMessages[orientation]
+                      );
+                      return (
+                        <div
+                          key={orientation}
+                          aria-label={name}
+                          title={name}
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/80 text-[0.65rem] font-semibold text-gray-200 shadow-md"
+                        >
+                          {name.charAt(0)}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div
@@ -638,6 +650,9 @@ const TitleCard = ({
                       .map((line) => (
                         <div
                           key={line}
+                          // Long studio names end in an ellipsis; all of it
+                          // shows on hover
+                          title={line}
                           className="truncate text-sm font-medium"
                         >
                           {line}
@@ -649,7 +664,11 @@ const TitleCard = ({
                         isScene ? 'text-lg' : 'text-xl'
                       }`}
                       style={{
-                        WebkitLineClamp: isScene ? 1 : 3,
+                        WebkitLineClamp: isScene
+                          ? 1
+                          : mediaType === 'xxxmovie'
+                            ? 2
+                            : 3,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

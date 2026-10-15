@@ -40,6 +40,8 @@ export const STASHDB_MISSING_PERFORMER_TAGS = {
 export type StashDbOrientationTagIds = {
   orientations: Partial<Record<Orientation, string>>;
   missing: Partial<Record<keyof typeof STASHDB_MISSING_PERFORMER_TAGS, string>>;
+  // Group tags like "Threesome (BGG)" or "Orgy (Lesbian)", by id
+  groups?: Record<string, TagHint>;
 };
 
 interface Cast {
@@ -47,6 +49,36 @@ interface Cast {
   male: number;
   trans: number;
 }
+
+// What a tag's name says about a title: who is in it, as in "Threesome
+// (BGG)" (B for boys, G for girls, T for trans), or whom it is for, as in
+// "Foursome (Lesbian)"
+export interface TagHint {
+  cast?: Cast;
+  orientation?: Orientation;
+}
+
+export const tagHint = (name: string): TagHint | undefined => {
+  const group = name.match(/\(([BGT]{2,})\)\s*$/);
+  if (group) {
+    const letters = group[1];
+    const count = (letter: string) => letters.split(letter).length - 1;
+    return {
+      cast: { male: count('B'), female: count('G'), trans: count('T') },
+    };
+  }
+  const audience = name.match(/\((Lesbian|Gay|Straight|Trans|Mixed)\)\s*$/i);
+  if (audience) {
+    const value = audience[1].toLowerCase();
+    return {
+      orientation:
+        value === 'mixed'
+          ? 'straight'
+          : (value as 'lesbian' | 'gay' | 'straight' | 'trans'),
+    };
+  }
+  return undefined;
+};
 
 // Without orientation tags, the cast tells: any trans performer makes it
 // trans, women and men straight, two or more women lesbian and men alone gay.
@@ -96,6 +128,40 @@ const countCast = (genders: (string | null | undefined)[]): Cast => {
   return cast;
 };
 
+// Tags and cast together: group tags fill in performers the cast lacks, a
+// trans performer adds trans, and men next to women add straight, so a
+// lesbian-tagged scene with a man in it suits both
+const classify = (
+  tagged: Orientation[],
+  listed: Cast,
+  hints: TagHint[]
+): Orientation[] => {
+  const cast = { ...listed };
+  const fromTags = new Set(tagged);
+
+  for (const hint of hints) {
+    if (hint.cast) {
+      cast.female = Math.max(cast.female, hint.cast.female);
+      cast.male = Math.max(cast.male, hint.cast.male);
+      cast.trans = Math.max(cast.trans, hint.cast.trans);
+    }
+    if (hint.orientation) {
+      fromTags.add(hint.orientation);
+    }
+  }
+
+  if (fromTags.size === 0) {
+    return fromCast(cast);
+  }
+  if (cast.trans > 0) {
+    fromTags.add('trans');
+  }
+  if (cast.female > 0 && cast.male > 0 && !fromTags.has('bisexual')) {
+    fromTags.add('straight');
+  }
+  return ORIENTATIONS.filter((orientation) => fromTags.has(orientation));
+};
+
 export const classifyScene = (
   scene: StashDbSceneSummary,
   tagIds: StashDbOrientationTagIds
@@ -118,14 +184,11 @@ export const classifyScene = (
     }
   }
 
-  if (tagged.length > 0) {
-    // Tags are the more precise; a trans performer still makes it trans
-    return cast.trans > 0 && !tagged.includes('trans')
-      ? [...tagged, 'trans']
-      : tagged;
-  }
-
-  return fromCast(cast);
+  return classify(
+    tagged,
+    cast,
+    [...sceneTags].flatMap((id) => tagIds.groups?.[id] ?? [])
+  );
 };
 
 // ThePornDB tags name orientations alone or as in "Twosome (Lesbian)"
@@ -160,13 +223,11 @@ export const classifyMovie = (movie: TpdbMovie): Orientation[] => {
     )
   );
 
-  if (tagged.length > 0) {
-    return cast.trans > 0 && !tagged.includes('trans')
-      ? [...tagged, 'trans']
-      : tagged;
-  }
-
-  return fromCast(cast);
+  return classify(
+    tagged,
+    cast,
+    (movie.tags ?? []).flatMap((tag) => tagHint(tag.name) ?? [])
+  );
 };
 
 // Trans performers and futanari are features of a title rather than who it

@@ -14,6 +14,7 @@ import {
   classifyScene,
   hiddenOrientations,
   isHidden,
+  tagHint,
   tagsNeeded,
 } from '@server/lib/orientation';
 
@@ -52,8 +53,27 @@ const movie = (genders: (string | null)[], tags: string[] = []): TpdbMovie =>
 describe('classifyScene', () => {
   it('trusts orientation tags', () => {
     assert.deepStrictEqual(
-      classifyScene(scene(['FEMALE', 'MALE'], ['lesbian']), tagIds),
+      classifyScene(scene(['FEMALE', 'FEMALE'], ['lesbian']), tagIds),
       ['lesbian']
+    );
+  });
+
+  it('adds straight to a lesbian-tagged scene with a man in it', () => {
+    assert.deepStrictEqual(
+      classifyScene(scene(['FEMALE', 'MALE'], ['lesbian']), tagIds),
+      ['straight', 'lesbian']
+    );
+  });
+
+  it('fills in the cast from group tags', () => {
+    const withGroups = {
+      ...tagIds,
+      groups: { bgg: tagHint('Threesome (BGG)')! },
+    };
+    // Two women listed and the man missing: not a lesbian scene
+    assert.deepStrictEqual(
+      classifyScene(scene(['FEMALE', 'FEMALE'], ['bgg']), withGroups),
+      ['straight']
     );
   });
 
@@ -94,6 +114,18 @@ describe('classifyScene', () => {
       ),
       ['straight', 'trans']
     );
+  });
+});
+
+describe('tagHint', () => {
+  it('reads group and audience tags', () => {
+    assert.deepStrictEqual(tagHint('Foursome (BBGT)'), {
+      cast: { male: 2, female: 1, trans: 1 },
+    });
+    assert.deepStrictEqual(tagHint('Orgy (Lesbian)'), {
+      orientation: 'lesbian',
+    });
+    assert.strictEqual(tagHint('Straight Hair'), undefined);
   });
 });
 

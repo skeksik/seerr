@@ -8,6 +8,7 @@ import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
 import type { Orientation } from '@server/lib/orientation';
 import {
+  ORIENTATIONS,
   TPDB_ORIENTATION_TAG_IDS,
   classifyMovie,
   hiddenOrientations,
@@ -141,13 +142,16 @@ interface MoviePlan {
   query: TpdbMovieQuery;
   filter: MovieListFilter;
   dense: boolean;
+  // Asked for tagged movies only, which leaves out unidentified ones
+  narrowed: boolean;
 }
 
 // The ThePornDB query for the picked filters, and what is left to filter
 // here
 const planMovies = (
   user: User | undefined,
-  filters: MovieFilters
+  filters: MovieFilters,
+  narrow = true
 ): MoviePlan => {
   const hidden = hiddenOrientations(user, filters.orientation);
   const picked = filters.tags ?? [];
@@ -159,7 +163,9 @@ const planMovies = (
   // Without straight, movies tagged with a shown orientation are asked for:
   // any of them without picked tags, or the one shown next to all of those
   const narrowed =
-    needed.length > 0 && (!picked.length || (needed.length === 1 && !anyTag));
+    narrow &&
+    needed.length > 0 &&
+    (!picked.length || (needed.length === 1 && !anyTag));
 
   // ThePornDB takes one date bound; future dates are often placeholders
   // like 3024, so released lists stop at today
@@ -196,6 +202,7 @@ const planMovies = (
     },
     // Hiding straight without asking for other tags leaves few per page
     dense: hidden.has('straight') && !narrowed,
+    narrowed,
   };
 };
 
@@ -326,21 +333,49 @@ const discoverTpdb = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
 ): Promise<XxxMovieListResponse> => {
+  const tpdb = TpdbAPI.fromSettings();
   const plan = planMovies(user, filters);
-  const list = await TpdbAPI.fromSettings().getMovies({
-    ...plan.query,
+  const query = {
     page,
-    perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
     sort: filters.upcoming ? 'former_released' : tpdbSorts[sort],
     // Some durations are far off, like 535 hours, and would lead the list
     maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
-  });
+  } as const;
+  // Unidentified movies carry no orientation tag, so when they show next
+  // to tagged ones they are read apart and joined in
+  const unidentified =
+    plan.narrowed && !plan.filter.hidden.has('unidentified')
+      ? planMovies(user, filters, false)
+      : undefined;
+  const [list, extra] = await Promise.all([
+    tpdb.getMovies({
+      ...plan.query,
+      ...query,
+      perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
+    }),
+    unidentified
+      ? tpdb.getMovies({
+          ...unidentified.query,
+          ...query,
+          perPage: DENSE_PAGE_SIZE,
+        })
+      : undefined,
+  ]);
+  const movies = [
+    ...filterMovies(list.data, plan.filter),
+    ...(unidentified && extra
+      ? filterMovies(extra.data, {
+          ...unidentified.filter,
+          hidden: new Set(ORIENTATIONS.filter((key) => key !== 'unidentified')),
+        })
+      : []),
+  ];
 
   return {
     page,
-    totalPages: list.meta.last_page,
+    totalPages: Math.max(list.meta.last_page, extra?.meta.last_page ?? 0),
     totalResults: list.meta.total,
-    results: await toResults(filterMovies(list.data, plan.filter), user),
+    results: await toResults(movies, user),
   };
 };
 
@@ -503,7 +538,13 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
       } else {
         const studio = await stashDb.getStudio(id.data);
         const found = studio && (await tpdb.findSiteByName(studio.name));
-        match = found ? { id: found.id, name: found.name } : null;
+        match = found
+          ? {
+              id: found.id,
+              name: found.name,
+              url: `https://theporndb.net/sites/${found.uuid}`,
+            }
+          : null;
       }
 
       if (!match) {

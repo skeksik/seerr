@@ -2,14 +2,14 @@ import AdultProfileLinks from '@app/components/AdultProfileLinks';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import ImageFader from '@app/components/Common/ImageFader';
-import ListView from '@app/components/Common/ListView';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import CompanyCard from '@app/components/CompanyCard';
+import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
 import Slider from '@app/components/Slider';
+import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
-import useDiscover from '@app/hooks/useDiscover';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -19,7 +19,7 @@ import type {
   XxxPerformerDetails,
   XxxStudioDetails,
 } from '@server/models/XxxCredit';
-import type { XxxMovieResult } from '@server/models/XxxMovie';
+import type { XxxMovieListResponse } from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
@@ -58,20 +58,12 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
   const { data, error } = useSWR<CreditDetails>(
     id ? `/api/v1/xxxmovie/${type}/${id}` : null
   );
-  const {
-    isLoadingInitialData,
-    isEmpty,
-    isLoadingMore,
-    isReachingEnd,
-    titles,
-    fetchMore,
-  } = useDiscover<XxxMovieResult>('/api/v1/xxxmovie/discover', {
-    sort: 'released',
-    [type]: id,
-  });
+  // The slider's own request, so both share it
+  const moviesUrl = `/api/v1/xxxmovie/discover?page=1&sort=released&${type}=${id}`;
+  const { data: movies } = useSWR<XxxMovieListResponse>(id ? moviesUrl : null);
 
   // Backdrops from the first movies listed, like the StashDB pages
-  const backdropKey = (titles ?? [])
+  const backdropKey = (movies?.results ?? [])
     .flatMap((movie) => movie.backdropUrl ?? [])
     .slice(0, 6)
     .join('|');
@@ -262,22 +254,22 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
             />
           </>
         )}
-        <div className="slider-header">
-          {/* The XXX Movies tab, filtered to this performer or studio, sorts */}
-          <Link href={`/xxxmovies?${type}=${data.id}`} className="slider-title">
-            <span>{intl.formatMessage(globalMessages.xxxMovies)}</span>
-            <ArrowRightCircleIcon />
-          </Link>
-        </div>
-        <ListView
-          items={titles}
-          isEmpty={isEmpty}
-          isLoading={
-            isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
-          }
-          isReachingEnd={isReachingEnd}
-          onScrollBottom={fetchMore}
+        {/* Their titles open the tabs filtered to them, which sort */}
+        <XxxMovieSlider
+          sliderKey={`xxx-${type}-${data.id}`}
+          title={intl.formatMessage(globalMessages.xxxMovies)}
+          url={moviesUrl}
+          linkUrl={`/xxxmovies?${type}=${data.id}`}
         />
+        {data.stashDbId && (
+          <SceneSlider
+            sliderKey={`scenes-${type}-${data.stashDbId}`}
+            title={intl.formatMessage(messages.scenes)}
+            url={`/api/v1/scene/discover?page=1&sort=date&${type}=${data.stashDbId}`}
+            linkUrl={`/scenes?${type}=${data.stashDbId}`}
+            hideWhenEmpty
+          />
+        )}
       </div>
     </>
   );

@@ -345,6 +345,7 @@ describe('GET /scene/discover', () => {
       any: { performers: false, tags: false },
       exclude: { studioIds: [], performerIds: [], tagIds: [] },
       date: undefined,
+      timeout: 60000,
     });
   });
 

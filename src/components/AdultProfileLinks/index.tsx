@@ -26,6 +26,7 @@ import TpdbIcon from '@app/assets/services/tpdb-icon.svg';
 import Tooltip from '@app/components/Common/Tooltip';
 import SiteIcon from '@app/components/SiteIcon';
 import useSiteIcons from '@app/hooks/useSiteIcons';
+import { HomeIcon } from '@heroicons/react/24/outline';
 
 type Logo = React.FC<React.SVGProps<SVGSVGElement>>;
 
@@ -60,6 +61,9 @@ const logos: [RegExp, Logo, string?][] = [
   [/(^|\.)tumblr\.com$/, TumblrLogo],
 ];
 
+// StashDB and ThePornDB name a studio's own site like this
+const HOME_SITES = ['home', 'official website', 'studio'];
+
 const hostOf = (url: string): string => {
   try {
     return new URL(url).hostname.toLowerCase();
@@ -91,9 +95,13 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
 
   // StashDB's icon for the site first, then a logo of ours
   const shown = unique.flatMap((link) => {
-    const found = link.icon
+    const found: [RegExp, Logo, string?] | undefined = link.icon
       ? undefined
-      : logos.find(([pattern]) => pattern.test(hostOf(link.url)));
+      : (logos.find(([pattern]) => pattern.test(hostOf(link.url))) ??
+        // A studio's own site
+        (HOME_SITES.includes(link.site.toLowerCase())
+          ? [/./, HomeIcon as Logo, 'h-5 w-5']
+          : undefined));
     return link.icon || found
       ? [{ ...link, Logo: found?.[1], size: found?.[2] }]
       : [];

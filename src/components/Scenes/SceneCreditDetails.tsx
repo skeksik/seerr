@@ -6,19 +6,18 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import Modal from '@app/components/Common/Modal';
 import PageTitle from '@app/components/Common/PageTitle';
 import CompanyCard from '@app/components/CompanyCard';
-import SceneList from '@app/components/Scenes/SceneList';
+import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
 import Slider from '@app/components/Slider';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
-import useDiscover from '@app/hooks/useDiscover';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
-import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowRightCircleIcon, FilmIcon } from '@heroicons/react/24/outline';
 import {
   ArrowTopRightOnSquareIcon,
   CheckIcon,
@@ -26,8 +25,8 @@ import {
   EyeSlashIcon,
 } from '@heroicons/react/24/solid';
 import type {
+  SceneListResponse,
   ScenePerformerDetails,
-  SceneResult,
   SceneStudioDetails,
   WhisparrMonitorStatus,
 } from '@server/models/Scene';
@@ -220,20 +219,12 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
     { shouldRetryOnError: false }
   );
-  const {
-    isLoadingInitialData,
-    isEmpty,
-    isLoadingMore,
-    isReachingEnd,
-    titles,
-    fetchMore,
-  } = useDiscover<SceneResult>('/api/v1/scene/discover', {
-    sort: 'date',
-    [type]: id,
-  });
+  // The slider's own request, so both share it
+  const scenesUrl = `/api/v1/scene/discover?page=1&sort=date&${type}=${id}`;
+  const { data: scenes } = useSWR<SceneListResponse>(id ? scenesUrl : null);
 
   // The person page's backdrop carousel, from the first scenes listed
-  const backdropKey = (titles ?? [])
+  const backdropKey = (scenes?.results ?? [])
     .flatMap((scene) => stashImageUrl(scene.imageUrl, 1280) ?? [])
     .slice(0, 6)
     .join('|');
@@ -339,8 +330,10 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             <AdultProfileLinks
               links={[
                 { url: data.stashDbUrl, site: 'StashDB' },
-                // Only performers ThePornDB itself links to this one
-                ...(tpdbMatch?.url
+                // Performers ThePornDB links to this one, studios by name,
+                // unless StashDB lists a ThePornDB page already
+                ...(tpdbMatch?.url &&
+                !data.urls.some(({ url }) => url.includes('theporndb.net'))
                   ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
                   : []),
                 ...data.urls,
@@ -363,15 +356,26 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
               </div>
             )}
           </div>
-          {data.whisparr && (
+          {(data.whisparr || tpdbMatch) && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-              <MonitorControls
-                type={type}
-                id={data.id}
-                name={data.name}
-                status={data.whisparr}
-                onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
-              />
+              {tpdbMatch && (
+                // Their ThePornDB page, with bio and movies
+                <Link href={`/xxxmovies/${type}/${tpdbMatch.id}`}>
+                  <Button buttonType="ghost">
+                    <FilmIcon />
+                    <span>{intl.formatMessage(messages.xxxMovies)}</span>
+                  </Button>
+                </Link>
+              )}
+              {data.whisparr && (
+                <MonitorControls
+                  type={type}
+                  id={data.id}
+                  name={data.name}
+                  status={data.whisparr}
+                  onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
+                />
+              )}
             </div>
           )}
         </div>
@@ -411,6 +415,13 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             />
           </>
         )}
+        {/* Their titles open the tabs filtered to them, which sort */}
+        <SceneSlider
+          sliderKey={`scenes-${type}-${data.id}`}
+          title={intl.formatMessage(messages.scenes)}
+          url={scenesUrl}
+          linkUrl={`/scenes?${type}=${data.id}`}
+        />
         {tpdbMatch && (
           <XxxMovieSlider
             sliderKey={`xxx-${type}-${tpdbMatch.id}`}
@@ -420,22 +431,6 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             hideWhenEmpty
           />
         )}
-        <div className="slider-header">
-          {/* The Scenes tab, filtered to this performer or studio, sorts */}
-          <Link href={`/scenes?${type}=${data.id}`} className="slider-title">
-            <span>{intl.formatMessage(messages.scenes)}</span>
-            <ArrowRightCircleIcon />
-          </Link>
-        </div>
-        <SceneList
-          scenes={titles}
-          isEmpty={isEmpty}
-          isLoading={
-            isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
-          }
-          isReachingEnd={isReachingEnd}
-          onScrollBottom={fetchMore}
-        />
       </div>
     </>
   );

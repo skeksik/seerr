@@ -8292,7 +8292,7 @@ paths:
                     type: string
                   url:
                     type: string
-                    description: The performer's ThePornDB page; performers only
+                    description: The performer's or site's ThePornDB page
         '404':
           description: No match on ThePornDB
   /xxxmovie/studio/{id}:
