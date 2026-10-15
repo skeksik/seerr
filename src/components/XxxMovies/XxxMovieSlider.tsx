@@ -1,3 +1,4 @@
+import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import Slider from '@app/components/Slider';
 import TitleCard from '@app/components/TitleCard';
 import XxxMovieCard from '@app/components/XxxMovieCard';
@@ -34,6 +35,51 @@ const XxxMovieSlider = ({
     return null;
   }
 
+  const items = results?.map((movie) =>
+    movie.mediaType === 'xxxmovie' ? (
+      <XxxMovieCard key={`${sliderKey}-${movie.id}`} movie={movie} />
+    ) : (
+      <TitleCard
+        key={`${sliderKey}-${movie.id}`}
+        id={movie.id}
+        image={movie.posterPath}
+        status={movie.mediaInfo?.status}
+        summary={movie.overview}
+        title={movie.title}
+        userScore={movie.voteAverage}
+        year={movie.releaseDate}
+        mediaType="movie"
+        isAdult
+        inProgress={(movie.mediaInfo?.downloadStatus ?? []).length > 0}
+      />
+    )
+  );
+
+  // Like MediaSlider, when the row holds less than the list behind it
+  if (items && results && linkUrl && (data?.totalPages ?? 1) > 1) {
+    const last = results.slice(-4);
+    items.push(
+      last[0]?.mediaType === 'xxxmovie' ? (
+        <ShowMoreCard
+          key={`${sliderKey}-more`}
+          url={linkUrl}
+          imageType="tpdb"
+          posters={last.map((movie) =>
+            movie.mediaType === 'xxxmovie' ? movie.posterUrl : undefined
+          )}
+        />
+      ) : (
+        <ShowMoreCard
+          key={`${sliderKey}-more`}
+          url={linkUrl}
+          posters={last.map((movie) =>
+            movie.mediaType === 'xxxmovie' ? undefined : movie.posterPath
+          )}
+        />
+      )
+    );
+  }
+
   return (
     <>
       <div className="slider-header">
@@ -52,25 +98,7 @@ const XxxMovieSlider = ({
         sliderKey={sliderKey}
         isLoading={!data && !error}
         isEmpty={!!results && results.length === 0}
-        items={results?.map((movie) =>
-          movie.mediaType === 'xxxmovie' ? (
-            <XxxMovieCard key={`${sliderKey}-${movie.id}`} movie={movie} />
-          ) : (
-            <TitleCard
-              key={`${sliderKey}-${movie.id}`}
-              id={movie.id}
-              image={movie.posterPath}
-              status={movie.mediaInfo?.status}
-              summary={movie.overview}
-              title={movie.title}
-              userScore={movie.voteAverage}
-              year={movie.releaseDate}
-              mediaType="movie"
-              isAdult
-              inProgress={(movie.mediaInfo?.downloadStatus ?? []).length > 0}
-            />
-          )
-        )}
+        items={items}
       />
     </>
   );

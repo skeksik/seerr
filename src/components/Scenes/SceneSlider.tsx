@@ -1,5 +1,7 @@
+import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import SceneCard from '@app/components/SceneCard';
 import Slider from '@app/components/Slider';
+import { stashImageUrl } from '@app/utils/stashImage';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 import type { SceneListResponse } from '@server/models/Scene';
 import Link from 'next/link';
@@ -32,6 +34,25 @@ const SceneSlider = ({
     return null;
   }
 
+  const items = results?.map((scene) => (
+    <SceneCard key={`${sliderKey}-${scene.id}`} scene={scene} />
+  ));
+
+  // Like MediaSlider, when the row holds less than the list behind it
+  if (items && results && linkUrl && (data?.totalPages ?? 1) > 1) {
+    items.push(
+      <ShowMoreCard
+        key={`${sliderKey}-more`}
+        url={linkUrl}
+        imageType="stashdb"
+        landscape
+        posters={results
+          .slice(-4)
+          .map((scene) => stashImageUrl(scene.imageUrl, 300))}
+      />
+    );
+  }
+
   return (
     <>
       <div className="slider-header">
@@ -51,9 +72,7 @@ const SceneSlider = ({
         isLoading={!data && !error}
         isEmpty={!!results && results.length === 0}
         placeholder={<SceneCard.Placeholder />}
-        items={results?.map((scene) => (
-          <SceneCard key={`${sliderKey}-${scene.id}`} scene={scene} />
-        ))}
+        items={items}
       />
     </>
   );
