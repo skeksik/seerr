@@ -3,7 +3,6 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import ProgressCircle from '@app/components/Common/ProgressCircle';
 import RequestCard from '@app/components/RequestCard';
-import SceneRequestCard from '@app/components/RequestCard/SceneRequestCard';
 import Slider from '@app/components/Slider';
 import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
@@ -381,20 +380,13 @@ const UserProfile = () => {
             <Slider
               sliderKey="requests"
               isLoading={!requests}
-              items={(requests?.results ?? []).map((request) =>
-                request.type === 'scene' || request.type === 'adultmovie' ? (
-                  <SceneRequestCard
-                    key={`request-slider-item-${request.id}`}
-                    request={request}
-                  />
-                ) : (
-                  <RequestCard
-                    key={`request-slider-item-${request.id}`}
-                    request={request}
-                    onTitleData={updateAvailableTitles}
-                  />
-                )
-              )}
+              items={(requests?.results ?? []).map((request) => (
+                <RequestCard
+                  key={`request-slider-item-${request.id}`}
+                  request={request}
+                  onTitleData={updateAvailableTitles}
+                />
+              ))}
               placeholder={<RequestCard.Placeholder />}
             />
           </>

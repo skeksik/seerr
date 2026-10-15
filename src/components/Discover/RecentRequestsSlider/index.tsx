@@ -1,6 +1,5 @@
 import { sliderTitles } from '@app/components/Discover/constants';
 import RequestCard from '@app/components/RequestCard';
-import SceneRequestCard from '@app/components/RequestCard/SceneRequestCard';
 import Slider from '@app/components/Slider';
 import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
@@ -66,20 +65,12 @@ const RecentRequestsSlider = () => {
       <Slider
         sliderKey="requests"
         isLoading={!requests}
-        // The server leaves adult requests out for viewers without access
-        items={(requests?.results ?? []).map((request) =>
-          request.type === 'scene' || request.type === 'adultmovie' ? (
-            <SceneRequestCard
-              key={`request-slider-item-${request.id}`}
-              request={request}
-            />
-          ) : (
-            <RequestCard
-              key={`request-slider-item-${request.id}`}
-              request={request}
-            />
-          )
-        )}
+        items={(requests?.results ?? []).map((request) => (
+          <RequestCard
+            key={`request-slider-item-${request.id}`}
+            request={request}
+          />
+        ))}
         placeholder={<RequestCard.Placeholder />}
       />
     </>
