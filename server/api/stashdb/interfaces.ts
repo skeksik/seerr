@@ -28,6 +28,8 @@ export interface StashDbStudio extends StashDbStudioSummary {
   aliases: string[];
   urls: StashDbUrl[];
   images: StashDbImage[];
+  // The studios under a network
+  child_studios?: { id: string; name: string; images: StashDbImage[] }[];
 }
 
 export type StashDbGender =

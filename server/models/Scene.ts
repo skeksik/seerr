@@ -93,6 +93,8 @@ export interface ScenePerformerDetails extends SceneFilterDetails {
 export interface SceneStudioDetails extends SceneFilterDetails {
   aliases: string[];
   parent?: { id: string; name: string };
+  // A network's studios, by name
+  studios: SceneFilterDetails[];
   urls: { url: string; site: string }[];
   stashDbUrl: string;
   whisparr?: WhisparrMonitorStatus;
@@ -195,6 +197,13 @@ export const mapStudioDetails = (
   imageUrl: pickImage(studio.images),
   aliases: studio.aliases,
   parent: studio.parent ?? undefined,
+  studios: (studio.child_studios ?? [])
+    .map((child) => ({
+      id: child.id,
+      name: child.name,
+      imageUrl: pickImage(child.images),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name)),
   urls: studio.urls.map(({ url, site }) => ({ url, site: site.name })),
   stashDbUrl: `${stashDbOrigin}/studios/${studio.id}`,
 });

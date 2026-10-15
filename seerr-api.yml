@@ -2289,12 +2289,23 @@ components:
     StashSettings:
       type: object
       required:
-        - url
+        - hostname
+        - port
+        - useSsl
         - apiKey
       properties:
-        url:
+        hostname:
           type: string
-          example: http://localhost:9999
+          example: stash
+        port:
+          type: number
+          example: 9999
+        useSsl:
+          type: boolean
+          example: false
+        urlBase:
+          type: string
+          example: ''
         apiKey:
           type: string
         externalUrl:
@@ -2478,6 +2489,11 @@ components:
                   type: string
                 name:
                   type: string
+            studios:
+              type: array
+              description: The studios under this network
+              items:
+                $ref: '#/components/schemas/SceneFilterDetails'
     SceneList:
       type: object
       properties:

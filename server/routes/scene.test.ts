@@ -384,13 +384,17 @@ describe('GET /scene/search', () => {
 });
 
 describe('GET /scene/:type/:id', () => {
-  it('names a studio filter', async () => {
+  it("names a studio filter and lists a network's studios", async () => {
     mock.method(StashDbAPI.prototype, 'getStudio', async () => ({
       id: 'studio',
       name: 'Studio',
       aliases: [],
       urls: [],
       images: [],
+      child_studios: [
+        { id: 'b', name: 'Beta', images: [] },
+        { id: 'a', name: 'Alpha', images: [] },
+      ],
     }));
     const agent = await loginAs('admin@seerr.dev');
 
@@ -401,6 +405,10 @@ describe('GET /scene/:type/:id', () => {
       id: 'studio',
       name: 'Studio',
       aliases: [],
+      studios: [
+        { id: 'a', name: 'Alpha' },
+        { id: 'b', name: 'Beta' },
+      ],
       urls: [],
       stashDbUrl: 'https://stashdb.test/studios/studio',
     });

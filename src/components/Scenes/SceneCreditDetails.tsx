@@ -4,7 +4,9 @@ import ImageFader from '@app/components/Common/ImageFader';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import Modal from '@app/components/Common/Modal';
 import PageTitle from '@app/components/Common/PageTitle';
+import CompanyCard from '@app/components/CompanyCard';
 import SceneList from '@app/components/Scenes/SceneList';
+import Slider from '@app/components/Slider';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
@@ -14,6 +16,7 @@ import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
+import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 import {
   ArrowTopRightOnSquareIcon,
   BarsArrowDownIcon,
@@ -63,6 +66,7 @@ const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   sortPopularity: 'Popularity',
   sortTitle: 'Title',
   xxxMovies: 'XXX Movies',
+  studios: 'Studios',
 });
 
 const sortOptions = [
@@ -395,6 +399,29 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
       </div>
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
+        {!isPerformer(data) && data.studios.length > 0 && (
+          <>
+            <div className="slider-header">
+              <div className="slider-title">
+                <span>{intl.formatMessage(messages.studios)}</span>
+              </div>
+            </div>
+            <Slider
+              sliderKey={`network-studios-${data.id}`}
+              isLoading={false}
+              isEmpty={false}
+              items={data.studios.map((studio) => (
+                <CompanyCard
+                  key={`network-studio-${studio.id}`}
+                  name={studio.name}
+                  image={stashImageUrl(studio.imageUrl, 300)}
+                  imageType="stashdb"
+                  url={`/scenes/studio/${studio.id}`}
+                />
+              ))}
+            />
+          </>
+        )}
         {tpdbMatch && (
           <XxxMovieSlider
             sliderKey={`xxx-${type}-${tpdbMatch.id}`}
@@ -406,9 +433,11 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
         )}
         <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
           <div className="slider-header">
-            <div className="slider-title">
+            {/* The Scenes tab, filtered to this performer or studio */}
+            <Link href={`/scenes?${type}=${data.id}`} className="slider-title">
               <span>{intl.formatMessage(messages.scenes)}</span>
-            </div>
+              <ArrowRightCircleIcon />
+            </Link>
           </div>
           <div className="mt-2 flex flex-grow sm:mr-2 lg:flex-grow-0">
             <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">

@@ -266,6 +266,7 @@ class StashDbAPI extends ExternalAPI {
           parent { id name }
           images { ${IMAGE_FIELDS} }
           urls { url site { name } }
+          child_studios { id name images { ${IMAGE_FIELDS} } }
         }
       }`,
       { id },
