@@ -155,7 +155,7 @@ const AdultMediaActions = ({
       <Tooltip content={intl.formatMessage(globalMessages.removefromBlocklist)}>
         <Button
           buttonType="ghost"
-          className="z-40 mr-2"
+          className="z-40"
           disabled={isBlocklistUpdating}
           onClick={unblocklist}
         >
@@ -182,7 +182,7 @@ const AdultMediaActions = ({
           <Tooltip content={intl.formatMessage(globalMessages.addToBlocklist)}>
             <Button
               buttonType="ghost"
-              className="z-40 mr-2"
+              className="z-40"
               onClick={() => setShowBlocklistModal(true)}
             >
               <EyeSlashIcon />
@@ -197,7 +197,7 @@ const AdultMediaActions = ({
         >
           <Button
             buttonType={onWatchlist ? 'default' : 'ghost'}
-            className="z-40 mr-2"
+            className="z-40"
             disabled={isUpdating}
             onClick={toggleWatchlist}
           >

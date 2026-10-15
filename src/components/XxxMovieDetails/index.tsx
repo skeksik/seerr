@@ -81,14 +81,7 @@ const XxxMovieDetailsContent = () => {
     (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
-  const attributes: React.ReactNode[] = [
-    <span
-      key="badge"
-      className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white"
-    >
-      {intl.formatMessage(globalMessages.xxx)}
-    </span>,
-  ];
+  const attributes: React.ReactNode[] = [];
 
   if (data.studio) {
     attributes.push(
@@ -169,7 +162,7 @@ const XxxMovieDetailsContent = () => {
             ))}
           </span>
         </div>
-        <div className="media-actions">
+        <div className="media-actions gap-2">
           <AdultMediaActions
             mediaType="xxxmovie"
             id={data.id}
@@ -181,7 +174,6 @@ const XxxMovieDetailsContent = () => {
           {canRequest && (
             <Button
               buttonType="primary"
-              className="ml-2"
               onClick={() => setShowRequestModal(true)}
             >
               <ArrowDownTrayIcon />

@@ -81,14 +81,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
     (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
-  const attributes: React.ReactNode[] = [
-    <span
-      key="badge"
-      className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white"
-    >
-      {intl.formatMessage(globalMessages.scene)}
-    </span>,
-  ];
+  const attributes: React.ReactNode[] = [];
 
   if (data.studio) {
     attributes.push(
@@ -162,7 +155,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             ))}
           </span>
         </div>
-        <div className="media-actions">
+        <div className="media-actions gap-2">
           <AdultMediaActions
             mediaType="scene"
             id={data.id}
@@ -172,7 +165,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             onChange={() => mutate()}
           />
           {data.mediaInfo?.mediaUrl && (
-            <div className="z-20 mr-2">
+            <div className="z-20">
               <PlayButton
                 links={[
                   {
@@ -187,7 +180,6 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
           {canRequest && (
             <Button
               buttonType="primary"
-              className="ml-2"
               onClick={() => setShowRequestModal(true)}
             >
               <ArrowDownTrayIcon />

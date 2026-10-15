@@ -43,11 +43,7 @@ const AdultIssueButton = ({ mediaType, id, status }: AdultIssueButtonProps) => {
         externalId={id}
       />
       <Tooltip content={intl.formatMessage(messages.reportissue)}>
-        <Button
-          buttonType="warning"
-          onClick={() => setShowIssueModal(true)}
-          className="ml-2 first:ml-0"
-        >
+        <Button buttonType="warning" onClick={() => setShowIssueModal(true)}>
           <ExclamationTriangleIcon />
         </Button>
       </Tooltip>

@@ -70,7 +70,7 @@ const AdultManageButton = (props: AdultManageButtonProps) => {
         <Button
           buttonType="ghost"
           onClick={() => setShowManager(true)}
-          className="relative ml-2 first:ml-0"
+          className="relative"
         >
           <CogIcon className="!mr-0" />
         </Button>
