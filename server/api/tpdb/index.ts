@@ -9,7 +9,6 @@ import type {
   TpdbTag,
 } from '@server/api/tpdb/interfaces';
 import cacheManager from '@server/lib/cache';
-import { sameName, sharesLink } from '@server/lib/performerMatch';
 import { getSettings } from '@server/lib/settings';
 
 // Details rarely change once a movie is listed; lists move with new releases.
@@ -204,25 +203,16 @@ class TpdbAPI extends ExternalAPI {
     }
   }
 
-  // The performer that links this StashDB profile, or else the one of the
-  // same name that shares a profile link with it
   public async findPerformerByStashDbId(
     stashDbId: string,
-    name: string,
-    links: string[] = []
+    name: string
   ): Promise<TpdbPerformerSummary | null> {
     const performers = await this.searchPerformers(name);
 
     return (
       performers.find(
         (performer) => stashDbPerformerId(performer.extras) === stashDbId
-      ) ??
-      performers.find(
-        (performer) =>
-          sameName(name, [performer.name]) &&
-          sharesLink(links, Object.values(performer.extras?.links ?? {}))
-      ) ??
-      null
+      ) ?? null
     );
   }
 

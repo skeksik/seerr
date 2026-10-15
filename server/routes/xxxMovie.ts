@@ -8,7 +8,6 @@ import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
 import logger from '@server/logger';
 import type {
-  XxxMovieDetails,
   XxxMovieListResponse,
   XxxMovieStudio,
 } from '@server/models/XxxMovie';
@@ -269,35 +268,18 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
     try {
       const stashDb = StashDbAPI.fromSettings();
       const tpdb = TpdbAPI.fromSettings();
-      // Numeric ids for the XXX movie filters, the page for the link
-      let match: { id: number; name: string; url: string } | null = null;
+      let match: { id: number; name: string } | null = null;
 
       if (req.params.type === 'performer') {
         const performer = await stashDb.getPerformer(id.data);
         const found =
           performer &&
-          (await tpdb.findPerformerByStashDbId(
-            performer.id,
-            performer.name,
-            performer.urls.map(({ url }) => url)
-          ));
-        match = found
-          ? {
-              id: found.parent?._id ?? found._id,
-              name: found.name,
-              url: `https://theporndb.net/performers/${found.parent?.id ?? found.id}`,
-            }
-          : null;
+          (await tpdb.findPerformerByStashDbId(performer.id, performer.name));
+        match = found ? { id: found._id, name: found.name } : null;
       } else {
         const studio = await stashDb.getStudio(id.data);
         const found = studio && (await tpdb.findSiteByName(studio.name));
-        match = found
-          ? {
-              id: found.id,
-              name: found.name,
-              url: `https://theporndb.net/sites/${found.uuid}`,
-            }
-          : null;
+        match = found ? { id: found.id, name: found.name } : null;
       }
 
       if (!match) {
@@ -474,40 +456,6 @@ const withStashDbStudio = async (
   }
 };
 
-// Performers ThePornDB does not link to StashDB are looked up there by name
-// and profile links, so they still open their performer page
-const withStashDbPerformers = async (
-  movie: TpdbMovie,
-  performers: XxxMovieDetails['performers']
-): Promise<XxxMovieDetails['performers']> =>
-  Promise.all(
-    performers.map(async (performer, index) => {
-      if (performer.stashDbId) {
-        return performer;
-      }
-
-      const source = movie.performers?.[index];
-      const links = Object.values(
-        source?.parent?.extras?.links ?? source?.extras?.links ?? {}
-      );
-
-      try {
-        const match = await StashDbAPI.fromSettings().findPerformerByLinks(
-          performer.name,
-          links
-        );
-        return match ? { ...performer, stashDbId: match.id } : performer;
-      } catch (e) {
-        logger.debug('No StashDB performer for ThePornDB performer.', {
-          label: 'API',
-          performer: performer.name,
-          errorMessage: e.message,
-        });
-        return performer;
-      }
-    })
-  );
-
 xxxMovieRoutes.get('/:id', async (req, res, next) => {
   const parsed = z.string().uuid().safeParse(req.params.id);
 
@@ -524,17 +472,15 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
 
     const media = await Media.getMediaByTpdbId(movie.id);
     const details = mapXxxMovieDetails(movie, media?.filter(req.user));
-    const [studio, network, performers] = await Promise.all([
+    const [studio, network] = await Promise.all([
       withStashDbStudio(details.studio),
       withStashDbStudio(details.network),
-      withStashDbPerformers(movie, details.performers),
     ]);
 
     return res.status(200).json({
       ...details,
       studio,
       network,
-      performers,
       onUserWatchlist: await isOnWatchlist(
         MediaType.XXX_MOVIE,
         movie.id,

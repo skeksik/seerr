@@ -52,42 +52,6 @@ describe('StashDbAPI', () => {
     });
   });
 
-  it('matches a same-named performer only on a shared profile link', async () => {
-    const performers = {
-      data: {
-        searchPerformer: [
-          {
-            id: 'czech',
-            name: 'Little Dragon',
-            aliases: [],
-            urls: [{ url: 'https://www.iafd.com/person.rme/id=other' }],
-          },
-          {
-            id: 'spice',
-            name: 'Cerise Spice',
-            aliases: ['Little Dragon'],
-            urls: [{ url: 'https://www.iafd.com/person.rme/id=6282' }],
-          },
-        ],
-      },
-    };
-    const api = new TestStashDbAPI([performers]);
-
-    assert.deepStrictEqual(
-      await api.findPerformerByLinks('Little Dragon', [
-        'http://iafd.com/person.rme/id=6282/',
-      ]),
-      { id: 'spice', name: 'Cerise Spice' }
-    );
-    assert.strictEqual(
-      await new TestStashDbAPI([performers]).findPerformerByLinks(
-        'Little Dragon',
-        ['https://twitter.com/someone']
-      ),
-      null
-    );
-  });
-
   it('caches scene lookups', async () => {
     const api = new TestStashDbAPI([{ data: { findScene: scene } }]);
 

@@ -13,7 +13,6 @@ import type {
   StashDbVersion,
 } from '@server/api/stashdb/interfaces';
 import cacheManager from '@server/lib/cache';
-import { sameName, sharesLink } from '@server/lib/performerMatch';
 import { getSettings } from '@server/lib/settings';
 
 const IMAGE_FIELDS = 'id url width height';
@@ -399,41 +398,6 @@ class StashDbAPI extends ExternalAPI {
       name: studio.name,
       disambiguation: studio.parent?.name,
     }));
-  }
-
-  // The performer of this name or alias that shares a profile link with
-  // the given ones, for performers ThePornDB does not link to StashDB
-  public async findPerformerByLinks(
-    name: string,
-    links: string[]
-  ): Promise<StashDbLookup | null> {
-    if (links.length === 0) {
-      return null;
-    }
-
-    const data = await this.query<{
-      searchPerformer: {
-        id: string;
-        name: string;
-        aliases: string[];
-        urls: { url: string }[];
-      }[];
-    }>(
-      'query ($term: String!) { searchPerformer(term: $term, limit: 10) { id name aliases urls { url } } }',
-      { term: name },
-      DETAILS_TTL
-    );
-
-    const match = data.searchPerformer.find(
-      (performer) =>
-        sameName(name, [performer.name, ...performer.aliases]) &&
-        sharesLink(
-          links,
-          performer.urls.map(({ url }) => url)
-        )
-    );
-
-    return match ? { id: match.id, name: match.name } : null;
   }
 
   public async searchPerformers(term: string): Promise<StashDbLookup[]> {
