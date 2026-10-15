@@ -8221,6 +8221,54 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/studios:
+    get:
+      summary: List StashDB studios or networks
+      description: All studios, or the top-level studios that have studios under them, by name or newest first.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [studios, networks]
+            default: studios
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [name, newest]
+            default: name
+        - in: query
+          name: query
+          description: Part of the studio name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Studios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+                  totalResults:
+                    type: number
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SceneFilterDetails'
   /scene/search:
     get:
       summary: Search scenes

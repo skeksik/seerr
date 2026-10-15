@@ -26,6 +26,7 @@ import {
   mapSceneDetails,
   mapSceneResult,
   mapStudioDetails,
+  pickImage,
 } from '@server/models/Scene';
 import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction, Request } from 'express';
@@ -289,6 +290,73 @@ sceneRoutes.get('/trending-studios', async (req, res, next) => {
 const lookupQuery = z.object({ query: z.string().trim().min(1) });
 
 // Autocomplete for the scene filters
+const studioListQuery = z.object({
+  type: z.enum(['studios', 'networks']).default('studios'),
+  page: z.coerce.number().int().positive().default(1),
+  sort: z.enum(['name', 'newest']).default('name'),
+  query: z.string().trim().optional(),
+});
+
+// Networks are top-level studios with studios under them; StashDB cannot
+// filter on that, so each page reads this many top-level studios
+const NETWORK_PAGE_READS = 3;
+
+// The full lists behind the Studios and Networks rows
+sceneRoutes.get('/studios', async (req, res, next) => {
+  const parsed = studioListQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'Invalid studio list parameters.' });
+  }
+
+  const { type, page, sort, query } = parsed.data;
+  try {
+    const api = StashDbAPI.fromSettings();
+    const reads =
+      type === 'networks'
+        ? Array.from(
+            { length: NETWORK_PAGE_READS },
+            (_, i) => (page - 1) * NETWORK_PAGE_READS + i + 1
+          )
+        : [page];
+    const lists = await Promise.all(
+      reads.map((read) =>
+        api.queryStudios({
+          page: read,
+          perPage: type === 'networks' ? 100 : 40,
+          sort: sort === 'newest' ? 'CREATED_AT' : 'NAME',
+          name: query,
+          topLevel: type === 'networks',
+        })
+      )
+    );
+    const count = lists[0]?.count ?? 0;
+    const perPage = type === 'networks' ? 100 * NETWORK_PAGE_READS : 40;
+
+    return res.status(200).json({
+      page,
+      totalPages: Math.ceil(count / perPage),
+      totalResults: count,
+      results: lists
+        .flatMap((list) => list.studios)
+        .filter(
+          (studio) => type === 'studios' || studio.child_studios.length > 0
+        )
+        .map(
+          (studio): SceneFilterDetails => ({
+            id: studio.id,
+            name: studio.name,
+            imageUrl: pickImage(studio.images),
+          })
+        ),
+    });
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve studios.', {
+      query: req.query,
+    });
+  }
+});
+
 sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
   const { type } = req.params;

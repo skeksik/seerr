@@ -108,7 +108,7 @@ export interface SceneListResponse {
 }
 
 // stash-box lists images largest first, but nothing guarantees it
-const pickImage = (images: StashDbImage[]): string | undefined =>
+export const pickImage = (images: StashDbImage[]): string | undefined =>
   [...images].sort((a, b) => b.width - a.width)[0]?.url;
 
 const mapStudio = (
