@@ -486,9 +486,16 @@ const TitleCard = ({
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div
-                // Wide scene cards keep them right, beside the status
+                // Wide scene cards keep them right, as far from the status
+                // as the middle of a poster card is
                 className={`flex gap-1 ${
-                  isScene ? 'ml-auto mr-1 flex-row' : 'flex-col'
+                  isScene
+                    ? `ml-auto flex-row ${
+                        currentStatus && currentStatus !== MediaStatus.UNKNOWN
+                          ? 'mr-5'
+                          : ''
+                      }`
+                    : 'flex-col'
                 }`}
               >
                 {user?.userType !== UserType.PLEX &&

@@ -41,12 +41,12 @@ import {
   FilmIcon,
   MinusCircleIcon,
   PlayIcon,
-  StarIcon,
   TicketIcon,
 } from '@heroicons/react/24/outline';
 import {
   ChevronDoubleDownIcon,
   ChevronDoubleUpIcon,
+  StarIcon,
 } from '@heroicons/react/24/solid';
 import { type RatingResponse } from '@server/api/ratings';
 import { IssueStatus } from '@server/constants/issue';

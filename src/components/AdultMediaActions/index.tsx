@@ -10,8 +10,8 @@ import {
   EyeIcon,
   EyeSlashIcon,
   MinusCircleIcon,
-  StarIcon,
 } from '@heroicons/react/24/outline';
+import { StarIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import axios from 'axios';
 import { useState } from 'react';
