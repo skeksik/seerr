@@ -326,6 +326,7 @@ const pageQuery = z.object({
 // Similar scenes are ranked from this many popular candidates
 const SIMILAR_POOL = 100;
 const SIMILAR_LIMIT = 40;
+const SIMILAR_TIMEOUT = 60000;
 
 // Scenes with any of this scene's performers, most popular first
 sceneRoutes.get<{ sceneId: string }>(
@@ -378,9 +379,7 @@ sceneRoutes.get<{ sceneId: string }>(
   }
 );
 
-// Trending scenes ranked by how many tags they share with this one. Sorting
-// by popularity instead makes StashDB scan most of its catalogue when a
-// scene has many tags, which outlasts the request timeout
+// Popular scenes ranked by how many tags they share with this one
 sceneRoutes.get<{ sceneId: string }>(
   '/:sceneId/similar',
   async (req, res, next) => {
@@ -403,10 +402,13 @@ sceneRoutes.get<{ sceneId: string }>(
       const pool = tagIds.size
         ? await stashDb.queryScenes({
             perPage: SIMILAR_POOL,
-            sort: 'TRENDING',
+            sort: 'POPULARITY',
             tagIds: [...tagIds],
             any: { tags: true },
             withTags: true,
+            // StashDB sorts most of its catalogue by popularity when a scene
+            // has many tags, which takes 10-20s
+            timeout: SIMILAR_TIMEOUT,
           })
         : { count: 0, scenes: [] };
       const shared = (candidate: { tags?: { id: string }[] }) =>

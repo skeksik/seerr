@@ -52,7 +52,7 @@ Scene and XXX movie pages are laid out like movie pages:
 
 - A **More from** banner for the studio, like the collection banner on movies, opens the studio's titles.
 - **Recommendations** lists other titles with any of the same performers. For scenes these are the most popular on StashDB; for XXX movies, the newest released on ThePornDB.
-- **Similar** looks at content rather than people. For scenes, Seerr takes the 100 StashDB scenes trending now that share at least one tag and ranks them by how many tags they share (top 40). For XXX movies it uses ThePornDB's own similar list, about 9 movies.
+- **Similar** looks at content rather than people. For scenes, Seerr takes the 100 most popular StashDB scenes sharing at least one tag and ranks them by how many tags they share (top 40). For XXX movies it uses ThePornDB's own similar list, about 9 movies.
 - The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site.
 - Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and XXX movies work like movie issues, and only users with adult access see them.
 

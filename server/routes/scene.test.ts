@@ -256,7 +256,7 @@ describe('GET /scene/:sceneId/recommendations', () => {
 });
 
 describe('GET /scene/:sceneId/similar', () => {
-  it('ranks trending scenes by shared tags', async () => {
+  it('ranks popular scenes by shared tags', async () => {
     mock.method(StashDbAPI.prototype, 'getScene', async () => ({
       ...scene,
       tags: [
@@ -293,8 +293,9 @@ describe('GET /scene/:sceneId/similar', () => {
     );
     assert.strictEqual(
       queryScenes.mock.calls[0].arguments[0]?.sort,
-      'TRENDING'
+      'POPULARITY'
     );
+    assert.strictEqual(queryScenes.mock.calls[0].arguments[0]?.timeout, 60000);
   });
 });
 
