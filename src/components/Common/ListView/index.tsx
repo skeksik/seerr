@@ -168,13 +168,19 @@ const ListView = ({
                   personId={title.id}
                   name={title.name}
                   subName={title.disambiguation}
-                  href={`/scenes/performer/${title.id}`}
+                  href={
+                    title.source === 'tpdb'
+                      ? `/xxxmovies/performer/${title.id}`
+                      : `/scenes/performer/${title.id}`
+                  }
                   image={
                     title.imageUrl
-                      ? {
-                          src: stashImageUrl(title.imageUrl, 300) as string,
-                          type: 'stashdb',
-                        }
+                      ? title.imageType === 'tpdb'
+                        ? { src: title.imageUrl, type: 'tpdb' }
+                        : {
+                            src: stashImageUrl(title.imageUrl, 300) as string,
+                            type: 'stashdb',
+                          }
                       : undefined
                   }
                   canExpand

@@ -32,7 +32,7 @@ Users with access get two sidebar tabs that work like **Movies** and **Series**:
 - **XXX Movies** filters by release date, studio, performer and tags (ThePornDB) or by release date and studio (TMDB).
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
 
-Search shows matching scenes in a row above the regular results. XXX movies and StashDB performers join the regular results. Adult TMDB movies carry an **XXX** badge instead of the movie one.
+Search shows matching scenes in a row above the regular results. XXX movies and performers join the regular results: StashDB's first, then ThePornDB's. A ThePornDB performer that links to a StashDB performer opens the StashDB page, and is left out when that performer is already listed; the rest are marked ThePornDB and open their ThePornDB page. Adult TMDB movies carry an **XXX** badge instead of the movie one.
 
 Scene and XXX movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and XXX movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
@@ -44,7 +44,7 @@ The Discover page gets adult rows at the bottom: trending, popular, new and upco
 
 Scenes are their own media type, separate from movies and series.
 
-Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags. Performer and studio pages list their scenes; the **Scenes** title opens the Scenes tab filtered to them. Their links to StashDB, ThePornDB and the sites StashDB knows about show as logos, or StashDB's icon for the site, or by name for sites without either. Performers get a ThePornDB link when their ThePornDB profile links back to them on StashDB. A network's page also lists its studios and the scenes of all of them. With a ThePornDB key, these pages add an **XXX Movies** row. Studios are matched on their name, performers on the StashDB link ThePornDB keeps for them, the same link Whisparr relies on.
+Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags. Performer and studio pages list their scenes; the **Scenes** title opens the Scenes tab filtered to them. Their links to StashDB, ThePornDB and the sites StashDB knows about show as StashDB's icon for the site, or a logo where StashDB has no icon, or by name for sites without either. Performers get a ThePornDB link when their ThePornDB profile links back to them on StashDB. A network's page also lists its studios and the scenes of all of them. With a ThePornDB key, these pages add an **XXX Movies** row. Studios are matched on their name, performers on the StashDB link ThePornDB keeps for them, the same link Whisparr relies on.
 
 ### Detail Pages
 

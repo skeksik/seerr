@@ -67,6 +67,7 @@ beforeEach(() => {
     data: [movie],
     meta: { current_page: 1, last_page: 4, per_page: 20, total: 61 },
   }));
+  mock.method(TpdbAPI.prototype, 'searchPerformers', async () => []);
 });
 
 afterEach(() => {
@@ -105,6 +106,53 @@ describe('GET /search', () => {
       ['performer', 'xxxmovie']
     );
     assert.strictEqual(res.body.totalPages, 4);
+  });
+
+  it('adds ThePornDB performers that are not on the StashDB list', async () => {
+    const stashDbLink = (id: string) => ({
+      links: { StashDB: `https://stashdb.org/performers/${id}` },
+    });
+    mock.method(TpdbAPI.prototype, 'searchPerformers', async () => [
+      // The StashDB result again
+      {
+        id: 'a',
+        _id: 1,
+        name: 'Molly Little',
+        extras: stashDbLink('bcb98a6e-08f3-48a9-90d5-f223901a56a5'),
+      },
+      // On StashDB, but not among its results
+      {
+        id: 'b',
+        _id: 2,
+        name: 'Molly Jane',
+        image: 'https://cdn.theporndb.net/performer/b.jpg',
+        extras: stashDbLink('0b9b6a4e-6f5e-4f43-9a7b-1a2b3c4d5e6f'),
+      },
+      { id: 'c', _id: 3, name: 'Molly Mae' },
+    ]);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/search?query=molly&page=1');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body.results.slice(1, 3), [
+      {
+        id: '0b9b6a4e-6f5e-4f43-9a7b-1a2b3c4d5e6f',
+        mediaType: 'performer',
+        name: 'Molly Jane',
+        imageUrl: 'https://cdn.theporndb.net/performer/b.jpg',
+        imageType: 'tpdb',
+      },
+      {
+        id: '3',
+        mediaType: 'performer',
+        name: 'Molly Mae',
+        disambiguation: 'ThePornDB',
+        source: 'tpdb',
+        imageType: 'tpdb',
+      },
+    ]);
+    assert.strictEqual(res.body.results.length, 4);
   });
 
   it('leaves adult results out for users without adult access', async () => {

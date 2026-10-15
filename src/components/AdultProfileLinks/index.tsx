@@ -28,8 +28,9 @@ import Tooltip from '@app/components/Common/Tooltip';
 
 type Logo = React.FC<React.SVGProps<SVGSVGElement>>;
 
-// Logos by host. Brand logos keep their colours; the single-colour ones
-// take the text colour. See assets/services/brands for their sources
+// Logos by host, for links without a StashDB icon. Brand logos keep their
+// colours; the single-colour ones take the text colour. See
+// assets/services/brands for their sources
 const logos: [RegExp, Logo, string?][] = [
   [/(^|\.)stashdb\.org$/, StashLogo, 'h-5 w-7'],
   [/(^|\.)theporndb\.net$/, TpdbIcon, 'h-5 w-5'],
@@ -70,7 +71,7 @@ export interface ProfileLink {
   url: string;
   // Site name, shown on hover
   site: string;
-  // stash-box's icon for the site, for sites without a logo here
+  // stash-box's icon for the site, shown over a logo of ours
   icon?: string;
 }
 
@@ -83,22 +84,23 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
     return seen.has(key) ? false : (seen.add(key), true);
   });
 
-  const withLogo = unique.flatMap((link) => {
-    const host = hostOf(link.url);
-    const found = logos.find(([pattern]) => pattern.test(host));
-    return found ? [{ ...link, Logo: found[1], size: found[2] }] : [];
+  // StashDB's icon for the site first, then a logo of ours
+  const shown = unique.flatMap((link) => {
+    const found = link.icon
+      ? undefined
+      : logos.find(([pattern]) => pattern.test(hostOf(link.url)));
+    return link.icon || found
+      ? [{ ...link, Logo: found?.[1], size: found?.[2] }]
+      : [];
   });
-  const withIcon = unique.filter(
-    (link) => link.icon && !withLogo.some(({ url }) => url === link.url)
-  );
   // Sites with neither are listed by name, so they stay apart
   const named = unique.filter(
-    (link) => !link.icon && !withLogo.some(({ url }) => url === link.url)
+    (link) => !shown.some(({ url }) => url === link.url)
   );
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 lg:justify-start">
-      {withLogo.map(({ url, site, Logo, size }) => (
+      {shown.map(({ url, site, icon, Logo, size }) => (
         <Tooltip key={url} content={site}>
           <a
             href={url}
@@ -107,28 +109,19 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
             aria-label={site}
             className="flex h-6 items-center text-white opacity-50 transition duration-300 hover:opacity-100"
           >
-            <Logo className={size ?? 'h-5 w-5 fill-current'} />
-          </a>
-        </Tooltip>
-      ))}
-      {withIcon.map(({ url, site, icon }) => (
-        <Tooltip key={url} content={site}>
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={site}
-            className="flex h-6 items-center opacity-50 transition duration-300 hover:opacity-100"
-          >
-            <CachedImage
-              type="stashdb"
-              src={icon as string}
-              alt=""
-              width={20}
-              height={20}
-              adult={false}
-              className="h-5 w-5 rounded-sm"
-            />
+            {icon ? (
+              <CachedImage
+                type="stashdb"
+                src={icon}
+                alt=""
+                width={20}
+                height={20}
+                adult={false}
+                className="h-5 w-5 rounded-sm"
+              />
+            ) : (
+              Logo && <Logo className={size ?? 'h-5 w-5 fill-current'} />
+            )}
           </a>
         </Tooltip>
       ))}

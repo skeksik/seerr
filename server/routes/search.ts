@@ -1,7 +1,7 @@
 import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbSearchMultiResponse } from '@server/api/themoviedb/interfaces';
-import TpdbAPI from '@server/api/tpdb';
+import TpdbAPI, { stashDbPerformerId } from '@server/api/tpdb';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
@@ -37,8 +37,8 @@ const tryAdultSource = async <T>(
   }
 };
 
-// StashDB performers lead the first page; ThePornDB movies join TMDB's
-// results page by page
+// StashDB performers lead the first page, then ThePornDB's that do not link
+// to one of them; ThePornDB movies join TMDB's results page by page
 const searchAdult = async (
   query: string,
   page: number,
@@ -48,16 +48,52 @@ const searchAdult = async (
     return { results: [], totalPages: 0, totalResults: 0 };
   }
 
-  const [performers, movies] = await Promise.all([
+  const [performers, tpdbPerformers, movies] = await Promise.all([
     page === 1
       ? tryAdultSource('StashDB performers', () =>
           StashDbAPI.fromSettings().searchPerformers(query)
+        )
+      : null,
+    page === 1
+      ? tryAdultSource('ThePornDB performers', () =>
+          TpdbAPI.fromSettings().searchPerformers(query)
         )
       : null,
     tryAdultSource('ThePornDB movies', () =>
       TpdbAPI.fromSettings().getMovies({ query, page, perPage: 20 })
     ),
   ]);
+  const stashDbResults = (performers ?? []).slice(0, PERFORMER_LIMIT).map(
+    (performer): PerformerResult => ({
+      id: performer.id,
+      mediaType: 'performer',
+      name: performer.name,
+      disambiguation: performer.disambiguation ?? undefined,
+      imageUrl: performer.imageUrl,
+    })
+  );
+  // Like cast links, a ThePornDB performer linked to StashDB opens the
+  // StashDB page
+  const tpdbResults = (tpdbPerformers ?? [])
+    .slice(0, PERFORMER_LIMIT)
+    .flatMap((performer): PerformerResult[] => {
+      const stashDbId = stashDbPerformerId(performer.extras);
+      if (stashDbId && stashDbResults.some(({ id }) => id === stashDbId)) {
+        return [];
+      }
+      return [
+        {
+          id: stashDbId ?? String(performer._id),
+          mediaType: 'performer',
+          name: performer.name,
+          disambiguation: stashDbId ? undefined : 'ThePornDB',
+          imageUrl: performer.image ?? undefined,
+          source: stashDbId ? undefined : 'tpdb',
+          imageType: 'tpdb',
+        },
+      ];
+    });
+  const performerResults = [...stashDbResults, ...tpdbResults];
   const media = await Media.getRelatedXxxMovies(
     movies?.data.map((movie) => movie.id) ?? [],
     user
@@ -65,15 +101,7 @@ const searchAdult = async (
 
   return {
     results: [
-      ...(performers ?? []).slice(0, PERFORMER_LIMIT).map(
-        (performer): PerformerResult => ({
-          id: performer.id,
-          mediaType: 'performer',
-          name: performer.name,
-          disambiguation: performer.disambiguation ?? undefined,
-          imageUrl: performer.imageUrl,
-        })
-      ),
+      ...performerResults,
       ...(movies?.data ?? []).map((movie) =>
         mapXxxMovieResult(
           movie,
@@ -82,9 +110,7 @@ const searchAdult = async (
       ),
     ],
     totalPages: movies?.meta.last_page ?? 0,
-    totalResults:
-      (movies?.meta.total ?? 0) +
-      Math.min(performers?.length ?? 0, PERFORMER_LIMIT),
+    totalResults: (movies?.meta.total ?? 0) + performerResults.length,
   };
 };
 

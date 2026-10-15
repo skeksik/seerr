@@ -30,8 +30,13 @@ export interface ScenePerformer {
 
 // StashDB performer in the common search results
 export interface PerformerResult {
+  // StashDB id, or ThePornDB's numeric one for its own performers
   id: string;
   mediaType: 'performer';
+  // The page is on ThePornDB
+  source?: 'tpdb';
+  // The image is ThePornDB's, which StashDB-linked performers also keep
+  imageType?: 'tpdb';
   name: string;
   disambiguation?: string;
   imageUrl?: string;
