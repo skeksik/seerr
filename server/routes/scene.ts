@@ -319,6 +319,121 @@ sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
   }
 });
 
+const pageQuery = z.object({
+  page: z.coerce.number().int().positive().default(1),
+});
+
+// Similar scenes are ranked from this many popular candidates
+const SIMILAR_POOL = 100;
+const SIMILAR_LIMIT = 40;
+
+// Scenes with any of this scene's performers, most popular first
+sceneRoutes.get<{ sceneId: string }>(
+  '/:sceneId/recommendations',
+  async (req, res, next) => {
+    const id = sceneId.safeParse(req.params.sceneId);
+    const query = pageQuery.safeParse(req.query);
+
+    if (!id.success || !query.success) {
+      return next({ status: 404, message: 'Scene not found.' });
+    }
+
+    try {
+      const stashDb = StashDbAPI.fromSettings();
+      const scene = await stashDb.getScene(id.data);
+
+      if (!scene || scene.deleted) {
+        return next({ status: 404, message: 'Scene not found.' });
+      }
+
+      const performerIds = scene.performers.map(
+        ({ performer }) => performer.id
+      );
+      const list = performerIds.length
+        ? await stashDb.queryScenes({
+            page: query.data.page,
+            perPage: PAGE_SIZE,
+            sort: 'POPULARITY',
+            performerIds,
+            any: { performers: true },
+          })
+        : { count: 0, scenes: [] };
+      const others = list.scenes.filter((s) => s.id !== scene.id);
+
+      return res.status(200).json(
+        await mapSceneList(
+          {
+            count: Math.max(list.count - 1, 0),
+            scenes: others,
+          },
+          query.data.page,
+          req.user
+        )
+      );
+    } catch (e) {
+      return handleError(e, next, 'Unable to retrieve recommendations.', {
+        sceneId: id.data,
+      });
+    }
+  }
+);
+
+// Popular scenes ranked by how many tags they share with this one
+sceneRoutes.get<{ sceneId: string }>(
+  '/:sceneId/similar',
+  async (req, res, next) => {
+    const id = sceneId.safeParse(req.params.sceneId);
+    const query = pageQuery.safeParse(req.query);
+
+    if (!id.success || !query.success) {
+      return next({ status: 404, message: 'Scene not found.' });
+    }
+
+    try {
+      const stashDb = StashDbAPI.fromSettings();
+      const scene = await stashDb.getScene(id.data);
+
+      if (!scene || scene.deleted) {
+        return next({ status: 404, message: 'Scene not found.' });
+      }
+
+      const tagIds = new Set(scene.tags.map((tag) => tag.id));
+      const pool = tagIds.size
+        ? await stashDb.queryScenes({
+            perPage: SIMILAR_POOL,
+            sort: 'POPULARITY',
+            tagIds: [...tagIds],
+            any: { tags: true },
+            withTags: true,
+          })
+        : { count: 0, scenes: [] };
+      const shared = (candidate: { tags?: { id: string }[] }) =>
+        (candidate.tags ?? []).filter((tag) => tagIds.has(tag.id)).length;
+      // Array.sort is stable, so popularity breaks ties
+      const ranked = pool.scenes
+        .filter((candidate) => candidate.id !== scene.id)
+        .sort((a, b) => shared(b) - shared(a))
+        .slice(0, SIMILAR_LIMIT);
+      const start = (query.data.page - 1) * PAGE_SIZE;
+
+      return res.status(200).json(
+        await mapSceneList(
+          {
+            count: ranked.length,
+            scenes: ranked.slice(start, start + PAGE_SIZE),
+          },
+          query.data.page,
+          req.user
+        )
+      );
+    } catch (e) {
+      return handleError(e, next, 'Unable to retrieve similar scenes.', {
+        sceneId: id.data,
+      });
+    }
+  }
+);
+
 sceneRoutes.get<{ type: string; id: string }>(
   '/:type/:id',
   async (req, res, next) => {

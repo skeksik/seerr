@@ -59,9 +59,12 @@ export interface StashDbSceneQuery {
   direction?: 'ASC' | 'DESC';
   // Any of these studios
   studioIds?: string[];
-  // All of these performers and tags
+  // All of these performers and tags, unless `any` says otherwise
   performerIds?: string[];
   tagIds?: string[];
+  any?: { performers?: boolean; tags?: boolean };
+  // Also return each scene's tag ids, for ranking by shared tags
+  withTags?: boolean;
   // stash-box takes a single date bound
   date?: { value: string; modifier: 'GREATER_THAN' | 'LESS_THAN' };
 }
@@ -171,14 +174,19 @@ class StashDbAPI extends ExternalAPI {
     performerIds,
     tagIds,
     date,
+    any,
+    withTags = false,
   }: StashDbSceneQuery = {}): Promise<StashDbSceneList> {
     const criterion = (
       ids: string[] | undefined,
       modifier: 'INCLUDES' | 'INCLUDES_ALL'
     ) => (ids?.length ? { value: ids, modifier } : undefined);
 
+    const fields = withTags
+      ? `count scenes { ${SCENE_SUMMARY_FIELDS} tags { id } }`
+      : SCENE_LIST_FIELDS;
     const data = await this.query<{ queryScenes: StashDbSceneList }>(
-      `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${SCENE_LIST_FIELDS} } }`,
+      `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${fields} } }`,
       {
         input: {
           page,
@@ -191,8 +199,11 @@ class StashDbAPI extends ExternalAPI {
               : undefined,
             'INCLUDES'
           ),
-          performers: criterion(performerIds, 'INCLUDES_ALL'),
-          tags: criterion(tagIds, 'INCLUDES_ALL'),
+          performers: criterion(
+            performerIds,
+            any?.performers ? 'INCLUDES' : 'INCLUDES_ALL'
+          ),
+          tags: criterion(tagIds, any?.tags ? 'INCLUDES' : 'INCLUDES_ALL'),
           date,
         },
       },

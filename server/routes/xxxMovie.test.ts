@@ -277,6 +277,51 @@ describe('GET /xxxmovie/:id', () => {
   });
 });
 
+describe('GET /xxxmovie/:id/recommendations', () => {
+  it('lists released movies with any of its performers', async () => {
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
+    const other = { ...movie, id: '144b1c4a-1129-40b6-b57a-564cbef66320' };
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [movie, other],
+      meta: { total: 2, last_page: 1, current_page: 1, per_page: 20 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/xxxmovie/${MOVIE_ID}/recommendations?page=1`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.totalResults, 1);
+    assert.deepStrictEqual(
+      res.body.results.map((r: { id: string }) => r.id),
+      [other.id]
+    );
+    const options = getMovies.mock.calls[0].arguments[0];
+    assert.deepStrictEqual(options?.performerIds, [99899]);
+    assert.strictEqual(options?.anyPerformer, true);
+    assert.strictEqual(options?.sort, 'recently_released');
+  });
+});
+
+describe('GET /xxxmovie/:id/similar', () => {
+  it('returns ThePornDB similar movies without itself', async () => {
+    const other = { ...movie, id: '144b1c4a-1129-40b6-b57a-564cbef66321' };
+    mock.method(TpdbAPI.prototype, 'getSimilarMovies', async () => [
+      movie,
+      other,
+    ]);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/xxxmovie/${MOVIE_ID}/similar`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.totalPages, 1);
+    assert.deepStrictEqual(
+      res.body.results.map((r: { id: string }) => r.id),
+      [other.id]
+    );
+  });
+});
+
 describe('GET /xxxmovie/match/:type/:id', () => {
   const STASH_ID = '3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c';
 

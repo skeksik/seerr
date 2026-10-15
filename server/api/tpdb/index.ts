@@ -37,8 +37,9 @@ export interface TpdbMovieQuery {
   query?: string;
   sort?: TpdbMovieSort;
   siteId?: number;
-  // A movie must feature every one of them
+  // A movie must feature every one of them, unless anyPerformer is set
   performerIds?: number[];
+  anyPerformer?: boolean;
   tagIds?: number[];
   year?: number;
   // ThePornDB takes a single date bound per query
@@ -85,6 +86,7 @@ class TpdbAPI extends ExternalAPI {
     sort,
     siteId,
     performerIds,
+    anyPerformer = false,
     tagIds,
     year,
     date,
@@ -104,7 +106,8 @@ class TpdbAPI extends ExternalAPI {
           ...Object.fromEntries(
             (performerIds ?? []).map((id) => [`performers[${id}]`, id])
           ),
-          performer_and: (performerIds ?? []).length > 1 ? 1 : undefined,
+          performer_and:
+            !anyPerformer && (performerIds ?? []).length > 1 ? 1 : undefined,
           // Tags are keyed by id; the name is ignored
           ...Object.fromEntries(
             (tagIds ?? []).map((id) => [`tags[${id}]`, id])
@@ -132,6 +135,16 @@ class TpdbAPI extends ExternalAPI {
       }
       throw e;
     }
+  }
+
+  // ThePornDB's own picks, unpaged
+  public async getSimilarMovies(id: string): Promise<TpdbMovie[]> {
+    const response = await this.get<{ data: TpdbMovie[] }>(
+      `/movies/${id}/similar`,
+      undefined,
+      DETAILS_TTL
+    );
+    return response.data ?? [];
   }
 
   public async searchSites(query: string): Promise<TpdbSiteSummary[]> {

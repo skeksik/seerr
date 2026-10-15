@@ -7927,6 +7927,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/XxxMovieLookup'
+  /xxxmovie/{xxxMovieId}/recommendations:
+    get:
+      summary: XXX movies with the same performers
+      tags:
+        - xxxmovies
+      parameters:
+        - in: path
+          name: xxxMovieId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of xxx movies
+          content:
+            application/json:
+              schema:
+                type: object
+  /xxxmovie/{xxxMovieId}/similar:
+    get:
+      summary: Similar xxx movies
+      tags:
+        - xxxmovies
+      parameters:
+        - in: path
+          name: xxxMovieId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of xxx movies
+          content:
+            application/json:
+              schema:
+                type: object
   /xxxmovie/match/{type}/{id}:
     get:
       summary: Match a StashDB studio or performer on ThePornDB
@@ -7960,18 +8006,35 @@ paths:
                     type: string
         '404':
           description: No match on ThePornDB
-  /xxxmovie/{type}/{id}:
+  /xxxmovie/studio/{id}:
     get:
-      summary: Name a ThePornDB studio or performer
+      summary: Name a ThePornDB studio
       tags:
         - xxxmovies
       parameters:
         - in: path
-          name: type
+          name: id
           required: true
           schema:
-            type: string
-            enum: [studio, performer]
+            type: number
+      responses:
+        '200':
+          description: Name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  name:
+                    type: string
+  /xxxmovie/performer/{id}:
+    get:
+      summary: Name a ThePornDB performer
+      tags:
+        - xxxmovies
+      parameters:
         - in: path
           name: id
           required: true
@@ -8253,6 +8316,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/{sceneId}/recommendations:
+    get:
+      summary: Scenes with the same performers
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of scenes
+          content:
+            application/json:
+              schema:
+                type: object
+  /scene/{sceneId}/similar:
+    get:
+      summary: Similar scenes
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of scenes
+          content:
+            application/json:
+              schema:
+                type: object
   /scene/{sceneId}:
     get:
       summary: Get scene details

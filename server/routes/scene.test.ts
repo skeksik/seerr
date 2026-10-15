@@ -226,6 +226,70 @@ describe('GET /scene/:sceneId', () => {
   });
 });
 
+describe('GET /scene/:sceneId/recommendations', () => {
+  it('lists scenes with any of its performers, without itself', async () => {
+    mock.method(StashDbAPI.prototype, 'getScene', async () => scene);
+    const other = { ...scene, id: '01a138c1-a8cf-74b2-a8bb-e617e9c6f210' };
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 2, scenes: [scene, other] })
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/scene/${SCENE_ID}/recommendations?page=1`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.totalResults, 1);
+    assert.deepStrictEqual(
+      res.body.results.map((r: { id: string }) => r.id),
+      [other.id]
+    );
+    assert.deepStrictEqual(queryScenes.mock.calls[0].arguments[0], {
+      page: 1,
+      perPage: 20,
+      sort: 'POPULARITY',
+      performerIds: ['performer'],
+      any: { performers: true },
+    });
+  });
+});
+
+describe('GET /scene/:sceneId/similar', () => {
+  it('ranks popular scenes by shared tags', async () => {
+    mock.method(StashDbAPI.prototype, 'getScene', async () => ({
+      ...scene,
+      tags: [
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B' },
+      ],
+    }));
+    const one = {
+      ...scene,
+      id: '01a138c1-a8cf-74b2-a8bb-e617e9c6f211',
+      tags: [{ id: 'a' }],
+    };
+    const two = {
+      ...scene,
+      id: '01a138c1-a8cf-74b2-a8bb-e617e9c6f212',
+      tags: [{ id: 'a' }, { id: 'b' }],
+    };
+    mock.method(StashDbAPI.prototype, 'queryScenes', async () => ({
+      count: 3,
+      scenes: [one, scene, two],
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/scene/${SCENE_ID}/similar?page=1`);
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((r: { id: string }) => r.id),
+      [two.id, one.id]
+    );
+  });
+});
+
 describe('GET /scene/discover', () => {
   it('maps sort and filters and attaches media info', async () => {
     const queryScenes = mock.method(

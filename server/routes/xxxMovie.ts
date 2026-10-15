@@ -3,12 +3,12 @@ import type { MovieSortOptions } from '@server/api/themoviedb';
 import TheMovieDb from '@server/api/themoviedb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
 import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
-import type { TpdbMovieSort } from '@server/api/tpdb/interfaces';
+import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
-import { getSettings, XxxMovieSource } from '@server/lib/settings';
+import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapMovieResult } from '@server/models/Search';
 import type { XxxMovieListResponse } from '@server/models/XxxMovie';
@@ -377,6 +377,111 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
     }
   }
 );
+
+const movieId = z.string().uuid();
+const pageQuery = z.object({
+  page: z.coerce.number().int().positive().default(1),
+});
+
+const mapMovieList = async (
+  movies: TpdbMovie[],
+  page: number,
+  totalPages: number,
+  totalResults: number,
+  user?: User
+): Promise<XxxMovieListResponse> => {
+  const media = await Media.getRelatedXxxMovies(
+    movies.map((m) => m.id),
+    user
+  );
+
+  return {
+    page,
+    totalPages,
+    totalResults,
+    results: movies.map((movie) =>
+      mapXxxMovieResult(
+        movie,
+        media.find((m) => m.tpdbId === movie.id)
+      )
+    ),
+  };
+};
+
+// Released movies with any of this movie's performers, newest first
+xxxMovieRoutes.get<{ id: string }>(
+  '/:id/recommendations',
+  async (req, res, next) => {
+    const id = movieId.safeParse(req.params.id);
+    const query = pageQuery.safeParse(req.query);
+
+    if (!id.success || !query.success) {
+      return next({ status: 404, message: 'Movie not found.' });
+    }
+
+    try {
+      const tpdb = TpdbAPI.fromSettings();
+      const movie = await tpdb.getMovie(id.data);
+
+      if (!movie) {
+        return next({ status: 404, message: 'Movie not found.' });
+      }
+
+      const performerIds = [
+        ...new Set((movie.performers ?? []).map((p) => p.parent?._id ?? p._id)),
+      ];
+
+      if (performerIds.length === 0) {
+        return res.status(200).json(await mapMovieList([], 1, 0, 0, req.user));
+      }
+
+      const list = await tpdb.getMovies({
+        page: query.data.page,
+        perPage: PAGE_SIZE,
+        sort: 'recently_released',
+        performerIds,
+        anyPerformer: true,
+        date: { value: today(), operation: '<=' },
+      });
+
+      return res.status(200).json(
+        await mapMovieList(
+          list.data.filter((m) => m.id !== movie.id),
+          query.data.page,
+          list.meta.last_page,
+          Math.max(list.meta.total - 1, 0),
+          req.user
+        )
+      );
+    } catch (e) {
+      return handleError(e, next, 'Unable to retrieve recommendations.', {
+        id: id.data,
+      });
+    }
+  }
+);
+
+// ThePornDB's similar movies, a single page
+xxxMovieRoutes.get<{ id: string }>('/:id/similar', async (req, res, next) => {
+  const id = movieId.safeParse(req.params.id);
+
+  if (!id.success) {
+    return next({ status: 404, message: 'Movie not found.' });
+  }
+
+  try {
+    const similar = await TpdbAPI.fromSettings().getSimilarMovies(id.data);
+    const movies = similar.filter((m) => m.id !== id.data);
+
+    return res
+      .status(200)
+      .json(await mapMovieList(movies, 1, 1, movies.length, req.user));
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve similar movies.', {
+      id: id.data,
+    });
+  }
+});
 
 xxxMovieRoutes.get<{ type: string; id: string }>(
   '/:type/:id',
