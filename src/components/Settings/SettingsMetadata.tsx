@@ -51,7 +51,7 @@ const messages = defineMessages('components.Settings', {
   stashdbApiKeyTip: 'Create one on your StashDB profile page',
   tpdbUrl: 'ThePornDB API URL',
   tpdbUrlTip:
-    "ThePornDB's REST API. Its GraphQL endpoint is a stash-box for scenes and has no movies.",
+    "ThePornDB's REST API. Its GraphQL endpoint is made for Stash's scrapers: it finds movies but can't list or filter them.",
   tpdbApiKey: 'ThePornDB API Key',
   tpdbApiKeyTip: 'Create one under your profile on theporndb.net',
   validationUrl: 'You must provide a valid URL',

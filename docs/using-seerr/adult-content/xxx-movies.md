@@ -12,7 +12,7 @@ XXX movies are full-length adult releases, as opposed to single scenes. They com
 
 Go to **Settings &rarr; Metadata Providers**. The **Adult Content** section shows while adult content is enabled.
 
-- **ThePornDB API URL** is ThePornDB's REST API, `https://api.theporndb.net`. ThePornDB also has a GraphQL endpoint, but that is a stash-box for scenes and has no movies.
+- **ThePornDB API URL** is ThePornDB's REST API, `https://api.theporndb.net`. ThePornDB's GraphQL endpoint (`https://theporndb.net/graphql?type=Movie`) is made for Stash's scrapers: it finds movies by id or name, but returns nothing when asked for a list, so it can't power the XXX Movies tab, its filters or the Discover rows.
 - **ThePornDB API Key**: create one under your profile on theporndb.net.
 
 **Test** checks every provider on the page, and **Save Changes** saves them all.
