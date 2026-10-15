@@ -19,25 +19,34 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.Scenes.SceneBrowse', {
+  sortPopularityDesc: 'Popularity Descending',
+  sortPopularityAsc: 'Popularity Ascending',
   sortTrending: 'Trending',
-  sortPopularity: 'Popularity',
-  sortDate: 'Release Date Descending',
-  sortOldest: 'Release Date Ascending',
-  sortTitle: 'Title (A-Z)',
-  sortDuration: 'Duration',
-  sortCreated: 'Recently Added to StashDB',
+  sortDateDesc: 'Release Date Descending',
+  sortDateAsc: 'Release Date Ascending',
+  sortAddedDesc: 'Date Added Descending',
+  sortAddedAsc: 'Date Added Ascending',
+  sortDurationDesc: 'Duration Descending',
+  sortDurationAsc: 'Duration Ascending',
+  sortTitleAsc: 'Title (A-Z) Ascending',
+  sortTitleDesc: 'Title (Z-A) Descending',
   activefilters:
     '{count, plural, one {# Active Filter} other {# Active Filters}}',
 });
 
+// Like the Movies and Series tabs, with StashDB's trending order besides
 const sortOptions = [
+  ['popularity', messages.sortPopularityDesc],
+  ['popularity_asc', messages.sortPopularityAsc],
   ['trending', messages.sortTrending],
-  ['popularity', messages.sortPopularity],
-  ['date', messages.sortDate],
-  ['oldest', messages.sortOldest],
-  ['title', messages.sortTitle],
-  ['duration', messages.sortDuration],
-  ['created_at', messages.sortCreated],
+  ['date', messages.sortDateDesc],
+  ['oldest', messages.sortDateAsc],
+  ['created_at', messages.sortAddedDesc],
+  ['created_at_asc', messages.sortAddedAsc],
+  ['duration', messages.sortDurationDesc],
+  ['duration_asc', messages.sortDurationAsc],
+  ['title', messages.sortTitleAsc],
+  ['title_desc', messages.sortTitleDesc],
 ] as const;
 
 const SceneBrowseContent = () => {
@@ -46,14 +55,11 @@ const SceneBrowseContent = () => {
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
 
-  // StashDB's trending order only holds recently active scenes, so a
-  // filtered list would show just a handful; filters default to newest first
   const sort =
-    typeof router.query.sort === 'string'
+    typeof router.query.sort === 'string' &&
+    sortOptions.some(([value]) => value === router.query.sort)
       ? router.query.sort
-      : countAdultFilters(router.query) > 0
-        ? 'date'
-        : 'trending';
+      : 'popularity';
   const filters = Object.fromEntries(
     adultFilterParams
       .map((key) => [key, router.query[key]] as const)

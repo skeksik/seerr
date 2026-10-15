@@ -9,6 +9,13 @@ export const useAdultAllowed = (): boolean => {
   return currentSettings.enableAdult && hasPermission(Permission.ADULT);
 };
 
+// Safe mode hides everything adult, settings included, until turned off
+export const useSafeMode = (): boolean => {
+  const { user } = useUser();
+
+  return !!user?.settings?.adultSafeMode;
+};
+
 // Adult content needs the global switch and the user's permission, and the
 // user must not have safe mode on
 const useAdult = (): boolean => {

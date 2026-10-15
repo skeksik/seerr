@@ -34,6 +34,12 @@ const CompanyCard = ({
       onMouseEnter={() => {
         setHovered(true);
       }}
+      // A card that loads under the cursor gets no mouseenter
+      onMouseMove={() => {
+        if (!isHovered) {
+          setHovered(true);
+        }
+      }}
       onMouseLeave={() => setHovered(false)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {

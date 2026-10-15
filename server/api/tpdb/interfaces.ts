@@ -74,6 +74,13 @@ export interface TpdbMovie {
   site?: TpdbSiteSummary | null;
   performers?: TpdbPerformerSummary[];
   tags?: TpdbTag[];
+  // Movie details only: the scenes it is cut into
+  scenes?: {
+    id: string;
+    title?: string | null;
+    url?: string | null;
+    hashes?: { hash: string; type: string }[] | null;
+  }[];
   directors?: { id: number; name: string }[];
 }
 
@@ -91,6 +98,7 @@ export type TpdbMovieSort =
   | 'recently_released'
   | 'former_released'
   | 'recently_created'
+  | 'former_created'
   | 'duration_desc'
   | 'duration_asc'
   | 'most_relevant';

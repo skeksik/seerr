@@ -21,7 +21,6 @@ import { Transition } from '@headlessui/react';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 import {
   ArrowTopRightOnSquareIcon,
-  BarsArrowDownIcon,
   CheckIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -62,20 +61,9 @@ const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   monitorSuccess: 'Whisparr is now monitoring <strong>{name}</strong>.',
   unmonitorSuccess: 'Whisparr stopped monitoring <strong>{name}</strong>.',
   monitorError: 'Something went wrong while updating Whisparr.',
-  sortTrending: 'Trending',
-  sortDate: 'Release Date',
-  sortPopularity: 'Popularity',
-  sortTitle: 'Title',
   xxxMovies: 'XXX Movies',
   studios: 'Studios',
 });
-
-const sortOptions = [
-  ['date', messages.sortDate],
-  ['trending', messages.sortTrending],
-  ['popularity', messages.sortPopularity],
-  ['title', messages.sortTitle],
-] as const;
 
 type CreditType = 'performer' | 'studio';
 type CreditDetails = ScenePerformerDetails | SceneStudioDetails;
@@ -224,7 +212,6 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
   const id = router.query.id as string;
-  const [sort, setSort] = useState('date');
   const { data, error, mutate } = useSWR<CreditDetails>(
     id ? `/api/v1/scene/${type}/${id}` : null
   );
@@ -241,7 +228,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
     titles,
     fetchMore,
   } = useDiscover<SceneResult>('/api/v1/scene/discover', {
-    sort,
+    sort: 'date',
     [type]: id,
   });
 
@@ -433,32 +420,12 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             hideWhenEmpty
           />
         )}
-        <div className="mb-4 mt-6 flex flex-col justify-between lg:flex-row lg:items-center">
-          <div className="slider-header !my-0">
-            {/* The Scenes tab, filtered to this performer or studio */}
-            <Link href={`/scenes?${type}=${data.id}`} className="slider-title">
-              <span>{intl.formatMessage(messages.scenes)}</span>
-              <ArrowRightCircleIcon />
-            </Link>
-          </div>
-          <div className="mt-2 flex flex-grow sm:mr-2 lg:flex-grow-0">
-            <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
-              <BarsArrowDownIcon className="h-6 w-6" />
-            </span>
-            <select
-              id="sortBy"
-              name="sortBy"
-              className="rounded-r-only"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-            >
-              {sortOptions.map(([value, message]) => (
-                <option key={value} value={value}>
-                  {intl.formatMessage(message)}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="slider-header">
+          {/* The Scenes tab, filtered to this performer or studio, sorts */}
+          <Link href={`/scenes?${type}=${data.id}`} className="slider-title">
+            <span>{intl.formatMessage(messages.scenes)}</span>
+            <ArrowRightCircleIcon />
+          </Link>
         </div>
         <SceneList
           scenes={titles}

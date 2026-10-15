@@ -22,9 +22,14 @@ import {
 } from '@server/models/XxxCredit';
 import type {
   XxxMovieListResponse,
+  XxxMovieResult,
   XxxMovieStudio,
 } from '@server/models/XxxMovie';
-import { mapXxxMovieDetails, mapXxxMovieResult } from '@server/models/XxxMovie';
+import {
+  MAX_DURATION,
+  mapXxxMovieDetails,
+  mapXxxMovieResult,
+} from '@server/models/XxxMovie';
 import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction } from 'express';
 import { Router } from 'express';
@@ -38,9 +43,12 @@ export const xxxMovieSorts = [
   'released',
   'oldest',
   'added',
+  'added_asc',
+  'duration',
+  'duration_asc',
+  // ThePornDB has no popularity or title order; kept for older links
   'popularity',
   'title',
-  'duration',
 ] as const;
 
 const ids = z
@@ -48,9 +56,8 @@ const ids = z
   .regex(/^\d+(,\d+)*$/)
   .transform((value) => value.split(',').map(Number));
 
-const discoverQuery = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  sort: z.enum(xxxMovieSorts).default('released'),
+// The Filters panel; lists and filter suggestions take the same
+const movieFilters = z.object({
   studio: z.coerce.number().int().positive().optional(),
   // ThePornDB takes one site but any number of performers
   performer: ids.optional(),
@@ -74,6 +81,13 @@ const discoverQuery = z.object({
     .optional(),
 });
 
+type MovieFilters = z.infer<typeof movieFilters>;
+
+const discoverQuery = movieFilters.extend({
+  page: z.coerce.number().int().positive().default(1),
+  sort: z.enum(xxxMovieSorts).default('released'),
+});
+
 type DiscoverQuery = z.infer<typeof discoverQuery>;
 
 const searchQuery = z.object({
@@ -81,77 +95,17 @@ const searchQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
 });
 
-const lookupQuery = z.object({
+const lookupQuery = movieFilters.extend({
   query: z.string().trim().min(1),
-  // The filters already picked, so suggestions that find nothing are left out
-  studio: z.coerce.number().int().positive().optional(),
-  performer: ids.optional(),
-  tags: ids.optional(),
-  performerMode: z.enum(['and', 'or']).optional(),
-  tagMode: z.enum(['and', 'or']).optional(),
 });
-
-type LookupFilters = Omit<z.infer<typeof lookupQuery>, 'query'>;
-
-// ThePornDB allows two requests a second, so only the first suggestions are
-// checked
-const CHECKED_SUGGESTIONS = 10;
-
-// Drops suggestions that would find no movie next to the picked filters,
-// like the scene lookups. One site is taken at a time, so a studio is
-// checked against the performers and tags alone
-const withMatches = async <T extends { id: number }>(
-  type: 'studio' | 'performer' | 'tag',
-  results: T[],
-  filters: LookupFilters
-): Promise<T[]> => {
-  const keepOwn =
-    (type === 'performer' && filters.performerMode !== 'or') ||
-    (type === 'tag' && filters.tagMode !== 'or');
-  const base: TpdbMovieQuery = {
-    perPage: 1,
-    siteId: type === 'studio' ? undefined : filters.studio,
-    performerIds: type === 'performer' && !keepOwn ? [] : filters.performer,
-    tagIds: type === 'tag' && !keepOwn ? [] : filters.tags,
-    anyPerformer: filters.performerMode === 'or',
-    anyTag: filters.tagMode === 'or',
-  };
-
-  if (!base.siteId && !base.performerIds?.length && !base.tagIds?.length) {
-    return results;
-  }
-
-  try {
-    const tpdb = TpdbAPI.fromSettings();
-    const checked = results.slice(0, CHECKED_SUGGESTIONS);
-    const totals = await Promise.all(
-      checked.map(async (result) => {
-        const list = await tpdb.getMovies(
-          type === 'studio'
-            ? { ...base, siteId: result.id }
-            : type === 'performer'
-              ? {
-                  ...base,
-                  performerIds: [...(base.performerIds ?? []), result.id],
-                }
-              : { ...base, tagIds: [...(base.tagIds ?? []), result.id] }
-        );
-        return list.meta.total;
-      })
-    );
-    return checked.filter((_, i) => totals[i] > 0);
-  } catch (e) {
-    logger.debug('Unable to count movies for filter suggestions', {
-      label: 'API',
-      errorMessage: e.message,
-    });
-    return results;
-  }
-};
 
 interface MovieListFilter {
   hidden: Set<Orientation>;
-  exclude?: { siteIds?: number[]; performerIds?: number[]; tagIds?: number[] };
+  exclude?: {
+    siteIds?: number[];
+    performerIds?: number[];
+    tagIds?: number[];
+  };
 }
 
 // ThePornDB has no exclusions, so excluded studios, performers and tags and
@@ -176,9 +130,166 @@ const filterMovies = (
             performers.has(performer.parent._id))
       ) &&
       !movie.tags?.some((tag) => tags.has(tag.id)) &&
-      !isHidden(classifyMovie(movie), hidden)
+      !(hidden.size && isHidden(classifyMovie(movie), hidden))
   );
 };
+
+// Lists read this many movies a page when most may be filtered out here
+const DENSE_PAGE_SIZE = 60;
+
+interface MoviePlan {
+  query: TpdbMovieQuery;
+  filter: MovieListFilter;
+  dense: boolean;
+}
+
+// The ThePornDB query for the picked filters, and what is left to filter
+// here
+const planMovies = (
+  user: User | undefined,
+  filters: MovieFilters
+): MoviePlan => {
+  const hidden = hiddenOrientations(user, filters.orientation);
+  const picked = filters.tags ?? [];
+  const anyTag = filters.tagMode === 'or';
+  const needed = tagsNeeded(hidden).flatMap((key) => {
+    const id = TPDB_ORIENTATION_TAG_IDS[key];
+    return id ? [id] : [];
+  });
+  // Without straight, movies tagged with a shown orientation are asked for:
+  // any of them without picked tags, or the one shown next to all of those
+  const narrowed =
+    needed.length > 0 && (!picked.length || (needed.length === 1 && !anyTag));
+
+  // ThePornDB takes one date bound; future dates are often placeholders
+  // like 3024, so released lists stop at today
+  let date: TpdbMovieQuery['date'];
+  if (filters.upcoming) {
+    date = { value: today(), operation: '>' };
+  } else if (filters.releaseDate && filters.released !== 'before') {
+    date = { value: filters.releaseDate, operation: '>=' };
+  } else {
+    date = { value: filters.releaseDate ?? today(), operation: '<=' };
+  }
+
+  return {
+    query: {
+      siteId: filters.studio,
+      performerIds: filters.performer,
+      anyPerformer: filters.performerMode === 'or',
+      tagIds: !narrowed
+        ? picked
+        : picked.length
+          ? [...picked, ...needed]
+          : needed,
+      anyTag: narrowed && !picked.length ? true : anyTag,
+      year: filters.year,
+      date,
+    },
+    filter: {
+      hidden,
+      exclude: {
+        siteIds: filters.studioExclude,
+        performerIds: filters.performerExclude,
+        tagIds: filters.tagsExclude,
+      },
+    },
+    // Hiding straight without asking for other tags leaves few per page
+    dense: hidden.has('straight') && !narrowed,
+  };
+};
+
+// ThePornDB allows two requests a second, so only the first suggestions are
+// checked
+const CHECKED_SUGGESTIONS = 10;
+
+type LookupType = 'studio' | 'performer' | 'tag';
+
+// The picked filters with a suggestion added to its field: alone where the
+// field takes one or any of its values, next to the others where it needs
+// all of them
+const withSuggestion = (
+  filters: MovieFilters,
+  type: LookupType,
+  id: number
+): MovieFilters =>
+  type === 'studio'
+    ? { ...filters, studio: id }
+    : type === 'performer'
+      ? {
+          ...filters,
+          performer:
+            filters.performerMode === 'or'
+              ? [id]
+              : [...(filters.performer ?? []), id],
+        }
+      : {
+          ...filters,
+          tags: filters.tagMode === 'or' ? [id] : [...(filters.tags ?? []), id],
+        };
+
+// Drops suggestions that would find no movie next to the picked filters
+const withMatches = async <T extends { id: number }>(
+  user: User | undefined,
+  type: LookupType,
+  results: T[],
+  filters: MovieFilters
+): Promise<T[]> => {
+  const picked = Object.entries(filters).some(
+    ([key, value]) =>
+      !['performerMode', 'tagMode', 'released'].includes(key) &&
+      value !== undefined
+  );
+
+  if (!picked || results.length === 0) {
+    return results;
+  }
+
+  try {
+    const tpdb = TpdbAPI.fromSettings();
+    const checked = results.slice(0, CHECKED_SUGGESTIONS);
+    const totals = await Promise.all(
+      checked.map(async (result) => {
+        const { query } = planMovies(
+          user,
+          withSuggestion(filters, type, result.id)
+        );
+        const list = await tpdb.getMovies({ ...query, perPage: 1 });
+        return list.meta.total;
+      })
+    );
+    return checked.filter((_, i) => totals[i] > 0);
+  } catch (e) {
+    logger.debug('Unable to count movies for filter suggestions', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return results;
+  }
+};
+
+// Movies for the viewer, with media info and sexual preferences
+const toResults = async (
+  movies: TpdbMovie[],
+  user?: User
+): Promise<XxxMovieResult[]> => {
+  const media = await Media.getRelatedXxxMovies(
+    movies.map((m) => m.id),
+    user
+  );
+
+  return movies.map((movie) => ({
+    ...mapXxxMovieResult(
+      movie,
+      media.find((m) => m.tpdbId === movie.id)
+    ),
+    orientations: classifyMovie(movie),
+  }));
+};
+
+// The viewer's defaults, for lists without filters
+const defaultFilter = async (user?: User): Promise<MovieListFilter> =>
+  planMovies(user, {}).filter;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -204,70 +315,32 @@ const tpdbSorts: Record<(typeof xxxMovieSorts)[number], TpdbMovieSort> = {
   released: 'recently_released',
   oldest: 'former_released',
   added: 'recently_created',
-  // ThePornDB has no popularity or title order
+  added_asc: 'former_created',
+  duration: 'duration_desc',
+  duration_asc: 'duration_asc',
   popularity: 'recently_released',
   title: 'recently_released',
-  duration: 'duration_desc',
 };
 
 const discoverTpdb = async (
-  query: DiscoverQuery,
+  { page, sort, ...filters }: DiscoverQuery,
   user?: User
 ): Promise<XxxMovieListResponse> => {
-  // ThePornDB takes one date bound; future dates are often placeholders
-  // like 3024, so released lists stop at today
-  let dateBound: TpdbMovieQuery['date'];
-  if (query.upcoming) {
-    dateBound = { value: today(), operation: '>' };
-  } else if (query.releaseDate && query.released !== 'before') {
-    dateBound = { value: query.releaseDate, operation: '>=' };
-  } else {
-    dateBound = { value: query.releaseDate ?? today(), operation: '<=' };
-  }
-
-  const hidden = hiddenOrientations(user, query.orientation);
-  const orientationTags = query.tags?.length
-    ? []
-    : tagsNeeded(hidden).flatMap((key) => {
-        const id = TPDB_ORIENTATION_TAG_IDS[key];
-        return id ? [id] : [];
-      });
+  const plan = planMovies(user, filters);
   const list = await TpdbAPI.fromSettings().getMovies({
-    page: query.page,
-    perPage: PAGE_SIZE,
-    sort: query.upcoming ? 'former_released' : tpdbSorts[query.sort],
-    siteId: query.studio,
-    performerIds: query.performer,
-    anyPerformer: query.performerMode === 'or',
-    // Without straight, movies tagged with a shown orientation are asked for
-    tagIds: orientationTags.length ? orientationTags : query.tags,
-    anyTag: query.tagMode === 'or' || orientationTags.length > 0,
-    year: query.year,
-    date: dateBound,
+    ...plan.query,
+    page,
+    perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
+    sort: filters.upcoming ? 'former_released' : tpdbSorts[sort],
+    // Some durations are far off, like 535 hours, and would lead the list
+    maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
   });
-  const movies = filterMovies(list.data, {
-    hidden,
-    exclude: {
-      siteIds: query.studioExclude,
-      performerIds: query.performerExclude,
-      tagIds: query.tagsExclude,
-    },
-  });
-  const media = await Media.getRelatedXxxMovies(
-    movies.map((m) => m.id),
-    user
-  );
 
   return {
-    page: query.page,
+    page,
     totalPages: list.meta.last_page,
     totalResults: list.meta.total,
-    results: movies.map((movie) =>
-      mapXxxMovieResult(
-        movie,
-        media.find((m) => m.tpdbId === movie.id)
-      )
-    ),
+    results: await toResults(filterMovies(list.data, plan.filter), user),
   };
 };
 
@@ -304,24 +377,13 @@ xxxMovieRoutes.get('/search', async (req, res, next) => {
       page,
       perPage: PAGE_SIZE,
     });
-    const movies = filterMovies(list.data, {
-      hidden: hiddenOrientations(req.user),
-    });
-    const media = await Media.getRelatedXxxMovies(
-      movies.map((m) => m.id),
-      req.user
-    );
+    const movies = filterMovies(list.data, await defaultFilter(req.user));
 
     return res.status(200).json({
       page,
       totalPages: list.meta.last_page,
       totalResults: list.meta.total,
-      results: movies.map((movie) =>
-        mapXxxMovieResult(
-          movie,
-          media.find((m) => m.tpdbId === movie.id)
-        )
-      ),
+      results: await toResults(movies, req.user),
     } satisfies XxxMovieListResponse);
   } catch (e) {
     return handleError(e, next, 'Unable to search XXX movies.', { query });
@@ -342,6 +404,7 @@ xxxMovieRoutes.get('/studios', async (req, res, next) => {
 
     return res.status(200).json(
       await withMatches(
+        req.user,
         'studio',
         sites.map((site) => ({ id: site.id, name: site.name })),
         filters
@@ -367,6 +430,7 @@ xxxMovieRoutes.get('/performers', async (req, res, next) => {
 
     return res.status(200).json(
       await withMatches(
+        req.user,
         'performer',
         performers.map((performer) => ({
           id: performer._id,
@@ -396,6 +460,7 @@ xxxMovieRoutes.get('/tags', async (req, res, next) => {
 
     return res.status(200).json(
       await withMatches(
+        req.user,
         'tag',
         tags.map((tag) => ({ id: tag.id, name: tag.name })),
         filters
@@ -466,25 +531,15 @@ const mapMovieList = async (
   totalPages: number,
   totalResults: number,
   user?: User
-): Promise<XxxMovieListResponse> => {
-  const shown = filterMovies(movies, { hidden: hiddenOrientations(user) });
-  const media = await Media.getRelatedXxxMovies(
-    shown.map((m) => m.id),
+): Promise<XxxMovieListResponse> => ({
+  page,
+  totalPages,
+  totalResults,
+  results: await toResults(
+    filterMovies(movies, await defaultFilter(user)),
     user
-  );
-
-  return {
-    page,
-    totalPages,
-    totalResults,
-    results: shown.map((movie) =>
-      mapXxxMovieResult(
-        movie,
-        media.find((m) => m.tpdbId === movie.id)
-      )
-    ),
-  };
-};
+  ),
+});
 
 // Released movies with any of this movie's performers, newest first
 xxxMovieRoutes.get<{ id: string }>(
@@ -586,9 +641,10 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
 
         const details = mapXxxPerformerDetails(performer);
 
-        return res
-          .status(200)
-          .json({ ...details, links: await withSiteIcons(details.links) });
+        return res.status(200).json({
+          ...details,
+          links: await withSiteIcons(details.links),
+        });
       }
 
       const [site, sites] = await Promise.all([

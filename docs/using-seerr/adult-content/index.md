@@ -27,14 +27,14 @@ Users without the permission never see adult titles: scene pages show "not found
 
 ## Browsing
 
-Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel.
+Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel. **Scenes** sorts by popularity (the default), release date, date added to StashDB, duration and title, each either way, and by StashDB's trending order. Performer and studio pages list their titles newest first; their **Scenes** or **XXX Movies** title opens the tab to sort them.
 
 - **XXX Movies** filters by release date, studio, performers and tags from ThePornDB.
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
 
 Both also leave out studios, performers and tags picked under **Exclude**, and **And** / **Or** sets whether titles need all of the picked performers or tags, or any. Once something is picked, suggestions for the other fields leave out anything that would find no title next to it; for XXX movies only the first ten suggestions are checked, as ThePornDB allows few requests.
 
-**Sexual Preferences** shows straight, lesbian, bisexual or gay titles, and those with trans performers or futanari, like the filter adult sites offer. StashDB's orientation tags decide where a scene has them; otherwise its cast does: women and men are straight, two or more women lesbian, men alone gay, a lone woman both straight and lesbian, and any trans performer trans. StashDB's "Missing Performer" tags count toward the cast, so a scene with only its male performer listed is not taken for a gay one. XXX movies use ThePornDB's tags and cast the same way. Bisexual and futanari are known from tags only. Titles nothing is known about always show. Without straight, the lists ask for titles tagged with a picked orientation, as filtering the others out would leave pages nearly empty.
+**Sexual Preferences** shows straight, lesbian, bisexual or gay titles, and those with trans performers or futanari, like the filter adult sites offer. StashDB's orientation tags decide where a scene has them; otherwise its cast does: women and men are straight, two or more women lesbian, men alone gay, a lone woman both straight and lesbian, and any trans performer trans. StashDB's "Missing Performer" tags count toward the cast, so a scene with only its male performer listed is not taken for a gay one. XXX movies use ThePornDB's tags and cast the same way. Bisexual and futanari are known from tags only. Titles nothing is known about count as **Unidentified**, which has a pick of its own. At least one sexual preference stays picked. Without straight, the lists ask for titles tagged with a picked orientation, together with the picked tags where StashDB or ThePornDB allows it, as filtering the others out would leave pages nearly empty; where they can't, pages read 100 scenes or 60 movies at a time. Scene and XXX movie cards and pages show the sexual preferences a title suits.
 
 Each user picks which sexual preferences are on by default in their **General** settings. Admins can take some away from a user under **Allowed Sexual Preferences**, the same way they set request limits; those never show for that user, not even in search or recommendations.
 
@@ -59,7 +59,8 @@ Scene and XXX movie pages are laid out like movie pages:
 - A **More from** banner for the studio, like the collection banner on movies, opens the studio's titles.
 - **Recommendations** lists other titles with any of the same performers. For scenes these are the most popular on StashDB; for XXX movies, the newest released on ThePornDB.
 - **Similar** looks at content rather than people. For scenes, Seerr takes the 100 most popular StashDB scenes sharing at least one tag and ranks them by how many tags they share (top 40). For XXX movies it uses ThePornDB's own similar list, about 9 movies.
-- The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site.
+- The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site. Sites StashDB has an icon for show it alone, named on hover.
+- XXX movie pages add a **Scenes** row: the StashDB scenes the movie is cut into, found by the file fingerprints and studio pages ThePornDB keeps for its scenes.
 - Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and XXX movies work like movie issues, and only users with adult access see them.
 
 ### Requesting Scenes
@@ -82,5 +83,5 @@ Adult movies from TMDB also show up in the regular search for users with the **A
 
 Users with adult access get two switches in their user menu:
 
-- **Safe Mode** hides all adult content at once, for example while sharing a screen. Seerr treats the user as having no adult access until it is turned off again; the permission itself is kept.
+- **Safe Mode** hides all adult content at once, for example while sharing a screen. Seerr treats the user as having no adult access until it is turned off again; the permission itself is kept. For admins it also hides the adult settings: **Enable Adult Content**, the Stash tab, the Whisparr servers, the StashDB and ThePornDB providers, the Adult Content permission, scene request limits and sexual preferences.
 - **Blur Adult Artwork** blurs scene stills, XXX movie covers and adult TMDB posters until the pointer is over them.

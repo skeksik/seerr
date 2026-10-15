@@ -112,12 +112,13 @@ const searchAdult = async (
   return {
     results: [
       ...performerResults,
-      ...shownMovies.map((movie) =>
-        mapXxxMovieResult(
+      ...shownMovies.map((movie) => ({
+        ...mapXxxMovieResult(
           movie,
           media.find((m) => m.tpdbId === movie.id)
-        )
-      ),
+        ),
+        orientations: classifyMovie(movie),
+      })),
     ],
     totalPages: movies?.meta.last_page ?? 0,
     totalResults: (movies?.meta.total ?? 0) + performerResults.length,

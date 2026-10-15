@@ -8,6 +8,7 @@ import type {
   StashDbSceneList,
   StashDbSceneSort,
   StashDbSceneStudio,
+  StashDbSceneSummary,
   StashDbSite,
   StashDbStudio,
   StashDbStudioSummary,
@@ -263,6 +264,59 @@ class StashDbAPI extends ExternalAPI {
       ),
       date,
     };
+  }
+
+  // The scenes matching each set of file fingerprints, in one request
+  public async findScenesByFingerprints(
+    sets: { hash: string; algorithm: 'OSHASH' | 'PHASH' | 'MD5' }[][]
+  ): Promise<StashDbSceneSummary[][]> {
+    const queried = sets.filter((set) => set.length > 0);
+
+    if (queried.length === 0) {
+      return sets.map(() => []);
+    }
+
+    const data = await this.query<{
+      findScenesBySceneFingerprints: StashDbSceneSummary[][];
+    }>(
+      `query ($fingerprints: [[FingerprintQueryInput!]!]!) {
+        findScenesBySceneFingerprints(fingerprints: $fingerprints) {
+          ${SCENE_SUMMARY_FIELDS}
+        }
+      }`,
+      { fingerprints: queried },
+      DETAILS_TTL
+    );
+    const found = data.findScenesBySceneFingerprints;
+    let next = 0;
+
+    return sets.map((set) => (set.length ? (found[next++] ?? []) : []));
+  }
+
+  // The scene with each studio page, in one request
+  public async findScenesByUrls(
+    urls: string[]
+  ): Promise<(StashDbSceneSummary | undefined)[]> {
+    if (urls.length === 0) {
+      return [];
+    }
+
+    const data = await this.query<
+      Record<string, { scenes: StashDbSceneSummary[] }>
+    >(
+      `query (${urls.map((_, i) => `$u${i}: String!`).join(', ')}) {
+        ${urls
+          .map(
+            (_, i) =>
+              `u${i}: queryScenes(input: { url: $u${i}, per_page: 1 }) { scenes { ${SCENE_SUMMARY_FIELDS} } }`
+          )
+          .join('\n')}
+      }`,
+      Object.fromEntries(urls.map((url, i) => [`u${i}`, url])),
+      DETAILS_TTL
+    );
+
+    return urls.map((_, i) => data[`u${i}`]?.scenes[0]);
   }
 
   // Tag ids by name or alias; names StashDB does not know are left out

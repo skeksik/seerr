@@ -340,14 +340,11 @@ const AdultFilterSlideover = ({
       (await axios.get<{ name: string }>(nameUrl(type, id))).data.name;
   const activeFilters = countAdultFilters(router.query);
 
-  // Suggestions for the included fields are checked against these
-  const context = {
-    studio,
-    performer,
-    tags: tags.join(',') || undefined,
-    performerMode: performerMode === 'or' ? 'or' : undefined,
-    tagMode: tagMode === 'or' ? 'or' : undefined,
-  };
+  // Every field's suggestions are checked against all the picked filters,
+  // so nothing that would find no title is offered
+  const context = Object.fromEntries(
+    adultFilterParams.map((key) => [key, param(router.query[key])])
+  );
   const ids = (value?: string) => value?.split(',') ?? [];
   const joined = (options: Option[]) =>
     options.map((option) => option.value).join(',') || undefined;
@@ -436,7 +433,7 @@ const AdultFilterSlideover = ({
           isMulti={isScene}
           ids={ids(studio)}
           searchUrl={`${lookupBase}/studios`}
-          context={{ ...context, studio: undefined }}
+          context={context}
           resolveName={resolveName('studio')}
           onChange={(options) => batchUpdate({ studio: joined(options) })}
         />
@@ -446,6 +443,7 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="studioExcludeFilter"
           isMulti
+          context={context}
           ids={ids(studioExclude)}
           searchUrl={`${lookupBase}/studios`}
           resolveName={resolveName('studio')}
@@ -482,6 +480,7 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="performerExcludeFilter"
           isMulti
+          context={context}
           ids={ids(performerExclude)}
           searchUrl={`${lookupBase}/performers`}
           resolveName={resolveName('performer')}
@@ -524,6 +523,7 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="tagExcludeFilter"
           isMulti
+          context={context}
           ids={ids(tagsExclude)}
           searchUrl={`${lookupBase}/tags`}
           resolveName={isScene ? resolveName('tag') : undefined}

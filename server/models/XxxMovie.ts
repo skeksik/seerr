@@ -1,6 +1,8 @@
 import { stashDbPerformerId } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
+import type { Orientation } from '@server/lib/orientation';
+import { classifyMovie } from '@server/lib/orientation';
 
 export interface XxxMovieResult {
   // ThePornDB movie UUID
@@ -17,6 +19,8 @@ export interface XxxMovieResult {
   backdropUrl?: string;
   studio?: { id: number; name: string };
   mediaInfo?: Media;
+  // Sexual preferences the movie suits, set by the list routes
+  orientations?: Orientation[];
 }
 
 // A ThePornDB site, and the StashDB studio of the same name that has the
@@ -64,6 +68,13 @@ const pickPoster = (movie: TpdbMovie): string | undefined =>
   movie.image ??
   undefined;
 
+// Some ThePornDB durations are far off, like 535 hours; longer than a day
+// they are left out
+export const MAX_DURATION = 24 * 60 * 60;
+
+const saneDuration = (duration?: number | null): number | undefined =>
+  duration && duration > 0 && duration <= MAX_DURATION ? duration : undefined;
+
 export const mapXxxMovieResult = (
   movie: TpdbMovie,
   media?: Media
@@ -72,7 +83,7 @@ export const mapXxxMovieResult = (
   mediaType: 'xxxmovie',
   title: movie.title,
   releaseDate: movie.date ?? undefined,
-  duration: movie.duration ?? undefined,
+  duration: saneDuration(movie.duration),
   overview: movie.description || undefined,
   posterUrl: pickPoster(movie),
   backdropUrl: movie.background?.large ?? movie.background?.full ?? undefined,
@@ -85,6 +96,7 @@ export const mapXxxMovieDetails = (
   media?: Media
 ): XxxMovieDetails => ({
   ...mapXxxMovieResult(movie, media),
+  orientations: classifyMovie(movie),
   backCoverUrl: movie.back_image ?? undefined,
   network:
     movie.site?.network && movie.site.network.id !== movie.site.id

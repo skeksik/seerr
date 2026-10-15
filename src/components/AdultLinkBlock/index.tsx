@@ -1,5 +1,6 @@
 import StashLogo from '@app/assets/services/stash.svg';
 import TpdbLogo from '@app/assets/services/tpdb.svg';
+import Tooltip from '@app/components/Common/Tooltip';
 import SiteIcon from '@app/components/SiteIcon';
 import useSiteIcons from '@app/hooks/useSiteIcons';
 
@@ -11,11 +12,10 @@ interface AdultLinkBlockProps {
 }
 
 const linkClass =
-  'flex items-center gap-1.5 text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
+  'flex items-center text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
 
-// ExternalLinkBlock for scenes and XXX movies. StashDB has no logo of its
-// own, so it shares the Stash box with its name next to it; ThePornDB takes
-// its StashDB icon the same way when there is one
+// ExternalLinkBlock for scenes and XXX movies: logos and icons alone, named
+// on hover. StashDB has neither, and its name keeps it apart from Stash
 const AdultLinkBlock = ({
   stashUrl,
   stashDbUrl,
@@ -27,15 +27,17 @@ const AdultLinkBlock = ({
   return (
     <div className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2">
       {stashUrl && (
-        <a
-          href={stashUrl}
-          className={linkClass}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <StashLogo className="h-5 w-auto" />
-          <span>Stash</span>
-        </a>
+        <Tooltip content="Stash">
+          <a
+            href={stashUrl}
+            className={linkClass}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Stash"
+          >
+            <StashLogo className="h-5 w-auto" />
+          </a>
+        </Tooltip>
       )}
       {stashDbUrl && (
         <a
@@ -44,21 +46,22 @@ const AdultLinkBlock = ({
           target="_blank"
           rel="noreferrer"
         >
-          <StashLogo className="h-5 w-auto" />
-          <span>StashDB</span>
+          StashDB
         </a>
       )}
       {tpdbUrl &&
         (tpdbIcon ? (
-          <a
-            href={tpdbUrl}
-            className={linkClass}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <SiteIcon icon={tpdbIcon} />
-            <span>ThePornDB</span>
-          </a>
+          <Tooltip content="ThePornDB">
+            <a
+              href={tpdbUrl}
+              className={linkClass}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="ThePornDB"
+            >
+              <SiteIcon icon={tpdbIcon} />
+            </a>
+          </Tooltip>
         ) : (
           <a
             href={tpdbUrl}

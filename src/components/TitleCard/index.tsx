@@ -4,6 +4,7 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
+import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
@@ -24,6 +25,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { Watchlist } from '@server/entity/Watchlist';
+import type { Orientation } from '@server/lib/orientation';
 import type { MediaType } from '@server/models/Search';
 import axios from 'axios';
 import Link from 'next/link';
@@ -52,6 +54,8 @@ interface TitleCardProps {
   inProgress?: boolean;
   isAddedToWatchlist?: number | boolean;
   mutateParent?: () => void;
+  // Scenes and XXX movies
+  orientations?: Orientation[];
 }
 
 const messages = defineMessages('components.TitleCard', {
@@ -78,6 +82,7 @@ const TitleCard = ({
   inProgress = false,
   canExpand = false,
   mutateParent,
+  orientations,
 }: TitleCardProps) => {
   const isTouch = useIsTouch();
   const intl = useIntl();
@@ -412,6 +417,12 @@ const TitleCard = ({
             setShowDetail(true);
           }
         }}
+        // A card that loads under the cursor gets no mouseenter
+        onMouseMove={() => {
+          if (!isTouch && !showDetail) {
+            setShowDetail(true);
+          }
+        }}
         onMouseLeave={() => setShowDetail(false)}
         onClick={() => setShowDetail(true)}
         onKeyDown={(e) => {
@@ -463,26 +474,39 @@ const TitleCard = ({
             />
           )}
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
-            <div
-              className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                adultType || (isAdult && mediaType === 'movie')
-                  ? 'border-pink-500 bg-pink-600/80'
-                  : mediaType === 'movie' || mediaType === 'collection'
-                    ? 'border-blue-500 bg-blue-600/80'
-                    : 'border-purple-600 bg-purple-600/80'
-              }`}
-            >
-              <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                {isScene
-                  ? intl.formatMessage(globalMessages.scene)
-                  : adultType || (isAdult && mediaType === 'movie')
-                    ? intl.formatMessage(globalMessages.xxx)
-                    : mediaType === 'movie'
-                      ? intl.formatMessage(globalMessages.movie)
-                      : mediaType === 'collection'
-                        ? intl.formatMessage(globalMessages.collection)
-                        : intl.formatMessage(globalMessages.tvshow)}
+            <div className="pointer-events-none z-40 flex flex-col items-start gap-1 self-start">
+              <div
+                className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
+                  adultType || (isAdult && mediaType === 'movie')
+                    ? 'border-pink-500 bg-pink-600/80'
+                    : mediaType === 'movie' || mediaType === 'collection'
+                      ? 'border-blue-500 bg-blue-600/80'
+                      : 'border-purple-600 bg-purple-600/80'
+                }`}
+              >
+                <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
+                  {isScene
+                    ? intl.formatMessage(globalMessages.scene)
+                    : adultType || (isAdult && mediaType === 'movie')
+                      ? intl.formatMessage(globalMessages.xxx)
+                      : mediaType === 'movie'
+                        ? intl.formatMessage(globalMessages.movie)
+                        : mediaType === 'collection'
+                          ? intl.formatMessage(globalMessages.collection)
+                          : intl.formatMessage(globalMessages.tvshow)}
+                </div>
               </div>
+              {/* Sexual preferences, which the Filters panel goes by */}
+              {orientations
+                ?.filter((orientation) => orientation !== 'unidentified')
+                .map((orientation) => (
+                  <div
+                    key={orientation}
+                    className="rounded-full bg-gray-900/80 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-gray-200 shadow-md"
+                  >
+                    {intl.formatMessage(orientationMessages[orientation])}
+                  </div>
+                ))}
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div

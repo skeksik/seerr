@@ -48,6 +48,8 @@ export interface TpdbMovieQuery {
   year?: number;
   // ThePornDB takes a single date bound per query
   date?: { value: string; operation: '>' | '>=' | '<' | '<=' | '=' };
+  // Seconds; leaves out longer movies
+  maxDuration?: number;
 }
 
 class TpdbAPI extends ExternalAPI {
@@ -95,6 +97,7 @@ class TpdbAPI extends ExternalAPI {
     anyTag = false,
     year,
     date,
+    maxDuration,
   }: TpdbMovieQuery = {}): Promise<TpdbPage<TpdbMovie>> {
     return this.get<TpdbPage<TpdbMovie>>(
       '/movies',
@@ -121,6 +124,8 @@ class TpdbAPI extends ExternalAPI {
           year,
           date: date?.value,
           date_operation: date?.operation,
+          duration: maxDuration,
+          duration_operation: maxDuration ? '<' : undefined,
         },
       },
       LIST_TTL

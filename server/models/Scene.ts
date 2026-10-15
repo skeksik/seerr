@@ -11,6 +11,7 @@ import type {
   StashDbUrl,
 } from '@server/api/stashdb/interfaces';
 import type Media from '@server/entity/Media';
+import type { Orientation } from '@server/lib/orientation';
 
 export interface SceneStudio {
   id: string;
@@ -54,6 +55,8 @@ export interface SceneResult {
   studio?: SceneStudio;
   performers: ScenePerformer[];
   mediaInfo?: Media;
+  // Sexual preferences the scene suits, set by the list routes
+  orientations?: Orientation[];
 }
 
 export interface SceneDetails extends SceneResult {

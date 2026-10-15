@@ -32,6 +32,7 @@ const SceneCard = ({
     }
     canExpand={canExpand}
     mutateParent={mutateParent}
+    orientations={scene.orientations}
   />
 );
 

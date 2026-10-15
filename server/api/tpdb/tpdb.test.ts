@@ -57,6 +57,8 @@ describe('TpdbAPI', () => {
       year: undefined,
       date: '2026-10-14',
       date_operation: '<=',
+      duration: undefined,
+      duration_operation: undefined,
     });
   });
 

@@ -6,14 +6,12 @@ import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import {
   ArrowDownOnSquareIcon,
-  BeakerIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import type { StashSettings } from '@server/lib/settings';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
-import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 import * as Yup from 'yup';
@@ -34,10 +32,9 @@ const messages = defineMessages('components.Settings.SettingsStash', {
   validationUrlBaseTrailingSlash: 'URL base must not end in a trailing slash',
   validationUrl: 'You must provide a valid URL',
   validationApiKey: 'You must provide an API key',
-  toastTestSuccess: 'Connected to Stash {version}!',
-  toastTestFailure: 'Failed to connect to Stash.',
   toastSaveSuccess: 'Stash settings saved successfully!',
   toastSaveFailure: 'Something went wrong while saving Stash settings.',
+  invalidurlerror: 'Unable to connect to Stash server.',
   manualscan: 'Manual Library Scan',
   manualscanDescription:
     'Seerr scans Stash on the Stash Scan job schedule, every 15 minutes by default. Run it now to mark scenes available that Stash has matched to StashDB or that are named after a StashDB id.',
@@ -56,7 +53,6 @@ interface SyncStatus {
 const SettingsStash = () => {
   const intl = useIntl();
   const { addToast } = useToasts();
-  const [isTesting, setIsTesting] = useState(false);
   const { data, error, mutate } = useSWR<StashSettings>(
     '/api/v1/settings/stash'
   );
@@ -100,29 +96,6 @@ const SettingsStash = () => {
       intl.formatMessage(messages.validationApiKey)
     ),
   });
-
-  const testConnection = async (values: StashSettings) => {
-    setIsTesting(true);
-    try {
-      const response = await axios.post<{ version: string }>(
-        '/api/v1/settings/stash/test',
-        values
-      );
-      addToast(
-        intl.formatMessage(messages.toastTestSuccess, {
-          version: response.data.version,
-        }),
-        { autoDismiss: true, appearance: 'success' }
-      );
-    } catch {
-      addToast(intl.formatMessage(messages.toastTestFailure), {
-        autoDismiss: true,
-        appearance: 'error',
-      });
-    } finally {
-      setIsTesting(false);
-    }
-  };
 
   return (
     <>
@@ -209,11 +182,16 @@ const SettingsStash = () => {
                 autoDismiss: true,
                 appearance: 'success',
               });
-            } catch {
-              addToast(intl.formatMessage(messages.toastSaveFailure), {
-                autoDismiss: true,
-                appearance: 'error',
-              });
+            } catch (e) {
+              // Saving checks the connection first, like Jellyfin's settings
+              addToast(
+                intl.formatMessage(
+                  e?.response?.status === 400
+                    ? messages.invalidurlerror
+                    : messages.toastSaveFailure
+                ),
+                { autoDismiss: true, appearance: 'error' }
+              );
             } finally {
               mutate();
             }
@@ -340,24 +318,9 @@ const SettingsStash = () => {
                 <div className="flex justify-end">
                   <span className="ml-3 inline-flex rounded-md shadow-sm">
                     <Button
-                      buttonType="warning"
-                      type="button"
-                      disabled={isSubmitting || isTesting || !isValid}
-                      onClick={() => testConnection(values)}
-                    >
-                      <BeakerIcon />
-                      <span>
-                        {isTesting
-                          ? intl.formatMessage(globalMessages.testing)
-                          : intl.formatMessage(globalMessages.test)}
-                      </span>
-                    </Button>
-                  </span>
-                  <span className="ml-3 inline-flex rounded-md shadow-sm">
-                    <Button
                       buttonType="primary"
                       type="submit"
-                      disabled={isSubmitting || isTesting || !isValid}
+                      disabled={isSubmitting || !isValid}
                     >
                       <ArrowDownOnSquareIcon />
                       <span>

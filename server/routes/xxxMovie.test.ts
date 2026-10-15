@@ -165,7 +165,7 @@ describe('GET /xxxmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      '/xxxmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian'
+      '/xxxmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian,unidentified'
     );
 
     assert.strictEqual(res.status, 200);

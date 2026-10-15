@@ -37,6 +37,7 @@ const XxxMovieCard = ({
     }
     canExpand={canExpand}
     mutateParent={mutateParent}
+    orientations={movie.orientations}
   />
 );
 

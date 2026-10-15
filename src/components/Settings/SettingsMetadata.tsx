@@ -6,6 +6,7 @@ import SensitiveInput from '@app/components/Common/SensitiveInput';
 import MetadataSelector, {
   MetadataProviderType,
 } from '@app/components/MetadataSelector';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
@@ -100,7 +101,9 @@ const SettingsMetadata = () => {
     tpdb: 'not tested',
   });
   const { currentSettings } = useSettings();
-  const adult = currentSettings.enableAdult;
+  // Safe mode hides adult settings too
+  const safeMode = useSafeMode();
+  const adult = currentSettings.enableAdult && !safeMode;
   const { data: stashDbData, error: stashDbError } = useSWR<StashDbSettings>(
     adult ? '/api/v1/settings/stashdb' : null
   );

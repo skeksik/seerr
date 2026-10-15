@@ -7,6 +7,7 @@ import OrientationSelector from '@app/components/OrientationSelector';
 import QuotaSelector from '@app/components/QuotaSelector';
 import RegionSelector from '@app/components/RegionSelector';
 import { availableLanguages } from '@app/context/LanguageContext';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useLocale from '@app/hooks/useLocale';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
@@ -83,6 +84,7 @@ const messages = defineMessages(
 
 const UserGeneralSettings = () => {
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const { addToast } = useToasts();
   const { locale, setLocale } = useLocale();
   const [movieQuotaEnabled, setMovieQuotaEnabled] = useState(false);
@@ -448,6 +450,7 @@ const UserGeneralSettings = () => {
                 </div>
               </div>
               {currentSettings.enableAdult &&
+                !safeMode &&
                 hasPermission(Permission.ADULT) && (
                   <div className="form-row">
                     <label className="text-label">
@@ -481,6 +484,7 @@ const UserGeneralSettings = () => {
                   </div>
                 )}
               {currentSettings.enableAdult &&
+                !safeMode &&
                 hasPermission(Permission.ADULT) &&
                 currentHasPermission(Permission.MANAGE_USERS) &&
                 !hasPermission(Permission.MANAGE_USERS) && (
@@ -596,7 +600,7 @@ const UserGeneralSettings = () => {
                         </div>
                       </div>
                     </div>
-                    {currentSettings.enableAdult && (
+                    {currentSettings.enableAdult && !safeMode && (
                       <div className="form-row">
                         <label htmlFor="sceneQuotaLimit" className="text-label">
                           <span>

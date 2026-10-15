@@ -14,7 +14,7 @@ import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
-import { BarsArrowDownIcon, FilmIcon } from '@heroicons/react/24/solid';
+import { FilmIcon } from '@heroicons/react/24/solid';
 import type {
   XxxPerformerDetails,
   XxxStudioDetails,
@@ -34,20 +34,9 @@ const messages = defineMessages('components.XxxMovies.XxxCreditDetails', {
   alsoknownas: 'Also Known As: {names}',
   sites: 'Sites',
   scenes: 'Scenes',
-  sortReleased: 'Release Date Descending',
-  sortOldest: 'Release Date Ascending',
-  sortAdded: 'Recently Added to ThePornDB',
-  sortDuration: 'Duration',
   showmore: 'Show More',
   showless: 'Show Less',
 });
-
-const sortOptions = [
-  ['released', messages.sortReleased],
-  ['oldest', messages.sortOldest],
-  ['added', messages.sortAdded],
-  ['duration', messages.sortDuration],
-] as const;
 
 type CreditType = 'performer' | 'studio';
 type CreditDetails = XxxPerformerDetails | XxxStudioDetails;
@@ -65,7 +54,6 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
   const id = router.query.id as string;
-  const [sort, setSort] = useState('released');
   const [showFullBio, setShowFullBio] = useState(false);
   const { data, error } = useSWR<CreditDetails>(
     id ? `/api/v1/xxxmovie/${type}/${id}` : null
@@ -78,7 +66,7 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
     titles,
     fetchMore,
   } = useDiscover<XxxMovieResult>('/api/v1/xxxmovie/discover', {
-    sort,
+    sort: 'released',
     [type]: id,
   });
 
@@ -274,35 +262,12 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
             />
           </>
         )}
-        <div className="mb-4 mt-6 flex flex-col justify-between lg:flex-row lg:items-center">
-          <div className="slider-header !my-0">
-            {/* The XXX Movies tab, filtered to this performer or studio */}
-            <Link
-              href={`/xxxmovies?${type}=${data.id}`}
-              className="slider-title"
-            >
-              <span>{intl.formatMessage(globalMessages.xxxMovies)}</span>
-              <ArrowRightCircleIcon />
-            </Link>
-          </div>
-          <div className="mt-2 flex flex-grow sm:mr-2 lg:mt-0 lg:flex-grow-0">
-            <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
-              <BarsArrowDownIcon className="h-6 w-6" />
-            </span>
-            <select
-              id="sortBy"
-              name="sortBy"
-              className="rounded-r-only"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-            >
-              {sortOptions.map(([value, message]) => (
-                <option key={value} value={value}>
-                  {intl.formatMessage(message)}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="slider-header">
+          {/* The XXX Movies tab, filtered to this performer or studio, sorts */}
+          <Link href={`/xxxmovies?${type}=${data.id}`} className="slider-title">
+            <span>{intl.formatMessage(globalMessages.xxxMovies)}</span>
+            <ArrowRightCircleIcon />
+          </Link>
         </div>
         <ListView
           items={titles}

@@ -10,6 +10,8 @@ export const ORIENTATIONS = [
   'gay',
   'trans',
   'futa',
+  // Titles without orientation tags or a known cast
+  'unidentified',
 ] as const;
 
 export type Orientation = (typeof ORIENTATIONS)[number];
@@ -19,7 +21,7 @@ export const isOrientation = (value: string): value is Orientation =>
 
 // StashDB's Orientation tags, plus Futanari, by name since other stash-box
 // instances have other ids
-export const STASHDB_ORIENTATION_TAGS: Record<Orientation, string> = {
+export const STASHDB_ORIENTATION_TAGS: Partial<Record<Orientation, string>> = {
   straight: 'Straight',
   lesbian: 'Lesbian',
   bisexual: 'Bisexual',
@@ -48,7 +50,8 @@ interface Cast {
 
 // Without orientation tags, the cast tells: any trans performer makes it
 // trans, women and men straight, two or more women lesbian and men alone gay.
-// A lone woman suits both straight and lesbian; no cast says nothing
+// A lone woman suits both straight and lesbian; with no cast the title is
+// unidentified
 const fromCast = ({ female, male, trans }: Cast): Orientation[] => {
   if (trans > 0) {
     return ['trans'];
@@ -65,7 +68,7 @@ const fromCast = ({ female, male, trans }: Cast): Orientation[] => {
   if (male > 0) {
     return ['gay'];
   }
-  return [];
+  return ['unidentified'];
 };
 
 const castGender = (gender?: string | null): keyof Cast | undefined => {
@@ -173,13 +176,16 @@ export const FEATURE_ORIENTATIONS: Orientation[] = ['trans', 'futa'];
 // Straight titles are most of any catalogue, so without straight the shown
 // ones are too few to find by filtering pages; lists then ask for titles
 // tagged with a shown orientation instead
+// Unidentified titles have no tag to ask for, so they are left to filtering
 export const tagsNeeded = (hidden: Set<Orientation>): Orientation[] => {
-  const shown = ORIENTATIONS.filter((orientation) => !hidden.has(orientation));
+  const shown = ORIENTATIONS.filter(
+    (orientation) => orientation !== 'unidentified' && !hidden.has(orientation)
+  );
   return shown.length > 0 && !shown.includes('straight') ? shown : [];
 };
 
 // A title is left out when it has a hidden feature, or when none of its
-// orientations is shown. Titles nothing is known about always show
+// orientations is shown
 export const isHidden = (
   orientations: Orientation[],
   hidden: Set<Orientation>
@@ -208,17 +214,19 @@ export const orientationPreferences = (
 });
 
 // The orientations a list hides: those not picked in the filters, or the
-// user's unchecked ones without a pick, and always the disabled ones.
-// `picked` is the filter's comma-separated list; "none" picks none
+// user's unchecked ones without a pick, and always the disabled ones. A pick
+// that leaves nothing shown counts as no pick
 export const hiddenOrientations = (
   user: User | null | undefined,
   picked?: string
 ): Set<Orientation> => {
   const { disabled, unchecked } = orientationPreferences(user);
-  const shown =
-    picked === undefined
-      ? ORIENTATIONS.filter((orientation) => !unchecked.includes(orientation))
-      : picked.split(',').filter(isOrientation);
+  const allowed = (values: Orientation[]) =>
+    values.filter((orientation) => !disabled.includes(orientation));
+  const pick = allowed(picked?.split(',').filter(isOrientation) ?? []);
+  const shown = pick.length
+    ? pick
+    : ORIENTATIONS.filter((orientation) => !unchecked.includes(orientation));
 
   return new Set(
     ORIENTATIONS.filter(

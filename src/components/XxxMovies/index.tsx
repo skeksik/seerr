@@ -19,20 +19,24 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.XxxMovies', {
-  sortReleased: 'Release Date Descending',
-  sortOldest: 'Release Date Ascending',
-  sortAdded: 'Recently Added to ThePornDB',
-  sortDuration: 'Duration',
+  sortReleasedDesc: 'Release Date Descending',
+  sortReleasedAsc: 'Release Date Ascending',
+  sortAddedDesc: 'Date Added Descending',
+  sortAddedAsc: 'Date Added Ascending',
+  sortDurationDesc: 'Duration Descending',
+  sortDurationAsc: 'Duration Ascending',
   activefilters:
     '{count, plural, one {# Active Filter} other {# Active Filters}}',
 });
 
 // ThePornDB has no popularity or title order
-const sortOptions = [
-  ['released', messages.sortReleased],
-  ['oldest', messages.sortOldest],
-  ['added', messages.sortAdded],
-  ['duration', messages.sortDuration],
+export const xxxMovieSortOptions = [
+  ['released', messages.sortReleasedDesc],
+  ['oldest', messages.sortReleasedAsc],
+  ['added', messages.sortAddedDesc],
+  ['added_asc', messages.sortAddedAsc],
+  ['duration', messages.sortDurationDesc],
+  ['duration_asc', messages.sortDurationAsc],
 ] as const;
 
 const XxxMoviesContent = () => {
@@ -40,7 +44,7 @@ const XxxMoviesContent = () => {
   const router = useRouter();
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
-  const sorts = sortOptions;
+  const sorts = xxxMovieSortOptions;
 
   const sort =
     typeof router.query.sort === 'string' &&

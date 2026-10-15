@@ -40,7 +40,7 @@ Generate one in Stash under **Settings &rarr; Security &rarr; Authentication**.
 
 Optional. Used for **Play on Stash** links when the address above is not reachable from your browser.
 
-Use **Test** to check the connection before saving.
+Saving checks the connection first and says so when Seerr can't reach Stash.
 
 ## How It Works
 

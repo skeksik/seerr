@@ -2,12 +2,15 @@ import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
+import Badge from '@app/components/Common/Badge';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
+import Tooltip from '@app/components/Common/Tooltip';
+import { orientationMessages } from '@app/components/OrientationSelector';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
@@ -143,6 +146,12 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               plexUrl={data.mediaInfo?.mediaUrl}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
+            {/* Sexual preferences, which the Filters panel goes by */}
+            {data.orientations?.map((orientation) => (
+              <Badge key={orientation} badgeType="dark">
+                {intl.formatMessage(orientationMessages[orientation])}
+              </Badge>
+            ))}
           </div>
           <h1 data-testid="media-title">
             {data.title} {year && <span className="media-year">({year})</span>}
@@ -343,21 +352,43 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             {data.urls.length > 0 && (
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
-                <span className="media-fact-value flex flex-col items-end">
-                  {data.urls.map((url) => (
-                    <a
-                      key={url.url}
-                      href={url.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5"
-                    >
-                      {url.icon && (
-                        <SiteIcon icon={url.icon} className="h-4 w-4" />
+                <span className="media-fact-value flex flex-col items-end gap-1">
+                  {/* Sites with an icon show it alone, named on hover */}
+                  {data.urls.some((url) => url.icon) && (
+                    <span className="flex flex-wrap justify-end gap-2">
+                      {data.urls.flatMap((url) =>
+                        url.icon
+                          ? [
+                              <Tooltip
+                                key={url.url}
+                                content={linkLabel(url.url)}
+                              >
+                                <a
+                                  href={url.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  aria-label={linkLabel(url.url)}
+                                >
+                                  <SiteIcon icon={url.icon} />
+                                </a>
+                              </Tooltip>,
+                            ]
+                          : []
                       )}
-                      {linkLabel(url.url)}
-                    </a>
-                  ))}
+                    </span>
+                  )}
+                  {data.urls
+                    .filter((url) => !url.icon)
+                    .map((url) => (
+                      <a
+                        key={url.url}
+                        href={url.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {linkLabel(url.url)}
+                      </a>
+                    ))}
                 </span>
               </div>
             )}

@@ -5,6 +5,7 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import PermissionEdit from '@app/components/PermissionEdit';
 import QuotaSelector from '@app/components/QuotaSelector';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
@@ -48,6 +49,7 @@ const messages = defineMessages('components.Settings.SettingsUsers', {
 const SettingsUsers = () => {
   const { addToast } = useToasts();
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const {
     data,
     error,
@@ -283,7 +285,7 @@ const SettingsUsers = () => {
                     />
                   </div>
                 </div>
-                {data?.enableAdult && (
+                {data?.enableAdult && !safeMode && (
                   <div className="form-row">
                     <label htmlFor="applicationTitle" className="text-label">
                       {intl.formatMessage(messages.sceneRequestLimitLabel)}

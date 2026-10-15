@@ -2,13 +2,17 @@ import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
+import Badge from '@app/components/Common/Badge';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import Tag from '@app/components/Common/Tag';
+import Tooltip from '@app/components/Common/Tooltip';
+import { orientationMessages } from '@app/components/OrientationSelector';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
+import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SiteIcon from '@app/components/SiteIcon';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
@@ -43,6 +47,7 @@ const messages = defineMessages('components.XxxMovieDetails', {
   network: 'Network',
   director: 'Director',
   links: 'Links',
+  scenes: 'Scenes',
   recommendations: 'Recommendations',
   similar: 'Similar',
   minutes: '{minutes} min',
@@ -153,6 +158,12 @@ const XxxMovieDetailsContent = () => {
               externalId={data.id}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
+            {/* Sexual preferences, which the Filters panel goes by */}
+            {data.orientations?.map((orientation) => (
+              <Badge key={orientation} badgeType="dark">
+                {intl.formatMessage(orientationMessages[orientation])}
+              </Badge>
+            ))}
           </div>
           <h1 data-testid="media-title">
             {data.title} {year && <span className="media-year">({year})</span>}
@@ -319,15 +330,23 @@ const XxxMovieDetailsContent = () => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
                 <span className="media-fact-value">
-                  <a
-                    href={data.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5"
-                  >
-                    {urlIcon && <SiteIcon icon={urlIcon} className="h-4 w-4" />}
-                    {linkLabel(data.url)}
-                  </a>
+                  {/* A site with an icon shows it alone, named on hover */}
+                  {urlIcon ? (
+                    <Tooltip content={linkLabel(data.url)}>
+                      <a
+                        href={data.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={linkLabel(data.url)}
+                      >
+                        <SiteIcon icon={urlIcon} />
+                      </a>
+                    </Tooltip>
+                  ) : (
+                    <a href={data.url} target="_blank" rel="noreferrer">
+                      {linkLabel(data.url)}
+                    </a>
+                  )}
                 </span>
               </div>
             )}
@@ -354,6 +373,13 @@ const XxxMovieDetailsContent = () => {
           }))}
         />
       )}
+      {/* The StashDB scenes the movie is cut into */}
+      <SceneSlider
+        sliderKey="xxx-movie-scenes"
+        title={intl.formatMessage(messages.scenes)}
+        url={`/api/v1/scene/movie/${data.id}`}
+        hideWhenEmpty
+      />
       <XxxMovieSlider
         sliderKey="xxx-recommendations"
         title={intl.formatMessage(messages.recommendations)}

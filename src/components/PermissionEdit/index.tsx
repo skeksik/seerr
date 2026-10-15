@@ -1,5 +1,6 @@
 import type { PermissionItem } from '@app/components/PermissionOption';
 import PermissionOption from '@app/components/PermissionOption';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import type { User } from '@app/hooks/useUser';
 import { Permission } from '@app/hooks/useUser';
@@ -104,6 +105,7 @@ export const PermissionEdit = ({
   onUpdate,
 }: PermissionEditProps) => {
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const settings = useSettings();
 
   const permissionList: PermissionItem[] = [
@@ -358,7 +360,7 @@ export const PermissionEdit = ({
         },
       ],
     },
-    ...(settings.currentSettings.enableAdult
+    ...(settings.currentSettings.enableAdult && !safeMode
       ? [
           {
             id: 'adult',

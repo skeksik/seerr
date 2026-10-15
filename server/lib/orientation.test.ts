@@ -76,7 +76,7 @@ describe('classifyScene', () => {
       'straight',
       'lesbian',
     ]);
-    assert.deepStrictEqual(classifyScene(scene([]), tagIds), []);
+    assert.deepStrictEqual(classifyScene(scene([]), tagIds), ['unidentified']);
   });
 
   it('counts performers StashDB is missing', () => {
@@ -104,7 +104,9 @@ describe('classifyMovie', () => {
     ]);
     assert.deepStrictEqual(classifyMovie(movie([], ['Futanari'])), ['futa']);
     // Not an orientation
-    assert.deepStrictEqual(classifyMovie(movie([], ['Straight Hair'])), []);
+    assert.deepStrictEqual(classifyMovie(movie([], ['Straight Hair'])), [
+      'unidentified',
+    ]);
   });
 
   it('reads the cast, whatever the case of the gender', () => {
@@ -115,7 +117,9 @@ describe('classifyMovie', () => {
       classifyMovie(movie(['Transgender Female', 'Male'])),
       ['trans']
     );
-    assert.deepStrictEqual(classifyMovie(movie([null, null])), []);
+    assert.deepStrictEqual(classifyMovie(movie([null, null])), [
+      'unidentified',
+    ]);
   });
 });
 
@@ -125,7 +129,7 @@ describe('isHidden', () => {
   it('shows titles suiting any shown audience', () => {
     assert.strictEqual(isHidden(['straight', 'lesbian'], hidden), false);
     assert.strictEqual(isHidden(['gay'], hidden), true);
-    assert.strictEqual(isHidden([], hidden), false);
+    assert.strictEqual(isHidden(['unidentified'], hidden), false);
   });
 
   it('hides titles with a hidden feature', () => {
@@ -167,9 +171,13 @@ describe('hiddenOrientations', () => {
     assert.deepStrictEqual([...hiddenOrientations(u)].sort(), ['futa', 'gay']);
     assert.deepStrictEqual(
       [...hiddenOrientations(u, 'gay,futa,straight')].sort(),
-      ['bisexual', 'futa', 'lesbian', 'trans']
+      ['bisexual', 'futa', 'lesbian', 'trans', 'unidentified']
     );
-    assert.deepStrictEqual([...hiddenOrientations(u, 'none')].length, 6);
+    // A pick that shows nothing counts as no pick
+    assert.deepStrictEqual([...hiddenOrientations(u, 'none')].sort(), [
+      'futa',
+      'gay',
+    ]);
   });
 
   it('hides nothing by default', () => {

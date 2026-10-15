@@ -7852,7 +7852,17 @@ paths:
           name: sort
           schema:
             type: string
-            enum: [released, oldest, added, popularity, title, duration]
+            enum:
+              [
+                released,
+                oldest,
+                added,
+                added_asc,
+                duration,
+                duration_asc,
+                popularity,
+                title,
+              ]
             default: released
         - in: query
           name: studio
@@ -7992,6 +8002,44 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - in: query
+          name: studioExclude
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          schema:
+            type: string
+        - in: query
+          name: orientation
+          schema:
+            type: string
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - in: query
+          name: year
+          schema:
+            type: number
+        - in: query
+          name: tag
+          schema:
+            type: string
       responses:
         '200':
           description: Matches
@@ -8037,6 +8085,44 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - in: query
+          name: studioExclude
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          schema:
+            type: string
+        - in: query
+          name: orientation
+          schema:
+            type: string
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - in: query
+          name: year
+          schema:
+            type: number
+        - in: query
+          name: tag
+          schema:
+            type: string
       responses:
         '200':
           description: Matches
@@ -8082,6 +8168,44 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - in: query
+          name: studioExclude
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          schema:
+            type: string
+        - in: query
+          name: orientation
+          schema:
+            type: string
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - in: query
+          name: year
+          schema:
+            type: number
+        - in: query
+          name: tag
+          schema:
+            type: string
       responses:
         '200':
           description: Matches
@@ -8315,7 +8439,19 @@ paths:
           schema:
             type: string
             enum:
-              [trending, popularity, date, oldest, title, duration, created_at]
+              [
+                trending,
+                popularity,
+                popularity_asc,
+                date,
+                oldest,
+                title,
+                title_desc,
+                duration,
+                duration_asc,
+                created_at,
+                created_at_asc,
+              ]
             default: trending
         - in: query
           name: studio
@@ -8395,6 +8531,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneList'
+  /scene/movie/{movieId}:
+    get:
+      summary: Scenes of a ThePornDB movie
+      description: The StashDB scenes a ThePornDB movie is cut into, found by the fingerprints and studio pages ThePornDB keeps for them.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: movieId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Scenes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
   /scene/sites:
     get:
       summary: List StashDB sites with icons
@@ -8462,6 +8618,40 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - in: query
+          name: studioExclude
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          schema:
+            type: string
+        - in: query
+          name: orientation
+          schema:
+            type: string
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [after, before]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - in: query
+          name: tag
+          schema:
+            type: string
       responses:
         '200':
           description: Matches

@@ -7,6 +7,7 @@ import type {
   StashDbPerformer,
   StashDbScene,
 } from '@server/api/stashdb/interfaces';
+import TpdbAPI from '@server/api/tpdb';
 import { MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
@@ -29,6 +30,8 @@ const INCLUDED_TAG = '2a9b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 const EXCLUDED_TAG = '3b0c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e';
 const GAY_TAG = '237e0f29-4db5-4d01-af7c-a620a73ed432';
 const TRANS_TAG = 'dc81ff52-bad0-4441-b20c-fd258b087d77';
+const BI_TAG = '5e40c383-990a-4889-8e7d-58177d92a8bf';
+const MOVIE_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
 
 const scene: StashDbScene = {
   id: SCENE_ID,
@@ -340,7 +343,7 @@ describe('GET /scene/discover', () => {
       performerIds: undefined,
       tagIds: [],
       any: { performers: false, tags: false },
-      exclude: { studioIds: undefined, performerIds: undefined, tagIds: [] },
+      exclude: { studioIds: [], performerIds: [], tagIds: [] },
       date: undefined,
     });
   });
@@ -411,6 +414,45 @@ describe('GET /scene/discover', () => {
       queryScenes.mock.calls[0].arguments[0]?.exclude?.tagIds,
       [TRANS_TAG]
     );
+  });
+
+  it('asks for a lone shown orientation next to all picked tags', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({
+      Bisexual: BI_TAG,
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      `/scene/discover?orientation=bisexual&tags=${INCLUDED_TAG}`
+    );
+
+    assert.strictEqual(res.status, 200);
+    const query = queryScenes.mock.calls[0].arguments[0];
+    assert.deepStrictEqual(query?.tagIds, [INCLUDED_TAG, BI_TAG]);
+    assert.strictEqual(query?.any?.tags, false);
+    assert.strictEqual(query?.perPage, 20);
+  });
+
+  it('reads denser pages when straight is hidden and cannot be narrowed', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({}));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      `/scene/discover?orientation=lesbian,gay&tags=${INCLUDED_TAG}`
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(queryScenes.mock.calls[0].arguments[0]?.perPage, 100);
   });
 
   it('maps release date bounds and upcoming scenes', async () => {
@@ -545,12 +587,10 @@ describe('GET /scene/lookup/:type', () => {
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body, [{ id: 'a', name: 'A' }]);
     // Tags need all of them, so the picked one stays in each count
-    assert.deepStrictEqual(countScenes.mock.calls[0].arguments[0]?.[1], {
-      studioIds: undefined,
-      performerIds: [SCENE_ID],
-      tagIds: [INCLUDED_TAG, 'b'],
-      any: { performers: false, tags: false },
-    });
+    const query = countScenes.mock.calls[0].arguments[0]?.[1];
+    assert.deepStrictEqual(query?.performerIds, [SCENE_ID]);
+    assert.deepStrictEqual(query?.tagIds, [INCLUDED_TAG, 'b']);
+    assert.deepStrictEqual(query?.any, { performers: false, tags: false });
   });
 
   it('checks nothing without other filters', async () => {
@@ -564,13 +604,53 @@ describe('GET /scene/lookup/:type', () => {
     );
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(
-      `/scene/lookup/studios?query=x&studio=${INCLUDED_TAG}`
-    );
+    const res = await agent.get('/scene/lookup/studios?query=x');
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.length, 1);
     assert.strictEqual(countScenes.mock.callCount(), 0);
+  });
+});
+
+describe('GET /scene/movie/:movieId', () => {
+  it('finds the scenes of a ThePornDB movie by fingerprint, then page', async () => {
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: 'key' };
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      id: MOVIE_ID,
+      _id: 1,
+      title: 'Movie',
+      type: 'Movie',
+      scenes: [
+        { id: 'a', hashes: [{ hash: 'abc', type: 'OSHASH' }] },
+        { id: 'b', url: 'https://studio.test/scene/b', hashes: [] },
+      ],
+    }));
+    const byFingerprint = mock.method(
+      StashDbAPI.prototype,
+      'findScenesByFingerprints',
+      async () => [[scene], []]
+    );
+    const byUrl = mock.method(
+      StashDbAPI.prototype,
+      'findScenesByUrls',
+      async () => [{ ...scene, id: 'other' }]
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/scene/movie/${MOVIE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      [SCENE_ID, 'other']
+    );
+    assert.deepStrictEqual(byFingerprint.mock.calls[0].arguments[0], [
+      [{ hash: 'abc', algorithm: 'OSHASH' }],
+      [],
+    ]);
+    assert.deepStrictEqual(byUrl.mock.calls[0].arguments[0], [
+      'https://studio.test/scene/b',
+    ]);
   });
 });
 
