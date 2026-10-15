@@ -378,7 +378,9 @@ sceneRoutes.get<{ sceneId: string }>(
   }
 );
 
-// Popular scenes ranked by how many tags they share with this one
+// Trending scenes ranked by how many tags they share with this one. Sorting
+// by popularity instead makes StashDB scan most of its catalogue when a
+// scene has many tags, which outlasts the request timeout
 sceneRoutes.get<{ sceneId: string }>(
   '/:sceneId/similar',
   async (req, res, next) => {
@@ -401,7 +403,7 @@ sceneRoutes.get<{ sceneId: string }>(
       const pool = tagIds.size
         ? await stashDb.queryScenes({
             perPage: SIMILAR_POOL,
-            sort: 'POPULARITY',
+            sort: 'TRENDING',
             tagIds: [...tagIds],
             any: { tags: true },
             withTags: true,

@@ -256,7 +256,7 @@ describe('GET /scene/:sceneId/recommendations', () => {
 });
 
 describe('GET /scene/:sceneId/similar', () => {
-  it('ranks popular scenes by shared tags', async () => {
+  it('ranks trending scenes by shared tags', async () => {
     mock.method(StashDbAPI.prototype, 'getScene', async () => ({
       ...scene,
       tags: [
@@ -274,10 +274,14 @@ describe('GET /scene/:sceneId/similar', () => {
       id: '01a138c1-a8cf-74b2-a8bb-e617e9c6f212',
       tags: [{ id: 'a' }, { id: 'b' }],
     };
-    mock.method(StashDbAPI.prototype, 'queryScenes', async () => ({
-      count: 3,
-      scenes: [one, scene, two],
-    }));
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({
+        count: 3,
+        scenes: [one, scene, two],
+      })
+    );
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(`/scene/${SCENE_ID}/similar?page=1`);
@@ -286,6 +290,10 @@ describe('GET /scene/:sceneId/similar', () => {
     assert.deepStrictEqual(
       res.body.results.map((r: { id: string }) => r.id),
       [two.id, one.id]
+    );
+    assert.strictEqual(
+      queryScenes.mock.calls[0].arguments[0]?.sort,
+      'TRENDING'
     );
   });
 });
