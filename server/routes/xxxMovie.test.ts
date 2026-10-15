@@ -226,6 +226,45 @@ describe('GET /xxxmovie/:id', () => {
     });
   });
 
+  it('finds StashDB performers ThePornDB does not link', async () => {
+    getSettings().stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'key',
+    };
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      ...movie,
+      performers: [
+        {
+          id: 'site-dragon',
+          _id: 2,
+          name: 'Little Dragon',
+          parent: {
+            id: 'dragon',
+            _id: 114293,
+            name: 'Little Dragon',
+            extras: { links: { IAFD: 'https://www.iafd.com/dragon' } },
+          },
+        },
+      ],
+    }));
+    mock.method(StashDbAPI.prototype, 'searchStudios', async () => []);
+    const find = mock.method(
+      StashDbAPI.prototype,
+      'findPerformerByLinks',
+      async () => ({ id: 'aaa97940', name: 'Little Dragon' })
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/xxxmovie/${MOVIE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.performers[0].stashDbId, 'aaa97940');
+    assert.deepStrictEqual(find.mock.calls[0].arguments, [
+      'Little Dragon',
+      ['https://www.iafd.com/dragon'],
+    ]);
+  });
+
   it('returns 404 for ids that are not UUIDs', async () => {
     const agent = await loginAs('admin@seerr.dev');
 
@@ -292,6 +331,7 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     mock.method(StashDbAPI.prototype, 'getPerformer', async () => ({
       id: STASH_ID,
       name: 'Erica Boyer',
+      urls: [{ url: 'https://www.iafd.com/erica', site: { name: 'IAFD' } }],
     }));
     const find = mock.method(
       TpdbAPI.prototype,
@@ -303,10 +343,15 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     const res = await agent.get(`/xxxmovie/match/performer/${STASH_ID}`);
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.body, { id: 99899, name: 'Erica Boyer' });
+    assert.deepStrictEqual(res.body, {
+      id: 99899,
+      name: 'Erica Boyer',
+      url: 'https://theporndb.net/performers/performer',
+    });
     assert.deepStrictEqual(find.mock.calls[0].arguments, [
       STASH_ID,
       'Erica Boyer',
+      ['https://www.iafd.com/erica'],
     ]);
   });
 

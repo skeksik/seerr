@@ -1,16 +1,19 @@
 import ExternalAPI from '@server/api/externalapi';
 import type {
   StashDbGraphqlResponse,
+  StashDbImage,
   StashDbPerformer,
   StashDbPerformerSummary,
   StashDbScene,
   StashDbSceneList,
   StashDbSceneSort,
   StashDbStudio,
+  StashDbStudioSummary,
   StashDbTag,
   StashDbVersion,
 } from '@server/api/stashdb/interfaces';
 import cacheManager from '@server/lib/cache';
+import { sameName, sharesLink } from '@server/lib/performerMatch';
 import { getSettings } from '@server/lib/settings';
 
 const IMAGE_FIELDS = 'id url width height';
@@ -276,6 +279,57 @@ class StashDbAPI extends ExternalAPI {
     return data.findStudio;
   }
 
+  // All studios, or the top-level ones, by name or newest first
+  public async queryStudios({
+    page = 1,
+    perPage = 40,
+    sort = 'NAME',
+    name,
+    topLevel = false,
+  }: {
+    page?: number;
+    perPage?: number;
+    sort?: 'NAME' | 'CREATED_AT';
+    name?: string;
+    topLevel?: boolean;
+  }): Promise<{
+    count: number;
+    studios: (StashDbStudioSummary & {
+      images: StashDbImage[];
+      child_studios: { id: string }[];
+    })[];
+  }> {
+    const data = await this.query<{
+      queryStudios: {
+        count: number;
+        studios: (StashDbStudioSummary & {
+          images: StashDbImage[];
+          child_studios: { id: string }[];
+        })[];
+      };
+    }>(
+      `query ($input: StudioQueryInput!) {
+        queryStudios(input: $input) {
+          count
+          studios { id name images { ${IMAGE_FIELDS} } child_studios { id } }
+        }
+      }`,
+      {
+        input: {
+          page,
+          per_page: perPage,
+          sort,
+          direction: sort === 'NAME' ? 'ASC' : 'DESC',
+          name: name || undefined,
+          has_parent: topLevel ? false : undefined,
+        },
+      },
+      LIST_TTL
+    );
+
+    return data.queryStudios;
+  }
+
   // Studios behind the trending scenes, most frequent first
   public async getTrendingStudios(): Promise<
     {
@@ -345,6 +399,41 @@ class StashDbAPI extends ExternalAPI {
       name: studio.name,
       disambiguation: studio.parent?.name,
     }));
+  }
+
+  // The performer of this name or alias that shares a profile link with
+  // the given ones, for performers ThePornDB does not link to StashDB
+  public async findPerformerByLinks(
+    name: string,
+    links: string[]
+  ): Promise<StashDbLookup | null> {
+    if (links.length === 0) {
+      return null;
+    }
+
+    const data = await this.query<{
+      searchPerformer: {
+        id: string;
+        name: string;
+        aliases: string[];
+        urls: { url: string }[];
+      }[];
+    }>(
+      'query ($term: String!) { searchPerformer(term: $term, limit: 10) { id name aliases urls { url } } }',
+      { term: name },
+      DETAILS_TTL
+    );
+
+    const match = data.searchPerformer.find(
+      (performer) =>
+        sameName(name, [performer.name, ...performer.aliases]) &&
+        sharesLink(
+          links,
+          performer.urls.map(({ url }) => url)
+        )
+    );
+
+    return match ? { id: match.id, name: match.name } : null;
   }
 
   public async searchPerformers(term: string): Promise<StashDbLookup[]> {

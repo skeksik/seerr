@@ -98,6 +98,35 @@ describe('TpdbAPI', () => {
     assert.strictEqual(performer?._id, 2);
   });
 
+  it('falls back to a same-named performer with a shared link', async () => {
+    stubGet({
+      data: [
+        {
+          id: 'a',
+          _id: 1,
+          name: 'Gal Ritchie',
+          extras: { links: { IAFD: 'https://www.iafd.com/other' } },
+        },
+        {
+          id: 'b',
+          _id: 2,
+          name: 'Gal Ritchie',
+          extras: {
+            links: { Babepedia: 'https://www.babepedia.com/babe/Gal_Richie' },
+          },
+        },
+      ],
+    });
+
+    const performer = await new TpdbAPI({
+      apiKey: 'key',
+    }).findPerformerByStashDbId('05d78e11', 'Gal Ritchie', [
+      'https://babepedia.com/babe/gal_richie',
+    ]);
+
+    assert.strictEqual(performer?._id, 2);
+  });
+
   it('matches sites on their name, exact case first', async () => {
     stubGet({
       data: [
