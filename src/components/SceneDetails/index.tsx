@@ -102,7 +102,9 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
 
   if (data.studio) {
     attributes.push(
-      <Link href={`/scenes/studio/${data.studio.id}`}>{data.studio.name}</Link>
+      <Link href={`/discover/scenes/studio/${data.studio.id}`}>
+        {data.studio.name}
+      </Link>
     );
   }
 
@@ -261,7 +263,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
                 (tag) => (
                   <Link
-                    href={`/scenes?tags=${tag.id}`}
+                    href={`/discover/scenes?tags=${tag.id}`}
                     key={`tag-${tag.id}`}
                     className="mb-2 mr-2 inline-flex last:mr-0"
                   >
@@ -286,7 +288,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
         <div className="media-overview-right">
           {data.studio && (
             <StudioBanner
-              href={`/scenes/studio/${data.studio.id}`}
+              href={`/discover/scenes/studio/${data.studio.id}`}
               studio={data.studio.name}
               studioId={data.studio.id}
               mediaType="scene"
@@ -334,7 +336,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.studio)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/scenes/studio/${data.studio.id}`}>
+                  <Link href={`/discover/scenes/studio/${data.studio.id}`}>
                     {data.studio.name}
                   </Link>
                 </span>
@@ -344,7 +346,9 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.network)}</span>
                 <span className="media-fact-value">
-                  <Link href={`/scenes/studio/${data.studio.parent.id}`}>
+                  <Link
+                    href={`/discover/scenes/studio/${data.studio.parent.id}`}
+                  >
                     {data.studio.parent.name}
                   </Link>
                 </span>
@@ -418,7 +422,7 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
             id: performer.id,
             name: performer.name,
             subName: performer.as ?? performer.disambiguation,
-            href: `/scenes/performer/${performer.id}`,
+            href: `/discover/scenes/performer/${performer.id}`,
             imageUrl: stashImageUrl(performer.imageUrl, 300),
           }))}
         />

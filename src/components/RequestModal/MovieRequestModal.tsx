@@ -62,7 +62,7 @@ const MovieRequestModal = ({
   const { data, error } = useSWR<MovieDetails>(`/api/v1/movie/${tmdbId}`, {
     revalidateOnMount: true,
   });
-  // Mirrors the server: adult movies go to the default Whisparr when there is one
+  // Mirrors the server: Adult movies go to the default Whisparr when there is one
   const { data: whisparrServers } = useSWR<ServiceCommonServer[]>(
     data?.adult ? '/api/v1/service/whisparr' : null
   );

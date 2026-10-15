@@ -6,8 +6,8 @@ import useAdult from '@app/hooks/useAdult';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useIntl } from 'react-intl';
@@ -18,14 +18,14 @@ const messages = defineMessages('components.AdultCast', {
 });
 
 interface AdultCastProps {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
 }
 
 const AdultCastContent = ({ mediaType }: AdultCastProps) => {
   const router = useRouter();
   const intl = useIntl();
-  const id = router.query[mediaType === 'scene' ? 'sceneId' : 'xxxMovieId'];
-  const { data, error } = useSWR<SceneDetails | XxxMovieDetails>(
+  const id = router.query[mediaType === 'scene' ? 'sceneId' : 'adultMovieId'];
+  const { data, error } = useSWR<SceneDetails | AdultMovieDetails>(
     id ? `/api/v1/${mediaType}/${id}` : null
   );
 
@@ -59,7 +59,7 @@ const AdultCastContent = ({ mediaType }: AdultCastProps) => {
                   personId={performer.id}
                   name={performer.name}
                   subName={performer.as ?? performer.disambiguation}
-                  href={`/scenes/performer/${performer.id}`}
+                  href={`/discover/scenes/performer/${performer.id}`}
                   image={
                     performer.imageUrl
                       ? {
@@ -77,7 +77,7 @@ const AdultCastContent = ({ mediaType }: AdultCastProps) => {
                 <PersonCard
                   personId={performer.id}
                   name={performer.name}
-                  href={`/xxxmovies/performer/${performer.tpdbId}`}
+                  href={`/discover/adultmovies/performer/${performer.tpdbId}`}
                   image={
                     performer.imageUrl
                       ? { src: performer.imageUrl, type: 'tpdb' }
@@ -92,7 +92,7 @@ const AdultCastContent = ({ mediaType }: AdultCastProps) => {
   );
 };
 
-// The movie Full Cast page, for scene and XXX movie performers
+// The movie Full Cast page, for scene and adult movie performers
 const AdultCast = ({ mediaType }: AdultCastProps) => {
   const canViewAdult = useAdult();
 

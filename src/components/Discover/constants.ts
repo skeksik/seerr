@@ -95,10 +95,10 @@ export const sliderTitles = defineMessages('components.Discover', {
   adultStudios: 'Studios',
   adultNetworks: 'Networks',
   // The editor also lists the TMDB studio and network rows
-  adultStudiosEdit: 'Studios (XXX)',
-  adultNetworksEdit: 'Networks (XXX)',
-  newXxxMovies: 'New XXX Movies',
-  upcomingXxxMovies: 'Upcoming XXX Movies',
+  adultStudiosEdit: 'Studios (Adult)',
+  adultNetworksEdit: 'Networks (Adult)',
+  newAdultMovies: 'New Adult Movies',
+  upcomingAdultMovies: 'Upcoming Adult Movies',
 });
 
 export const QueryFilterOptions = z.object({

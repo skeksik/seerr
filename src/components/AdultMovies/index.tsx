@@ -13,12 +13,12 @@ import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { BarsArrowDownIcon, FunnelIcon } from '@heroicons/react/24/solid';
-import type { XxxMovieResult } from '@server/models/XxxMovie';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
-const messages = defineMessages('components.XxxMovies', {
+const messages = defineMessages('components.AdultMovies', {
   sortReleasedDesc: 'Release Date Descending',
   sortReleasedAsc: 'Release Date Ascending',
   sortAddedDesc: 'Date Added Descending',
@@ -30,7 +30,7 @@ const messages = defineMessages('components.XxxMovies', {
 });
 
 // ThePornDB has no popularity or title order
-export const xxxMovieSortOptions = [
+export const adultMovieSortOptions = [
   ['released', messages.sortReleasedDesc],
   ['oldest', messages.sortReleasedAsc],
   ['added', messages.sortAddedDesc],
@@ -39,12 +39,12 @@ export const xxxMovieSortOptions = [
   ['duration_asc', messages.sortDurationAsc],
 ] as const;
 
-const XxxMoviesContent = () => {
+const AdultMoviesContent = () => {
   const intl = useIntl();
   const router = useRouter();
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
-  const sorts = xxxMovieSortOptions;
+  const sorts = adultMovieSortOptions;
 
   const sort =
     typeof router.query.sort === 'string' &&
@@ -65,7 +65,7 @@ const XxxMoviesContent = () => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<XxxMovieResult>('/api/v1/xxxmovie/discover', {
+  } = useDiscover<AdultMovieResult>('/api/v1/adultmovie/discover', {
     ...filters,
     sort,
   });
@@ -74,7 +74,7 @@ const XxxMoviesContent = () => {
     return <ErrorPage statusCode={500} />;
   }
 
-  const title = intl.formatMessage(globalMessages.xxxMovies);
+  const title = intl.formatMessage(globalMessages.adultMovies);
 
   return (
     <>
@@ -131,14 +131,14 @@ const XxxMoviesContent = () => {
 };
 
 // Hooks above fetch unconditionally, so gate before mounting them
-const XxxMovies = () => {
+const AdultMovies = () => {
   const canViewAdult = useAdult();
 
   if (!canViewAdult) {
     return <ErrorPage statusCode={404} />;
   }
 
-  return <XxxMoviesContent />;
+  return <AdultMoviesContent />;
 };
 
-export default XxxMovies;
+export default AdultMovies;

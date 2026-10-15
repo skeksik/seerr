@@ -6,7 +6,7 @@ import { mediaExistsInWhisparr } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 
 // A scene stays available while Stash still has it or Whisparr still has its
-// file; XXX movies only live in Whisparr. Lookup failures count as present so
+// file; adult movies only live in Whisparr. Lookup failures count as present so
 // an outage never deletes media.
 export const syncSceneAvailability = async (media: Media): Promise<void> => {
   let inStash = false;

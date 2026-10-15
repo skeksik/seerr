@@ -32,7 +32,7 @@ const isTvDetails = (data: MovieDetails | TvDetails): data is TvDetails =>
 const useIssueMedia = (media: Media | undefined, load = true): IssueMedia => {
   const isAdult =
     media?.mediaType === MediaType.SCENE ||
-    media?.mediaType === MediaType.XXX_MOVIE;
+    media?.mediaType === MediaType.ADULT_MOVIE;
   const { data, error } = useSWR<MovieDetails | TvDetails>(
     load && media && !isAdult && media.tmdbId
       ? `/api/v1/${media.mediaType}/${media.tmdbId}`

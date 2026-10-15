@@ -1,3 +1,4 @@
+import AdultMovieSlider from '@app/components/AdultMovies/AdultMovieSlider';
 import AdultProfileLinks from '@app/components/AdultProfileLinks';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
@@ -9,7 +10,6 @@ import CompanyCard from '@app/components/CompanyCard';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
 import Slider from '@app/components/Slider';
-import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
@@ -60,7 +60,7 @@ const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   monitorSuccess: 'Whisparr is now monitoring <strong>{name}</strong>.',
   unmonitorSuccess: 'Whisparr stopped monitoring <strong>{name}</strong>.',
   monitorError: 'Something went wrong while updating Whisparr.',
-  xxxMovies: 'XXX Movies',
+  adultMovies: 'Adult Movies',
   studios: 'Studios',
 });
 
@@ -216,7 +216,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
   );
   // Movies come from ThePornDB, where performers and studios have own ids
   const { data: tpdbMatch } = useSWR<{ id: number; url?: string }>(
-    id ? `/api/v1/xxxmovie/match/${type}/${id}` : null,
+    id ? `/api/v1/adultmovie/match/${type}/${id}` : null,
     { shouldRetryOnError: false }
   );
   // The slider's own request, so both share it
@@ -278,7 +278,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
       studio: (
         <Link
           key="parent"
-          href={`/scenes/studio/${data.parent.id}`}
+          href={`/discover/scenes/studio/${data.parent.id}`}
           className="font-semibold hover:underline"
         >
           {data.parent.name}
@@ -358,10 +358,10 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
               {tpdbMatch && (
                 // Their ThePornDB page, with bio and movies
-                <Link href={`/xxxmovies/${type}/${tpdbMatch.id}`}>
+                <Link href={`/discover/adultmovies/${type}/${tpdbMatch.id}`}>
                   <Button buttonType="ghost">
                     <FilmIcon />
-                    <span>{intl.formatMessage(messages.xxxMovies)}</span>
+                    <span>{intl.formatMessage(messages.adultMovies)}</span>
                   </Button>
                 </Link>
               )}
@@ -384,7 +384,7 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           <>
             <div className="slider-header">
               <Link
-                href={`/scenes/studio/${data.id}/studios`}
+                href={`/discover/scenes/studio/${data.id}/studios`}
                 className="slider-title"
               >
                 <span>{intl.formatMessage(messages.studios)}</span>
@@ -402,12 +402,12 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
                     name={studio.name}
                     image={stashImageUrl(studio.imageUrl, 300)}
                     imageType="stashdb"
-                    url={`/scenes/studio/${studio.id}`}
+                    url={`/discover/scenes/studio/${studio.id}`}
                   />
                 )),
                 <SeeAllStudiosCard
                   key="network-studios-all"
-                  url={`/scenes/studio/${data.id}/studios`}
+                  url={`/discover/scenes/studio/${data.id}/studios`}
                 />,
               ]}
             />
@@ -418,14 +418,14 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           sliderKey={`scenes-${type}-${data.id}`}
           title={intl.formatMessage(messages.scenes)}
           url={scenesUrl}
-          linkUrl={`/scenes?sort=date&${type}=${data.id}`}
+          linkUrl={`/discover/scenes?sort=date&${type}=${data.id}`}
         />
         {tpdbMatch && (
-          <XxxMovieSlider
-            sliderKey={`xxx-${type}-${tpdbMatch.id}`}
-            title={intl.formatMessage(messages.xxxMovies)}
-            url={`/api/v1/xxxmovie/discover?page=1&${type}=${tpdbMatch.id}`}
-            linkUrl={`/xxxmovies?${type}=${tpdbMatch.id}`}
+          <AdultMovieSlider
+            sliderKey={`adult-${type}-${tpdbMatch.id}`}
+            title={intl.formatMessage(messages.adultMovies)}
+            url={`/api/v1/adultmovie/discover?page=1&${type}=${tpdbMatch.id}`}
+            linkUrl={`/discover/adultmovies?${type}=${tpdbMatch.id}`}
             hideWhenEmpty
           />
         )}

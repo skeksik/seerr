@@ -105,7 +105,7 @@ class WhisparrScanner
     }
   }
 
-  // Movies become XXX movies when ThePornDB knows them, unless an adult TMDB
+  // Movies become adult movies when ThePornDB knows them, unless an adult TMDB
   // movie already tracks them; otherwise they are TMDB movies
   private async processMovieItem(item: WhisparrItem, is4k: boolean) {
     const hasTmdb = item.tmdbId > 0;
@@ -128,17 +128,22 @@ class WhisparrScanner
       }));
 
     if (!trackedByTmdb) {
-      await this.processExternal(item, is4k, MediaType.XXX_MOVIE, item.tpdbId);
+      await this.processExternal(
+        item,
+        is4k,
+        MediaType.ADULT_MOVIE,
+        item.tpdbId
+      );
     } else {
       await this.processAdultMovie(item, is4k);
     }
   }
 
-  // Scenes and XXX movies, keyed by their stash-box or ThePornDB id
+  // Scenes and adult movies, keyed by their stash-box or ThePornDB id
   private async processExternal(
     item: WhisparrItem,
     is4k: boolean,
-    mediaType: MediaType.SCENE | MediaType.XXX_MOVIE,
+    mediaType: MediaType.SCENE | MediaType.ADULT_MOVIE,
     externalId: string
   ) {
     const mediaRepository = getRepository(Media);
@@ -154,7 +159,7 @@ class WhisparrScanner
           mediaType,
           [idField]: externalId,
           tmdbId: null,
-          isAdult: mediaType === MediaType.XXX_MOVIE,
+          isAdult: mediaType === MediaType.ADULT_MOVIE,
         });
       const requested = (media.requests ?? []).length > 0;
 

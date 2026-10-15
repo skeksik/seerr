@@ -102,7 +102,7 @@ const StatusBadge = ({
     });
   } else if (hasPermission(Permission.MANAGE_REQUESTS)) {
     const manageId =
-      mediaType === 'scene' || mediaType === 'xxxmovie' ? externalId : tmdbId;
+      mediaType === 'scene' || mediaType === 'adultmovie' ? externalId : tmdbId;
 
     if (mediaType && manageId) {
       mediaLink = `/${mediaType}/${manageId}?manage=1`;
@@ -114,7 +114,7 @@ const StatusBadge = ({
               ? globalMessages.tvshow
               : mediaType === 'scene'
                 ? globalMessages.scene
-                : globalMessages.xxxMovie
+                : globalMessages.adultMovie
         ),
       });
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
@@ -122,7 +122,7 @@ const StatusBadge = ({
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
         arr:
           serviceName ??
-          (mediaType === 'scene' || mediaType === 'xxxmovie'
+          (mediaType === 'scene' || mediaType === 'adultmovie'
             ? 'Whisparr'
             : mediaType === 'movie'
               ? 'Radarr'

@@ -15,5 +15,5 @@ export const isAdultMedia = (
   media: Pick<Media, 'mediaType' | 'isAdult'>
 ): boolean =>
   media.mediaType === MediaType.SCENE ||
-  media.mediaType === MediaType.XXX_MOVIE ||
+  media.mediaType === MediaType.ADULT_MOVIE ||
   media.isAdult;

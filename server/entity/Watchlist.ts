@@ -49,7 +49,7 @@ export class Watchlist implements WatchlistItem {
   @Column({ type: 'varchar' })
   title = '';
 
-  // Null for scenes and XXX movies, which are keyed by externalId
+  // Null for scenes and adult movies, which are keyed by externalId
   @Column({ type: 'int', nullable: true })
   @Index()
   public tmdbId: number | null;

@@ -75,7 +75,7 @@ const RecentlyAddedSlider = () => {
       <RecentRow
         sliderKey="media"
         title={intl.formatMessage(messages.recentlyAdded)}
-        url={`${RECENT_URL}&mediaType=movie%2Ctv%2Cxxxmovie`}
+        url={`${RECENT_URL}&mediaType=movie%2Ctv%2Cadultmovie`}
       />
       {canViewAdult && (
         <RecentRow

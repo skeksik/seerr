@@ -17,15 +17,15 @@ import useSWR, { mutate } from 'swr';
 
 const messages = defineMessages('components.RequestModal.SceneRequestModal', {
   requestscenetitle: 'Request Scene',
-  requestxxxmovietitle: 'Request XXX Movie',
+  requestadultmovietitle: 'Request Adult Movie',
   requestadmin: 'This request will be approved automatically.',
   requestSuccess: '<strong>{title}</strong> requested successfully!',
   requesterror: 'Something went wrong while submitting the request.',
 });
 
-// Scenes and XXX movies share this modal; both go to Whisparr
+// Scenes and adult movies share this modal; both go to Whisparr
 export interface AdultRequestItem {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   // StashDB scene id or ThePornDB movie id
   id: string;
   title: string;
@@ -54,7 +54,7 @@ const SceneRequestModal = ({
       ? `/api/v1/user/${overrides?.user?.id ?? user.id}/quota`
       : null
   );
-  // XXX movies share the movie quota
+  // Adult movies share the movie quota
   const itemQuota = item.mediaType === 'scene' ? quota?.scene : quota?.movie;
 
   const hasAutoApprove = hasPermission(
@@ -109,7 +109,7 @@ const SceneRequestModal = ({
       title={intl.formatMessage(
         item.mediaType === 'scene'
           ? messages.requestscenetitle
-          : messages.requestxxxmovietitle
+          : messages.requestadultmovietitle
       )}
       subTitle={item.title}
       okText={

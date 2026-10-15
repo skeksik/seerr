@@ -12,14 +12,14 @@ export enum MediaType {
   // Adult scene identified by its stash-box (StashDB) UUID, not a TMDB id
   SCENE = 'scene',
   // Adult movie identified by its ThePornDB UUID, not a TMDB id
-  XXX_MOVIE = 'xxxmovie',
+  ADULT_MOVIE = 'adultmovie',
 }
 
 // Adult media types keyed by an external id and handled by Whisparr
-export type AdultMediaType = MediaType.SCENE | MediaType.XXX_MOVIE;
+export type AdultMediaType = MediaType.SCENE | MediaType.ADULT_MOVIE;
 
 export const isAdultMediaType = (type: MediaType): type is AdultMediaType =>
-  type === MediaType.SCENE || type === MediaType.XXX_MOVIE;
+  type === MediaType.SCENE || type === MediaType.ADULT_MOVIE;
 
 // Media types whose metadata comes from TMDB
 export type TmdbMediaType = MediaType.MOVIE | MediaType.TV;

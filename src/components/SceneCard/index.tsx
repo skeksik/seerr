@@ -1,5 +1,5 @@
+import { adultSubtitle } from '@app/components/AdultMovieCard';
 import TitleCard from '@app/components/TitleCard';
-import { adultSubtitle } from '@app/components/XxxMovieCard';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { withProperties } from '@app/utils/typeHelpers';
 import type { SceneResult } from '@server/models/Scene';

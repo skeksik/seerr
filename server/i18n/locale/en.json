@@ -32,6 +32,7 @@
   "notifications.agents.webpush.pending": "Approval required for a new {quality}{mediaType} request from {userName}.",
   "notifications.agents.webpush.viewIssue": "View Issue",
   "notifications.agents.webpush.viewMedia": "View Media",
+  "notifications.common.adultMovie": "Adult movie",
   "notifications.common.available": "Available",
   "notifications.common.commentFrom": "Comment from {userName}",
   "notifications.common.declined": "Declined",
@@ -53,7 +54,6 @@
   "notifications.common.series": "series",
   "notifications.common.viewIssue": "View Issue in {applicationTitle}",
   "notifications.common.viewMedia": "View Media in {applicationTitle}",
-  "notifications.common.xxxMovie": "XXX movie",
   "notifications.test.message": "Check check, 1, 2, 3. Are we coming in clear?",
   "notifications.test.subject": "Test Notification"
 }

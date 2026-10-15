@@ -13,7 +13,7 @@ const messages = defineMessages('components.AdultMediaActions', {
 });
 
 interface AdultIssueButtonProps {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   id: string;
   status?: MediaStatus;
 }

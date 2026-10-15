@@ -28,15 +28,15 @@ export enum DiscoverSliderType {
   UPCOMING_SCENES,
   ADULT_STUDIOS,
   ADULT_NETWORKS,
-  NEW_XXX_MOVIES,
-  // Retired with the TMDB source for XXX movies; kept so the types after it
+  NEW_ADULT_MOVIES,
+  // Retired with the TMDB source for adult movies; kept so the types after it
   // keep their stored numbers
-  POPULAR_XXX_MOVIES,
-  UPCOMING_XXX_MOVIES,
+  POPULAR_ADULT_MOVIES,
+  UPCOMING_ADULT_MOVIES,
 }
 
 // Removed from existing installs at startup
-export const retiredSliderTypes = [DiscoverSliderType.POPULAR_XXX_MOVIES];
+export const retiredSliderTypes = [DiscoverSliderType.POPULAR_ADULT_MOVIES];
 
 // Only shown to users with adult access
 export const adultSliderTypes = [
@@ -46,8 +46,8 @@ export const adultSliderTypes = [
   DiscoverSliderType.UPCOMING_SCENES,
   DiscoverSliderType.ADULT_STUDIOS,
   DiscoverSliderType.ADULT_NETWORKS,
-  DiscoverSliderType.NEW_XXX_MOVIES,
-  DiscoverSliderType.UPCOMING_XXX_MOVIES,
+  DiscoverSliderType.NEW_ADULT_MOVIES,
+  DiscoverSliderType.UPCOMING_ADULT_MOVIES,
 ];
 
 export const isAdultSliderType = (type: DiscoverSliderType): boolean =>

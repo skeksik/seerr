@@ -65,19 +65,19 @@ const Scenes = () => {
         sliderKey="scenes-trending"
         title={intl.formatMessage(messages.trending)}
         url={TRENDING_URL}
-        linkUrl="/scenes?sort=trending"
+        linkUrl="/discover/scenes?sort=trending"
       />
       <SceneSlider
         sliderKey="scenes-new"
         title={intl.formatMessage(messages.newreleases)}
         url="/api/v1/scene/discover?sort=date&page=1"
-        linkUrl="/scenes?sort=date"
+        linkUrl="/discover/scenes?sort=date"
       />
       <SceneSlider
         sliderKey="scenes-popular"
         title={intl.formatMessage(messages.popular)}
         url="/api/v1/scene/discover?sort=popularity&page=1"
-        linkUrl="/scenes?sort=popularity"
+        linkUrl="/discover/scenes?sort=popularity"
       />
     </>
   );

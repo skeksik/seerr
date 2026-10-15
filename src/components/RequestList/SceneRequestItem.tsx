@@ -38,7 +38,7 @@ const messages = defineMessages('components.RequestList.SceneRequestItem', {
   failedretry: 'Something went wrong while retrying the request.',
   removemediaerror: 'Something went wrong while removing the media.',
   unknownscene: 'Unknown Scene',
-  unknownxxxmovie: 'Unknown XXX Movie',
+  unknownadultmovie: 'Unknown Adult Movie',
 });
 
 interface SceneRequestItemProps {
@@ -46,7 +46,7 @@ interface SceneRequestItemProps {
   revalidateList: () => void;
 }
 
-// Scenes and XXX movies have no TMDB data, seasons or 4K tier, so they get
+// Scenes and adult movies have no TMDB data, seasons or 4K tier, so they get
 // their own row
 const SceneRequestItem = ({
   request,
@@ -105,7 +105,7 @@ const SceneRequestItem = ({
     intl.formatMessage(
       request.type === 'scene'
         ? messages.unknownscene
-        : messages.unknownxxxmovie
+        : messages.unknownadultmovie
     );
   const href = item.href;
   // Avatar and name, as on movie and series requests
@@ -216,7 +216,7 @@ const SceneRequestItem = ({
                 downloadItem={data.media.downloadStatus}
                 title={title}
                 inProgress={(data.media.downloadStatus ?? []).length > 0}
-                mediaType={request.type === 'scene' ? 'scene' : 'xxxmovie'}
+                mediaType={request.type === 'scene' ? 'scene' : 'adultmovie'}
                 externalId={data.media.stashId ?? data.media.tpdbId}
                 serviceUrl={data.media.serviceUrl}
                 plexUrl={data.media.mediaUrl}

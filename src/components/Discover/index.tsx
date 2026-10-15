@@ -1,3 +1,4 @@
+import AdultMovieSlider from '@app/components/AdultMovies/AdultMovieSlider';
 import Button from '@app/components/Common/Button';
 import ConfirmButton from '@app/components/Common/ConfirmButton';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -16,7 +17,6 @@ import { sliderTitles } from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
 import AdultStudioSlider from '@app/components/Scenes/AdultStudioSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
-import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
 import useToasts from '@app/hooks/useToasts';
@@ -417,7 +417,7 @@ const Discover = () => {
                 sliderKey="trending-scenes"
                 title={intl.formatMessage(sliderTitles.trendingScenes)}
                 url="/api/v1/scene/discover?sort=trending&page=1"
-                linkUrl="/scenes?sort=trending"
+                linkUrl="/discover/scenes?sort=trending"
               />
             );
             break;
@@ -427,7 +427,7 @@ const Discover = () => {
                 sliderKey="popular-scenes"
                 title={intl.formatMessage(sliderTitles.popularScenes)}
                 url="/api/v1/scene/discover?sort=popularity&page=1"
-                linkUrl="/scenes?sort=popularity"
+                linkUrl="/discover/scenes?sort=popularity"
               />
             );
             break;
@@ -437,7 +437,7 @@ const Discover = () => {
                 sliderKey="new-scenes"
                 title={intl.formatMessage(sliderTitles.newScenes)}
                 url={`/api/v1/scene/discover?sort=date&released=before&releaseDate=${upcomingDate}&page=1`}
-                linkUrl={`/scenes?sort=date&released=before&releaseDate=${upcomingDate}`}
+                linkUrl={`/discover/scenes?sort=date&released=before&releaseDate=${upcomingDate}`}
               />
             );
             break;
@@ -447,7 +447,7 @@ const Discover = () => {
                 sliderKey="upcoming-scenes"
                 title={intl.formatMessage(sliderTitles.upcomingScenes)}
                 url="/api/v1/scene/discover?upcoming=true&page=1"
-                linkUrl={`/scenes?sort=oldest&releaseDate=${upcomingDate}`}
+                linkUrl={`/discover/scenes?sort=oldest&releaseDate=${upcomingDate}`}
                 hideWhenEmpty
               />
             );
@@ -468,23 +468,23 @@ const Discover = () => {
               />
             );
             break;
-          case DiscoverSliderType.NEW_XXX_MOVIES:
+          case DiscoverSliderType.NEW_ADULT_MOVIES:
             sliderComponent = (
-              <XxxMovieSlider
-                sliderKey="new-xxx-movies"
-                title={intl.formatMessage(sliderTitles.newXxxMovies)}
-                url="/api/v1/xxxmovie/discover?sort=released&page=1"
-                linkUrl="/xxxmovies?sort=released"
+              <AdultMovieSlider
+                sliderKey="new-adult-movies"
+                title={intl.formatMessage(sliderTitles.newAdultMovies)}
+                url="/api/v1/adultmovie/discover?sort=released&page=1"
+                linkUrl="/discover/adultmovies?sort=released"
               />
             );
             break;
-          case DiscoverSliderType.UPCOMING_XXX_MOVIES:
+          case DiscoverSliderType.UPCOMING_ADULT_MOVIES:
             sliderComponent = (
-              <XxxMovieSlider
-                sliderKey="upcoming-xxx-movies"
-                title={intl.formatMessage(sliderTitles.upcomingXxxMovies)}
-                url="/api/v1/xxxmovie/discover?upcoming=true&page=1"
-                linkUrl={`/xxxmovies?sort=oldest&releaseDate=${upcomingDate}`}
+              <AdultMovieSlider
+                sliderKey="upcoming-adult-movies"
+                title={intl.formatMessage(sliderTitles.upcomingAdultMovies)}
+                url="/api/v1/adultmovie/discover?upcoming=true&page=1"
+                linkUrl={`/discover/adultmovies?sort=oldest&releaseDate=${upcomingDate}`}
                 hideWhenEmpty
               />
             );

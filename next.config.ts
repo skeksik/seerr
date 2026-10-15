@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
       { hostname: 'plex.tv' },
     ],
   },
+  // Adult tabs moved under Discover, and XXX movies became adult movies
+  async redirects() {
+    return [
+      ['/scenes/browse', '/discover/scenes'],
+      ['/scenes/:path*', '/discover/scenes/:path*'],
+      ['/xxxmovies/:path*', '/discover/adultmovies/:path*'],
+      ['/xxxmovie/:path*', '/adultmovie/:path*'],
+    ].map(([source, destination]) => ({
+      source,
+      destination,
+      permanent: false,
+    }));
+  },
   transpilePackages: ['country-flag-icons'],
   turbopack: {
     rules: {

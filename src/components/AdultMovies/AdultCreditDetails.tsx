@@ -1,3 +1,4 @@
+import AdultMovieSlider from '@app/components/AdultMovies/AdultMovieSlider';
 import AdultProfileLinks from '@app/components/AdultProfileLinks';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
@@ -8,7 +9,6 @@ import CompanyCard from '@app/components/CompanyCard';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
 import Slider from '@app/components/Slider';
-import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
@@ -16,17 +16,17 @@ import defineMessages from '@app/utils/defineMessages';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 import { FilmIcon } from '@heroicons/react/24/solid';
 import type {
-  XxxPerformerDetails,
-  XxxStudioDetails,
-} from '@server/models/XxxCredit';
-import type { XxxMovieListResponse } from '@server/models/XxxMovie';
+  AdultPerformerDetails,
+  AdultStudioDetails,
+} from '@server/models/AdultCredit';
+import type { AdultMovieListResponse } from '@server/models/AdultMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
-const messages = defineMessages('components.XxxMovies.XxxCreditDetails', {
+const messages = defineMessages('components.AdultMovies.AdultCreditDetails', {
   born: 'Born {date}',
   active: 'Active {start}–{end}',
   present: 'present',
@@ -39,28 +39,30 @@ const messages = defineMessages('components.XxxMovies.XxxCreditDetails', {
 });
 
 type CreditType = 'performer' | 'studio';
-type CreditDetails = XxxPerformerDetails | XxxStudioDetails;
+type CreditDetails = AdultPerformerDetails | AdultStudioDetails;
 
-const isPerformer = (data: CreditDetails): data is XxxPerformerDetails =>
+const isPerformer = (data: CreditDetails): data is AdultPerformerDetails =>
   'aliases' in data;
 
-interface XxxCreditDetailsProps {
+interface AdultCreditDetailsProps {
   type: CreditType;
 }
 
 // Pages for ThePornDB performers and studios, for those without a StashDB
 // page and for the movies of those that have one
-const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
+const AdultCreditDetailsContent = ({ type }: AdultCreditDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
   const id = router.query.id as string;
   const [showFullBio, setShowFullBio] = useState(false);
   const { data, error } = useSWR<CreditDetails>(
-    id ? `/api/v1/xxxmovie/${type}/${id}` : null
+    id ? `/api/v1/adultmovie/${type}/${id}` : null
   );
   // The slider's own request, so both share it
-  const moviesUrl = `/api/v1/xxxmovie/discover?page=1&sort=released&${type}=${id}`;
-  const { data: movies } = useSWR<XxxMovieListResponse>(id ? moviesUrl : null);
+  const moviesUrl = `/api/v1/adultmovie/discover?page=1&sort=released&${type}=${id}`;
+  const { data: movies } = useSWR<AdultMovieListResponse>(
+    id ? moviesUrl : null
+  );
 
   // Backdrops from the first movies listed, like the StashDB pages
   const backdropKey = (movies?.results ?? [])
@@ -114,7 +116,7 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
       studio: (
         <Link
           key="network"
-          href={`/xxxmovies/studio/${data.network.id}`}
+          href={`/discover/adultmovies/studio/${data.network.id}`}
           className="font-semibold hover:underline"
         >
           {data.network.name}
@@ -209,7 +211,7 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
           {data.stashDbId && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
               {/* Their scenes live on the StashDB page */}
-              <Link href={`/scenes/${type}/${data.stashDbId}`}>
+              <Link href={`/discover/scenes/${type}/${data.stashDbId}`}>
                 <Button buttonType="ghost">
                   <FilmIcon />
                   <span>{intl.formatMessage(messages.scenes)}</span>
@@ -225,7 +227,7 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
           <>
             <div className="slider-header">
               <Link
-                href={`/xxxmovies/studio/${data.id}/sites`}
+                href={`/discover/adultmovies/studio/${data.id}/sites`}
                 className="slider-title"
               >
                 <span>{intl.formatMessage(messages.sites)}</span>
@@ -243,23 +245,23 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
                     name={site.name}
                     image={site.imageUrl}
                     imageType="tpdb"
-                    url={`/xxxmovies/studio/${site.id}`}
+                    url={`/discover/adultmovies/studio/${site.id}`}
                   />
                 )),
                 <SeeAllStudiosCard
                   key="tpdb-sites-all"
-                  url={`/xxxmovies/studio/${data.id}/sites`}
+                  url={`/discover/adultmovies/studio/${data.id}/sites`}
                 />,
               ]}
             />
           </>
         )}
         {/* Their titles open the tabs filtered to them, which sort */}
-        <XxxMovieSlider
-          sliderKey={`xxx-${type}-${data.id}`}
-          title={intl.formatMessage(globalMessages.xxxMovies)}
+        <AdultMovieSlider
+          sliderKey={`adult-${type}-${data.id}`}
+          title={intl.formatMessage(globalMessages.adultMovies)}
           url={moviesUrl}
-          linkUrl={`/xxxmovies?${type}=${data.id}`}
+          linkUrl={`/discover/adultmovies?${type}=${data.id}`}
           hideWhenEmpty
         />
         {data.stashDbId && (
@@ -267,7 +269,7 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
             sliderKey={`scenes-${type}-${data.stashDbId}`}
             title={intl.formatMessage(messages.scenes)}
             url={`/api/v1/scene/discover?page=1&sort=date&${type}=${data.stashDbId}`}
-            linkUrl={`/scenes?sort=date&${type}=${data.stashDbId}`}
+            linkUrl={`/discover/scenes?sort=date&${type}=${data.stashDbId}`}
             hideWhenEmpty
           />
         )}
@@ -277,14 +279,14 @@ const XxxCreditDetailsContent = ({ type }: XxxCreditDetailsProps) => {
 };
 
 // Hooks above fetch unconditionally, so gate before mounting them
-const XxxCreditDetails = ({ type }: XxxCreditDetailsProps) => {
+const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
   const canViewAdult = useAdult();
 
   if (!canViewAdult) {
     return <ErrorPage statusCode={404} />;
   }
 
-  return <XxxCreditDetailsContent type={type} />;
+  return <AdultCreditDetailsContent type={type} />;
 };
 
-export default XxxCreditDetails;
+export default AdultCreditDetails;

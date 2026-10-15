@@ -17,8 +17,8 @@ import type { Express } from 'express';
 import express from 'express';
 import session from 'express-session';
 import request from 'supertest';
+import adultMovieRoutes from './adultMovie';
 import authRoutes from './auth';
-import xxxMovieRoutes from './xxxMovie';
 
 const MOVIE_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
 
@@ -62,7 +62,7 @@ before(() => {
   );
   app.use(checkUser);
   app.use('/auth', authRoutes);
-  app.use('/xxxmovie', isAdultAllowed, xxxMovieRoutes);
+  app.use('/adultmovie', isAdultAllowed, adultMovieRoutes);
   app.use(
     (
       err: { status?: number; message?: string },
@@ -111,11 +111,11 @@ async function loginAs(email: string, permissions?: number) {
   return agent;
 }
 
-describe('GET /xxxmovie/discover', () => {
+describe('GET /adultmovie/discover', () => {
   it('lists released ThePornDB movies with their media info', async () => {
     await getRepository(Media).save(
       new Media({
-        mediaType: MediaType.XXX_MOVIE,
+        mediaType: MediaType.ADULT_MOVIE,
         tpdbId: MOVIE_ID,
         tmdbId: null,
         isAdult: true,
@@ -128,11 +128,11 @@ describe('GET /xxxmovie/discover', () => {
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/xxxmovie/discover?sort=added&studio=37335');
+    const res = await agent.get('/adultmovie/discover?sort=added&studio=37335');
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.totalPages, 3);
-    assert.strictEqual(res.body.results[0].mediaType, 'xxxmovie');
+    assert.strictEqual(res.body.results[0].mediaType, 'adultmovie');
     assert.strictEqual(
       res.body.results[0].posterUrl,
       'https://cdn.theporndb.net/scene/a/large.jpg'
@@ -165,7 +165,7 @@ describe('GET /xxxmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      '/xxxmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian,unidentified'
+      '/adultmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian,unidentified'
     );
 
     assert.strictEqual(res.status, 200);
@@ -183,7 +183,7 @@ describe('GET /xxxmovie/discover', () => {
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/xxxmovie/discover?releaseDate=2026-10-7');
+    const res = await agent.get('/adultmovie/discover?releaseDate=2026-10-7');
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(getMovies.mock.calls[0].arguments[0]?.date, {
@@ -195,23 +195,23 @@ describe('GET /xxxmovie/discover', () => {
   it('rejects users without the adult permission', async () => {
     const agent = await loginAs('demo@seerr.dev', Permission.REQUEST);
 
-    assert.strictEqual((await agent.get('/xxxmovie/discover')).status, 403);
+    assert.strictEqual((await agent.get('/adultmovie/discover')).status, 403);
   });
 
   it('returns 503 without a ThePornDB key', async () => {
     getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
     const agent = await loginAs('admin@seerr.dev');
 
-    assert.strictEqual((await agent.get('/xxxmovie/discover')).status, 503);
+    assert.strictEqual((await agent.get('/adultmovie/discover')).status, 503);
   });
 });
 
-describe('GET /xxxmovie/:id', () => {
+describe('GET /adultmovie/:id', () => {
   it('maps performers to their cross-site ids', async () => {
     mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/${MOVIE_ID}`);
+    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body.performers, [
@@ -241,7 +241,7 @@ describe('GET /xxxmovie/:id', () => {
     );
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/${MOVIE_ID}`);
+    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(
@@ -258,11 +258,11 @@ describe('GET /xxxmovie/:id', () => {
   it('returns 404 for ids that are not UUIDs', async () => {
     const agent = await loginAs('admin@seerr.dev');
 
-    assert.strictEqual((await agent.get('/xxxmovie/123')).status, 404);
+    assert.strictEqual((await agent.get('/adultmovie/123')).status, 404);
   });
 });
 
-describe('GET /xxxmovie/:id/recommendations', () => {
+describe('GET /adultmovie/:id/recommendations', () => {
   it('lists released movies with any of its performers', async () => {
     mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
     const other = { ...movie, id: '144b1c4a-1129-40b6-b57a-564cbef66320' };
@@ -272,7 +272,9 @@ describe('GET /xxxmovie/:id/recommendations', () => {
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/${MOVIE_ID}/recommendations?page=1`);
+    const res = await agent.get(
+      `/adultmovie/${MOVIE_ID}/recommendations?page=1`
+    );
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.totalResults, 1);
@@ -287,7 +289,7 @@ describe('GET /xxxmovie/:id/recommendations', () => {
   });
 });
 
-describe('GET /xxxmovie/:id/similar', () => {
+describe('GET /adultmovie/:id/similar', () => {
   it('returns ThePornDB similar movies without itself', async () => {
     const other = { ...movie, id: '144b1c4a-1129-40b6-b57a-564cbef66321' };
     mock.method(TpdbAPI.prototype, 'getSimilarMovies', async () => [
@@ -296,7 +298,7 @@ describe('GET /xxxmovie/:id/similar', () => {
     ]);
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/${MOVIE_ID}/similar`);
+    const res = await agent.get(`/adultmovie/${MOVIE_ID}/similar`);
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.totalPages, 1);
@@ -307,7 +309,7 @@ describe('GET /xxxmovie/:id/similar', () => {
   });
 });
 
-describe('GET /xxxmovie/match/:type/:id', () => {
+describe('GET /adultmovie/match/:type/:id', () => {
   const STASH_ID = '3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c';
 
   beforeEach(() => {
@@ -329,7 +331,7 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     );
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/match/performer/${STASH_ID}`);
+    const res = await agent.get(`/adultmovie/match/performer/${STASH_ID}`);
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body, {
@@ -351,13 +353,13 @@ describe('GET /xxxmovie/match/:type/:id', () => {
     mock.method(TpdbAPI.prototype, 'findSiteByName', async () => null);
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(`/xxxmovie/match/studio/${STASH_ID}`);
+    const res = await agent.get(`/adultmovie/match/studio/${STASH_ID}`);
 
     assert.strictEqual(res.status, 404);
   });
 });
 
-describe('GET /xxxmovie/:type/:id', () => {
+describe('GET /adultmovie/:type/:id', () => {
   beforeEach(() => {
     getSettings().stashdb = {
       endpoint: 'https://stashdb.test/graphql',
@@ -386,7 +388,7 @@ describe('GET /xxxmovie/:type/:id', () => {
     ]);
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/xxxmovie/performer/99899');
+    const res = await agent.get('/adultmovie/performer/99899');
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body.links, [

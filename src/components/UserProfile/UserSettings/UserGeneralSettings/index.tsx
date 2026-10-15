@@ -64,7 +64,7 @@ const messages = defineMessages(
     scenerequestlimit: 'Scene Request Limit',
     sexualPreferences: 'Sexual Preferences',
     sexualPreferencesTip:
-      'Picked by default in the Scenes and XXX Movies filters; the others show only when picked there',
+      'Picked by default in the Scenes and Adult Movies filters; the others show only when picked there',
     allowedSexualPreferences: 'Allowed Sexual Preferences',
     allowedSexualPreferencesTip:
       'The others are never shown to this user, and are left out of their filters',

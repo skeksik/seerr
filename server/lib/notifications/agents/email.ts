@@ -131,8 +131,8 @@ class EmailAgent
             ? globalMessages.movie
             : payload.media.mediaType === MediaType.SCENE
               ? globalMessages.scene
-              : payload.media.mediaType === MediaType.XXX_MOVIE
-                ? globalMessages.xxxMovie
+              : payload.media.mediaType === MediaType.ADULT_MOVIE
+                ? globalMessages.adultMovie
                 : globalMessages.series
         )
       : undefined;

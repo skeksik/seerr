@@ -4,10 +4,10 @@ import type Media from '@server/entity/Media';
 import type { Orientation } from '@server/lib/orientation';
 import { classifyMovie } from '@server/lib/orientation';
 
-export interface XxxMovieResult {
+export interface AdultMovieResult {
   // ThePornDB movie UUID
   id: string;
-  mediaType: 'xxxmovie';
+  mediaType: 'adultmovie';
   title: string;
   overview?: string;
   releaseDate?: string;
@@ -25,18 +25,18 @@ export interface XxxMovieResult {
 
 // A ThePornDB site, and the StashDB studio of the same name that has the
 // studio page
-export interface XxxMovieStudio {
+export interface AdultMovieStudio {
   id: number;
   name: string;
   stashDbId?: string;
 }
 
-export interface XxxMovieDetails extends XxxMovieResult {
+export interface AdultMovieDetails extends AdultMovieResult {
   // Set by the details routes for the viewer
   onUserWatchlist?: boolean;
   backCoverUrl?: string;
-  studio?: XxxMovieStudio;
-  network?: XxxMovieStudio;
+  studio?: AdultMovieStudio;
+  network?: AdultMovieStudio;
   performers: {
     id: string;
     // Numeric id ThePornDB filters take
@@ -53,11 +53,11 @@ export interface XxxMovieDetails extends XxxMovieResult {
   tpdbUrl: string;
 }
 
-export interface XxxMovieListResponse {
+export interface AdultMovieListResponse {
   page: number;
   totalPages: number;
   totalResults: number;
-  results: XxxMovieResult[];
+  results: AdultMovieResult[];
 }
 
 // The CDN copies are the most reliable; studio-site images often vanish
@@ -75,12 +75,12 @@ export const MAX_DURATION = 24 * 60 * 60;
 const saneDuration = (duration?: number | null): number | undefined =>
   duration && duration > 0 && duration <= MAX_DURATION ? duration : undefined;
 
-export const mapXxxMovieResult = (
+export const mapAdultMovieResult = (
   movie: TpdbMovie,
   media?: Media
-): XxxMovieResult => ({
+): AdultMovieResult => ({
   id: movie.id,
-  mediaType: 'xxxmovie',
+  mediaType: 'adultmovie',
   title: movie.title,
   releaseDate: movie.date ?? undefined,
   duration: saneDuration(movie.duration),
@@ -91,11 +91,11 @@ export const mapXxxMovieResult = (
   mediaInfo: media,
 });
 
-export const mapXxxMovieDetails = (
+export const mapAdultMovieDetails = (
   movie: TpdbMovie,
   media?: Media
-): XxxMovieDetails => ({
-  ...mapXxxMovieResult(movie, media),
+): AdultMovieDetails => ({
+  ...mapAdultMovieResult(movie, media),
   orientations: classifyMovie(movie),
   backCoverUrl: movie.back_image ?? undefined,
   network:

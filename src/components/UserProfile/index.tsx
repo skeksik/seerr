@@ -382,7 +382,7 @@ const UserProfile = () => {
               sliderKey="requests"
               isLoading={!requests}
               items={(requests?.results ?? []).map((request) =>
-                request.type === 'scene' || request.type === 'xxxmovie' ? (
+                request.type === 'scene' || request.type === 'adultmovie' ? (
                   <SceneRequestCard
                     key={`request-slider-item-${request.id}`}
                     request={request}

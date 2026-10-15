@@ -10,10 +10,10 @@ export const isWhisparrMedia = (media: {
   isAdult?: boolean;
 }): boolean =>
   media.mediaType === MediaType.SCENE ||
-  media.mediaType === MediaType.XXX_MOVIE ||
+  media.mediaType === MediaType.ADULT_MOVIE ||
   (media.mediaType === MediaType.MOVIE && !!media.isAdult);
 
-// Finds the Whisparr item for a scene, XXX movie or adult TMDB movie
+// Finds the Whisparr item for a scene, adult movie or adult TMDB movie
 export const lookupWhisparrItem = (
   whisparr: WhisparrAPI,
   media: {
@@ -25,7 +25,7 @@ export const lookupWhisparrItem = (
 ): Promise<WhisparrItem> =>
   media.mediaType === MediaType.SCENE && media.stashId
     ? whisparr.lookupScene(media.stashId)
-    : media.mediaType === MediaType.XXX_MOVIE && media.tpdbId
+    : media.mediaType === MediaType.ADULT_MOVIE && media.tpdbId
       ? whisparr.lookupTpdbMovie(media.tpdbId)
       : whisparr.lookupMovie(media.tmdbId ?? 0);
 

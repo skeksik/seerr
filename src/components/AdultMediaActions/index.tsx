@@ -28,7 +28,7 @@ const messages = defineMessages('components.AdultMediaActions', {
 });
 
 interface AdultMediaActionsProps {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   // StashDB scene or ThePornDB movie UUID
   id: string;
   title: string;
@@ -37,7 +37,7 @@ interface AdultMediaActionsProps {
   onChange: () => void;
 }
 
-// Blocklist and watchlist buttons of the movie page, for scenes and XXX movies
+// Blocklist and watchlist buttons of the movie page, for scenes and adult movies
 const AdultMediaActions = ({
   mediaType,
   id,

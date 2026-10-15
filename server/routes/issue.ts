@@ -87,7 +87,7 @@ issueRoutes.get<Record<string, string>, IssueResultsResponse>(
       query = query.andWhere(
         'media.mediaType NOT IN (:...adultTypes) AND media.isAdult = :notAdult',
         {
-          adultTypes: [MediaType.SCENE, MediaType.XXX_MOVIE],
+          adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
           notAdult: false,
         }
       );

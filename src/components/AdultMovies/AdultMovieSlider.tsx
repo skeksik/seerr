@@ -1,12 +1,12 @@
+import AdultMovieCard from '@app/components/AdultMovieCard';
 import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import Slider from '@app/components/Slider';
-import XxxMovieCard from '@app/components/XxxMovieCard';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
-import type { XxxMovieListResponse } from '@server/models/XxxMovie';
+import type { AdultMovieListResponse } from '@server/models/AdultMovie';
 import Link from 'next/link';
 import useSWR from 'swr';
 
-interface XxxMovieSliderProps {
+interface AdultMovieSliderProps {
   sliderKey: string;
   title: string;
   url: string;
@@ -16,15 +16,15 @@ interface XxxMovieSliderProps {
   excludeId?: string;
 }
 
-const XxxMovieSlider = ({
+const AdultMovieSlider = ({
   sliderKey,
   title,
   url,
   linkUrl,
   hideWhenEmpty = false,
   excludeId,
-}: XxxMovieSliderProps) => {
-  const { data, error } = useSWR<XxxMovieListResponse>(url);
+}: AdultMovieSliderProps) => {
+  const { data, error } = useSWR<AdultMovieListResponse>(url);
   const results = data?.results.filter(
     (result) => String(result.id) !== excludeId
   );
@@ -34,7 +34,7 @@ const XxxMovieSlider = ({
   }
 
   const items = results?.map((movie) => (
-    <XxxMovieCard key={`${sliderKey}-${movie.id}`} movie={movie} />
+    <AdultMovieCard key={`${sliderKey}-${movie.id}`} movie={movie} />
   ));
 
   // Like MediaSlider, when the row holds less than the list behind it
@@ -73,4 +73,4 @@ const XxxMovieSlider = ({
   );
 };
 
-export default XxxMovieSlider;
+export default AdultMovieSlider;

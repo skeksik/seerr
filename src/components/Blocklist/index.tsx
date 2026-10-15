@@ -25,10 +25,10 @@ import type {
   BlocklistItem,
   BlocklistResultsResponse,
 } from '@server/interfaces/api/blocklistInterfaces';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { MovieDetails } from '@server/models/Movie';
 import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -269,9 +269,9 @@ interface BlocklistedItemProps {
   revalidateList: () => void;
 }
 
-// Poster and backdrop of a TMDB title, scene or XXX movie
+// Poster and backdrop of a TMDB title, scene or adult movie
 const blocklistImages = (
-  title?: MovieDetails | TvDetails | SceneDetails | XxxMovieDetails
+  title?: MovieDetails | TvDetails | SceneDetails | AdultMovieDetails
 ): {
   poster?: string;
   backdrop?: string;
@@ -317,13 +317,13 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
 
-  // Scenes and XXX movies are keyed by their StashDB or ThePornDB UUID
+  // Scenes and adult movies are keyed by their StashDB or ThePornDB UUID
   const isAdultItem =
-    item.mediaType === 'scene' || item.mediaType === 'xxxmovie';
+    item.mediaType === 'scene' || item.mediaType === 'adultmovie';
   const itemId = (isAdultItem ? item.externalId : item.tmdbId) ?? '';
   const href = `/${item.mediaType}/${itemId}`;
   const { data: title, error } = useSWR<
-    MovieDetails | TvDetails | SceneDetails | XxxMovieDetails
+    MovieDetails | TvDetails | SceneDetails | AdultMovieDetails
   >(inView ? `/api/v1/${item.mediaType}/${itemId}` : null);
   const titleName = !title
     ? undefined
@@ -334,7 +334,7 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
     ? undefined
     : 'firstAirDate' in title
       ? title.firstAirDate
-      : (title as MovieDetails | SceneDetails | XxxMovieDetails).releaseDate;
+      : (title as MovieDetails | SceneDetails | AdultMovieDetails).releaseDate;
   const images = blocklistImages(title);
 
   if (!title && !error) {
@@ -483,7 +483,7 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
                   {intl.formatMessage(
                     item.mediaType === 'scene'
                       ? globalMessages.scene
-                      : globalMessages.xxx
+                      : globalMessages.adult
                   )}
                 </div>
               </div>

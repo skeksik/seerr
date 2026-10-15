@@ -29,7 +29,7 @@ export class IssueSubscriber implements EntitySubscriberInterface<Issue> {
     try {
       if (
         entity.media.mediaType === MediaType.SCENE ||
-        entity.media.mediaType === MediaType.XXX_MOVIE
+        entity.media.mediaType === MediaType.ADULT_MOVIE
       ) {
         ({ title, image } = await describeAdultMedia(entity.media));
       } else if (entity.media.mediaType === MediaType.MOVIE) {

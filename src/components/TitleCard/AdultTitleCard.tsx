@@ -1,13 +1,13 @@
+import AdultMovieCard from '@app/components/AdultMovieCard';
 import SceneCard from '@app/components/SceneCard';
 import TitleCard from '@app/components/TitleCard';
-import XxxMovieCard from '@app/components/XxxMovieCard';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import { useInView } from 'react-intersection-observer';
 import useSWR from 'swr';
 
 export interface AdultTitleCardProps {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   // StashDB scene or ThePornDB movie UUID
   externalId: string;
   canExpand?: boolean;
@@ -15,7 +15,7 @@ export interface AdultTitleCardProps {
   mutateParent?: () => void;
 }
 
-// TmdbTitleCard for scenes and XXX movies: loads the title once in view
+// TmdbTitleCard for scenes and adult movies: loads the title once in view
 const AdultTitleCard = ({
   mediaType,
   externalId,
@@ -24,7 +24,7 @@ const AdultTitleCard = ({
   mutateParent,
 }: AdultTitleCardProps) => {
   const { ref, inView } = useInView({ triggerOnce: true });
-  const { data, error } = useSWR<SceneDetails | XxxMovieDetails>(
+  const { data, error } = useSWR<SceneDetails | AdultMovieDetails>(
     inView ? `/api/v1/${mediaType}/${externalId}` : null
   );
   const isScene = mediaType === 'scene';
@@ -54,7 +54,7 @@ const AdultTitleCard = ({
       mutateParent={mutateParent}
     />
   ) : (
-    <XxxMovieCard
+    <AdultMovieCard
       movie={data}
       canExpand={canExpand}
       isAddedToWatchlist={isAddedToWatchlist || data.onUserWatchlist}

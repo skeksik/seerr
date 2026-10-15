@@ -1,13 +1,14 @@
+import AdultMovieCard from '@app/components/AdultMovieCard';
 import PersonCard from '@app/components/PersonCard';
 import TitleCard from '@app/components/TitleCard';
 import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
-import XxxMovieCard from '@app/components/XxxMovieCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { WatchlistItem } from '@server/interfaces/api/discoverInterfaces';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
 import type { PerformerResult } from '@server/models/Scene';
 import type {
   CollectionResult,
@@ -15,7 +16,6 @@ import type {
   PersonResult,
   TvResult,
 } from '@server/models/Search';
-import type { XxxMovieResult } from '@server/models/XxxMovie';
 import { useIntl } from 'react-intl';
 
 type ListViewProps = {
@@ -24,7 +24,7 @@ type ListViewProps = {
     | MovieResult
     | PersonResult
     | CollectionResult
-    | XxxMovieResult
+    | AdultMovieResult
     | PerformerResult
   )[];
   plexItems?: WatchlistItem[];
@@ -158,8 +158,8 @@ const ListView = ({
                 break;
             }
 
-            if (title.mediaType === 'xxxmovie') {
-              titleCard = <XxxMovieCard movie={title} canExpand />;
+            if (title.mediaType === 'adultmovie') {
+              titleCard = <AdultMovieCard movie={title} canExpand />;
             }
 
             if (title.mediaType === 'performer') {
@@ -170,8 +170,8 @@ const ListView = ({
                   subName={title.disambiguation}
                   href={
                     title.source === 'tpdb'
-                      ? `/xxxmovies/performer/${title.id}`
-                      : `/scenes/performer/${title.id}`
+                      ? `/discover/adultmovies/performer/${title.id}`
+                      : `/discover/scenes/performer/${title.id}`
                   }
                   image={
                     title.imageUrl

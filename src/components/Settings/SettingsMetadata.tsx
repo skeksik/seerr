@@ -46,7 +46,7 @@ const messages = defineMessages('components.Settings', {
   metadataSettingsSaved: 'Metadata provider settings saved',
   adultProviders: 'Adult Content',
   adultProvidersDescription:
-    'Scenes come from StashDB or another stash-box instance, XXX movies from ThePornDB. Both are only used while adult content is enabled.',
+    'Scenes come from StashDB or another stash-box instance, adult movies from ThePornDB. Both are only used while adult content is enabled.',
   stashdbEndpoint: 'StashDB GraphQL Endpoint',
   stashdbApiKey: 'StashDB API Key',
   stashdbApiKeyTip: 'Create one on your StashDB profile page',

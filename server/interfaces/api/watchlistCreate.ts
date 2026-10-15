@@ -8,8 +8,8 @@ export const watchlistCreate = z.object({
   title: z.coerce.string().optional(),
 });
 
-// Scenes and XXX movies are keyed by their StashDB or ThePornDB UUID
+// Scenes and adult movies are keyed by their StashDB or ThePornDB UUID
 export const adultWatchlistCreate = z.object({
   externalId: z.string().uuid(),
-  mediaType: z.enum([MediaType.SCENE, MediaType.XXX_MOVIE]),
+  mediaType: z.enum([MediaType.SCENE, MediaType.ADULT_MOVIE]),
 });

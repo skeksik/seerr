@@ -33,10 +33,10 @@ import type {
   SonarrSettings,
   WhisparrSettings,
 } from '@server/lib/settings';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { MovieDetails } from '@server/models/Movie';
 import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import Link from 'next/link';
 import { useIntl } from 'react-intl';
@@ -88,7 +88,7 @@ const messages = defineMessages('components.ManageSlideOver', {
   movie: 'movie',
   tvshow: 'series',
   scene: 'scene',
-  xxxmovie: 'XXX movie',
+  adultmovie: 'Adult movie',
 });
 
 interface ManageSlideOverProps {
@@ -108,10 +108,10 @@ interface ManageSlideOverTvProps extends ManageSlideOverProps {
   data: TvDetails;
 }
 
-// Scenes and XXX movies, which only Whisparr (and Stash) handle
+// Scenes and adult movies, which only Whisparr (and Stash) handle
 interface ManageSlideOverAdultProps extends ManageSlideOverProps {
-  mediaType: 'scene' | 'xxxmovie';
-  data: SceneDetails | XxxMovieDetails;
+  mediaType: 'scene' | 'adultmovie';
+  data: SceneDetails | AdultMovieDetails;
 }
 
 const ManageSlideOver = ({
@@ -135,7 +135,7 @@ const ManageSlideOver = ({
       ? `/api/v1/media/${data.mediaInfo.id}/watch_data`
       : null
   );
-  const isAdultType = mediaType === 'scene' || mediaType === 'xxxmovie';
+  const isAdultType = mediaType === 'scene' || mediaType === 'adultmovie';
   // Adult TMDB movies are sent to Whisparr too
   const usesWhisparr = isAdultType || !!data.mediaInfo?.isAdult;
   const arrName = usesWhisparr
@@ -150,7 +150,7 @@ const ManageSlideOver = ({
         ? messages.tvshow
         : mediaType === 'scene'
           ? messages.scene
-          : messages.xxxmovie
+          : messages.adultmovie
   );
   const { data: radarrData } = useSWR<RadarrSettings[]>(
     hasPermission(Permission.ADMIN) ? '/api/v1/settings/radarr' : null
@@ -308,7 +308,7 @@ const ManageSlideOver = ({
               ? globalMessages.tvshow
               : mediaType === 'scene'
                 ? globalMessages.scene
-                : globalMessages.xxxMovie
+                : globalMessages.adultMovie
         ),
       })}
       onClose={() => onClose()}
@@ -784,11 +784,11 @@ const ManageSlideOver = ({
                   <div className="mt-2 text-xs text-gray-400">
                     {intl.formatMessage(messages.manageModalClearMediaWarning, {
                       mediaType: mediaTypeName,
-                      // Scenes come back from Stash, XXX movies from Whisparr
+                      // Scenes come back from Stash, adult movies from Whisparr
                       mediaServerName:
                         mediaType === 'scene'
                           ? 'Stash'
-                          : mediaType === 'xxxmovie'
+                          : mediaType === 'adultmovie'
                             ? 'Whisparr'
                             : settings.currentSettings.mediaServerType ===
                                 MediaServerType.EMBY

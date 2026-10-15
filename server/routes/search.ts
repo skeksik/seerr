@@ -12,16 +12,16 @@ import {
 } from '@server/lib/orientation';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
+import { mapAdultMovieResult } from '@server/models/AdultMovie';
 import type { PerformerResult } from '@server/models/Scene';
 import { mapSearchResults } from '@server/models/Search';
-import type { XxxMovieResult } from '@server/models/XxxMovie';
-import { mapXxxMovieResult } from '@server/models/XxxMovie';
 import { Router } from 'express';
 
 const PERFORMER_LIMIT = 10;
 
 interface AdultSearchResults {
-  results: (PerformerResult | XxxMovieResult)[];
+  results: (PerformerResult | AdultMovieResult)[];
   totalPages: number;
   totalResults: number;
 }
@@ -95,7 +95,7 @@ const searchAdult = async (
   const shownMovies = (movies?.data ?? []).filter(
     (movie) => !isHidden(classifyMovie(movie), hidden)
   );
-  const media = await Media.getRelatedXxxMovies(
+  const media = await Media.getRelatedAdultMovies(
     shownMovies.map((movie) => movie.id),
     user
   );
@@ -104,7 +104,7 @@ const searchAdult = async (
     results: [
       ...performerResults,
       ...shownMovies.map((movie) => ({
-        ...mapXxxMovieResult(
+        ...mapAdultMovieResult(
           movie,
           media.find((m) => m.tpdbId === movie.id)
         ),

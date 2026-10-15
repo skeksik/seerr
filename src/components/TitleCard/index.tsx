@@ -33,12 +33,12 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { mutate } from 'swr';
 
-// Scenes and XXX movies are keyed by StashDB and ThePornDB UUIDs
-type AdultCardType = 'scene' | 'xxxmovie';
+// Scenes and adult movies are keyed by StashDB and ThePornDB UUIDs
+type AdultCardType = 'scene' | 'adultmovie';
 
 interface TitleCardProps {
   id: number | string;
-  // TMDB poster path, or the full image URL of a scene or XXX movie
+  // TMDB poster path, or the full image URL of a scene or adult movie
   image?: string;
   summary?: string;
   year?: string;
@@ -47,14 +47,14 @@ interface TitleCardProps {
   title: string;
   userScore?: number;
   mediaType: MediaType | AdultCardType;
-  // Adult TMDB movies get an XXX badge instead of the movie one
+  // Adult TMDB movies get an Adult badge instead of the movie one
   isAdult?: boolean;
   status?: MediaStatus;
   canExpand?: boolean;
   inProgress?: boolean;
   isAddedToWatchlist?: number | boolean;
   mutateParent?: () => void;
-  // Scenes and XXX movies
+  // Scenes and adult movies
   orientations?: Orientation[];
 }
 
@@ -98,7 +98,7 @@ const TitleCard = ({
   const [imageFailed, setImageFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const adultType: AdultCardType | undefined =
-    mediaType === 'scene' || mediaType === 'xxxmovie' ? mediaType : undefined;
+    mediaType === 'scene' || mediaType === 'adultmovie' ? mediaType : undefined;
   // Scene stills are landscape; everything else has portrait posters
   const isScene = mediaType === 'scene';
   const hasImage = !!image && !imageFailed;
@@ -488,7 +488,7 @@ const TitleCard = ({
                   {isScene
                     ? intl.formatMessage(globalMessages.scene)
                     : adultType || (isAdult && mediaType === 'movie')
-                      ? intl.formatMessage(globalMessages.xxx)
+                      ? intl.formatMessage(globalMessages.adult)
                       : mediaType === 'movie'
                         ? intl.formatMessage(globalMessages.movie)
                         : mediaType === 'collection'
@@ -666,7 +666,7 @@ const TitleCard = ({
                       style={{
                         WebkitLineClamp: isScene
                           ? 1
-                          : mediaType === 'xxxmovie'
+                          : mediaType === 'adultmovie'
                             ? 2
                             : 3,
                         display: '-webkit-box',
@@ -688,12 +688,12 @@ const TitleCard = ({
                             currentStatus !== MediaStatus.DELETED)
                             ? isScene
                               ? 2
-                              : mediaType === 'xxxmovie'
+                              : mediaType === 'adultmovie'
                                 ? 2
                                 : 5
                             : isScene
                               ? 1
-                              : mediaType === 'xxxmovie'
+                              : mediaType === 'adultmovie'
                                 ? 2
                                 : 3,
                         display: '-webkit-box',

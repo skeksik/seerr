@@ -27,10 +27,10 @@ export const blocklistAdd = z.object({
   blocklistedTags: z.string().optional(),
 });
 
-// Scenes and XXX movies are keyed by their StashDB or ThePornDB UUID
+// Scenes and adult movies are keyed by their StashDB or ThePornDB UUID
 const adultBlocklistAdd = z.object({
   externalId: z.string().uuid(),
-  mediaType: z.enum([MediaType.SCENE, MediaType.XXX_MOVIE]),
+  mediaType: z.enum([MediaType.SCENE, MediaType.ADULT_MOVIE]),
 });
 
 const parseMediaType = (value: unknown): MediaType | undefined =>

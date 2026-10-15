@@ -3,8 +3,8 @@ import CachedImage from '@app/components/Common/CachedImage';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
+import type { AdultMovieListResponse } from '@server/models/AdultMovie';
 import type { SceneListResponse } from '@server/models/Scene';
-import type { XxxMovieListResponse } from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
@@ -18,7 +18,7 @@ interface StudioBannerProps {
   studio: string;
   // StashDB studio or ThePornDB site whose latest release is the backdrop
   studioId: string | number;
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   // The title the page is about, so the banner shows a different one
   currentId: string;
   // Until that loads, or when the studio has nothing else
@@ -41,17 +41,17 @@ const StudioBanner = ({
   currentId,
   fallbackImageUrl,
 }: StudioBannerProps) => {
-  const { data } = useSWR<SceneListResponse | XxxMovieListResponse>(
+  const { data } = useSWR<SceneListResponse | AdultMovieListResponse>(
     mediaType === 'scene'
       ? `/api/v1/scene/discover?sort=date&released=before&releaseDate=${releasedBy()}&studio=${studioId}&page=1`
-      : `/api/v1/xxxmovie/discover?sort=released&studio=${studioId}&page=1`
+      : `/api/v1/adultmovie/discover?sort=released&studio=${studioId}&page=1`
   );
   const latest = data?.results.find((result) => result.id !== currentId);
   const latestImage = !latest
     ? undefined
     : latest.mediaType === 'scene'
       ? stashImageUrl(latest.imageUrl, 1280)
-      : latest.mediaType === 'xxxmovie'
+      : latest.mediaType === 'adultmovie'
         ? (latest.backdropUrl ?? latest.posterUrl)
         : undefined;
   const imageUrl = latestImage ?? fallbackImageUrl;

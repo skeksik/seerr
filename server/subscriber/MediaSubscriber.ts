@@ -75,7 +75,7 @@ export class MediaSubscriber implements EntitySubscriberInterface<Media> {
               MediaStatus.DELETED) &&
           (event.mediaType === MediaType.MOVIE ||
             event.mediaType === MediaType.SCENE ||
-            event.mediaType === MediaType.XXX_MOVIE)
+            event.mediaType === MediaType.ADULT_MOVIE)
         ) {
           shouldComplete = true;
         } else if (event.mediaType === 'tv') {

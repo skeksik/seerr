@@ -1106,7 +1106,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         }
         if (
           event.entity.media.mediaType === MediaType.SCENE ||
-          event.entity.media.mediaType === MediaType.XXX_MOVIE
+          event.entity.media.mediaType === MediaType.ADULT_MOVIE
         ) {
           await this.notifyAvailableScene(event.entity as MediaRequest, event);
         }

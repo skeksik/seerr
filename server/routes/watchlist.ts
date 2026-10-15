@@ -90,7 +90,7 @@ watchlistRoutes.delete('/:tmdbId', async (req, res, next) => {
       });
     }
 
-    // Scenes and XXX movies are keyed by their external UUID
+    // Scenes and adult movies are keyed by their external UUID
     await Watchlist.deleteWatchlist(
       isAdultMediaType(mediaType)
         ? req.params.tmdbId

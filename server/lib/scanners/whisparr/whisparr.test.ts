@@ -151,9 +151,9 @@ describe('WhisparrScanner', () => {
   const movieItem = (overrides: Partial<WhisparrItem>) =>
     item({ itemType: 'movie', stashId: null, tpdbId: TPDB_ID, ...overrides });
 
-  it('tracks ThePornDB movies as XXX movies', async () => {
+  it('tracks ThePornDB movies as adult movies', async () => {
     await requested({
-      mediaType: MediaType.XXX_MOVIE,
+      mediaType: MediaType.ADULT_MOVIE,
       tpdbId: TPDB_ID,
       isAdult: true,
     });
@@ -164,7 +164,7 @@ describe('WhisparrScanner', () => {
     await whisparrScanner.run();
 
     const movie = await Media.getMediaByTpdbId(TPDB_ID);
-    assert.strictEqual(movie?.mediaType, MediaType.XXX_MOVIE);
+    assert.strictEqual(movie?.mediaType, MediaType.ADULT_MOVIE);
     assert.strictEqual(movie?.isAdult, true);
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(movie?.externalServiceId, 11);

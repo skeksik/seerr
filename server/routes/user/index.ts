@@ -964,7 +964,7 @@ router.get<{ id: string }, WatchlistResponse>(
       const [result, total] = await getRepository(Watchlist).findAndCount({
         where: {
           requestedBy: { id: user?.id },
-          // Scenes and XXX movies only for viewers who may see them
+          // Scenes and adult movies only for viewers who may see them
           ...(canViewAdult(req.user)
             ? {}
             : { mediaType: In([MediaType.MOVIE, MediaType.TV]) }),

@@ -131,7 +131,7 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
                     name={studio.name}
                     image={studio.imageUrl}
                     imageType="tpdb"
-                    url={`/xxxmovies/studio/${studio.id}`}
+                    url={`/discover/adultmovies/studio/${studio.id}`}
                   />
                 ) : (
                   <CompanyCard
@@ -139,7 +139,7 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
                     name={studio.name}
                     image={stashImageUrl(studio.imageUrl, 300)}
                     imageType="stashdb"
-                    url={`/scenes/studio/${studio.id}`}
+                    url={`/discover/scenes/studio/${studio.id}`}
                   />
                 )}
               </li>

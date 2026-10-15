@@ -2,10 +2,10 @@ import type { User } from '@server/entity/User';
 import type { PaginatedResponse } from '@server/interfaces/api/common';
 
 export interface BlocklistItem {
-  // Null for scenes and XXX movies, which carry an externalId
+  // Null for scenes and adult movies, which carry an externalId
   tmdbId: number | null;
   externalId?: string | null;
-  mediaType: 'movie' | 'tv' | 'scene' | 'xxxmovie';
+  mediaType: 'movie' | 'tv' | 'scene' | 'adultmovie';
   title?: string;
   createdAt?: Date;
   user?: User;

@@ -7,8 +7,8 @@ import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/solid';
+import type { AdultStudioDetails } from '@server/models/AdultCredit';
 import type { SceneStudioDetails } from '@server/models/Scene';
-import type { XxxStudioDetails } from '@server/models/XxxCredit';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
@@ -31,11 +31,11 @@ const NetworkStudioListContent = ({ source }: NetworkStudioListProps) => {
   const router = useRouter();
   const id = router.query.id as string;
   const [search, setSearch] = useState('');
-  const { data, error } = useSWR<SceneStudioDetails | XxxStudioDetails>(
+  const { data, error } = useSWR<SceneStudioDetails | AdultStudioDetails>(
     id
       ? source === 'stashdb'
         ? `/api/v1/scene/studio/${id}`
-        : `/api/v1/xxxmovie/studio/${id}`
+        : `/api/v1/adultmovie/studio/${id}`
       : null
   );
 
@@ -47,7 +47,10 @@ const NetworkStudioListContent = ({ source }: NetworkStudioListProps) => {
     return <ErrorPage statusCode={404} />;
   }
 
-  const base = source === 'stashdb' ? '/scenes/studio' : '/xxxmovies/studio';
+  const base =
+    source === 'stashdb'
+      ? '/discover/scenes/studio'
+      : '/discover/adultmovies/studio';
   const studios = ('studios' in data ? data.studios : data.sites).filter(
     (studio) => studio.name.toLowerCase().includes(search.trim().toLowerCase())
   );

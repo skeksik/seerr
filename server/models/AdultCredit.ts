@@ -7,8 +7,8 @@ import type { SiteLink } from '@server/models/Scene';
 
 // ThePornDB performers and studios, for their pages and filter names
 
-export interface XxxPerformerDetails {
-  // Numeric id the XXX movie filters take
+export interface AdultPerformerDetails {
+  // Numeric id the adult movie filters take
   id: number;
   name: string;
   imageUrl?: string;
@@ -24,7 +24,7 @@ export interface XxxPerformerDetails {
   tpdbUrl: string;
 }
 
-export interface XxxStudioDetails {
+export interface AdultStudioDetails {
   id: number;
   name: string;
   imageUrl?: string;
@@ -37,9 +37,9 @@ export interface XxxStudioDetails {
   tpdbUrl: string;
 }
 
-export const mapXxxPerformerDetails = (
+export const mapAdultPerformerDetails = (
   performer: TpdbPerformerSummary
-): XxxPerformerDetails => {
+): AdultPerformerDetails => {
   const extras = performer.extras;
 
   return {
@@ -63,10 +63,10 @@ export const mapXxxPerformerDetails = (
   };
 };
 
-export const mapXxxStudioDetails = (
+export const mapAdultStudioDetails = (
   site: TpdbSiteSummary,
   sites: TpdbSiteSummary[]
-): XxxStudioDetails => ({
+): AdultStudioDetails => ({
   id: site.id,
   name: site.name,
   imageUrl: site.logo ?? undefined,

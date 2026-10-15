@@ -20,7 +20,7 @@ const globalMessages = defineMessages('notifications.common', {
   movie: 'movie',
   series: 'series',
   scene: 'scene',
-  xxxMovie: 'XXX movie',
+  adultMovie: 'Adult movie',
   issue: 'issue',
   issueTypeName: '{type} issue',
 });

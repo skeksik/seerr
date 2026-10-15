@@ -413,11 +413,11 @@ describe('Adult movie requests', () => {
   });
 });
 
-describe('XXX movie requests', () => {
+describe('Adult movie requests', () => {
   const TPDB_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
-  const requestXxxMovie = (user: User) =>
+  const requestAdultMovie = (user: User) =>
     MediaRequest.request(
-      { mediaType: MediaType.XXX_MOVIE, tpdbId: TPDB_ID },
+      { mediaType: MediaType.ADULT_MOVIE, tpdbId: TPDB_ID },
       user
     );
 
@@ -435,15 +435,15 @@ describe('XXX movie requests', () => {
     getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
   });
 
-  it('creates an adult XXX movie keyed by ThePornDB id', async () => {
+  it('creates an adult adult movie keyed by ThePornDB id', async () => {
     const user = await createUser(
       'xxx@seerr.dev',
       Permission.REQUEST | Permission.ADULT
     );
 
-    const request = await requestXxxMovie(user);
+    const request = await requestAdultMovie(user);
 
-    assert.strictEqual(request.type, MediaType.XXX_MOVIE);
+    assert.strictEqual(request.type, MediaType.ADULT_MOVIE);
     const media = await Media.getMediaByTpdbId(TPDB_ID);
     assert.strictEqual(media?.isAdult, true);
     assert.strictEqual(media?.tmdbId, null);
@@ -453,10 +453,10 @@ describe('XXX movie requests', () => {
   it('requires the adult permission', async () => {
     const user = await createUser('xxxkid@seerr.dev', Permission.REQUEST);
 
-    await assert.rejects(() => requestXxxMovie(user), RequestPermissionError);
+    await assert.rejects(() => requestAdultMovie(user), RequestPermissionError);
   });
 
-  it('counts XXX movies against the movie quota', async () => {
+  it('counts adult movies against the movie quota', async () => {
     const user = await createUser(
       'xxxquota@seerr.dev',
       Permission.REQUEST | Permission.ADULT
@@ -464,7 +464,7 @@ describe('XXX movie requests', () => {
     user.movieQuotaLimit = 1;
     await getRepository(User).save(user);
 
-    await requestXxxMovie(user);
+    await requestAdultMovie(user);
 
     const quota = await user.getQuota();
     assert.strictEqual(quota.movie.used, 1);
@@ -473,7 +473,7 @@ describe('XXX movie requests', () => {
       () =>
         MediaRequest.request(
           {
-            mediaType: MediaType.XXX_MOVIE,
+            mediaType: MediaType.ADULT_MOVIE,
             tpdbId: 'a232281d-93ee-4f20-b6e1-30535e95bdd5',
           },
           user

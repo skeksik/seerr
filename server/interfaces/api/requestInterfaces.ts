@@ -30,7 +30,7 @@ export type MediaRequestBody = {
   ignoreQuota?: boolean;
 };
 
-// Scenes and XXX movies have no TMDB id, seasons or 4K tier
+// Scenes and adult movies have no TMDB id, seasons or 4K tier
 type AdultRequestOptions = {
   serverId?: number;
   profileId?: number;
@@ -45,9 +45,9 @@ export type SceneRequestBody = AdultRequestOptions & {
   stashId: string;
 };
 
-export type XxxMovieRequestBody = AdultRequestOptions & {
-  mediaType: MediaType.XXX_MOVIE;
+export type AdultMovieRequestBody = AdultRequestOptions & {
+  mediaType: MediaType.ADULT_MOVIE;
   tpdbId: string;
 };
 
-export type AdultRequestBody = SceneRequestBody | XxxMovieRequestBody;
+export type AdultRequestBody = SceneRequestBody | AdultMovieRequestBody;

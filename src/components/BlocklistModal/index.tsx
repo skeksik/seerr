@@ -3,19 +3,19 @@ import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
 
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { Collection } from '@server/models/Collection';
 import type { MovieDetails } from '@server/models/Movie';
 import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 interface BlocklistModalProps {
-  // TMDB id, or the StashDB or ThePornDB UUID of a scene or XXX movie
+  // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
   tmdbId: number | string;
-  type: 'movie' | 'tv' | 'collection' | 'scene' | 'xxxmovie';
+  type: 'movie' | 'tv' | 'collection' | 'scene' | 'adultmovie';
   show: boolean;
   onComplete?: () => void;
   onCancel?: () => void;
@@ -31,7 +31,7 @@ type BlocklistTitle =
   | TvDetails
   | Collection
   | SceneDetails
-  | XxxMovieDetails;
+  | AdultMovieDetails;
 
 const isCollection = (data: BlocklistTitle | null): data is Collection => {
   return (
@@ -58,8 +58,8 @@ const backdropProps = (
     };
   }
 
-  if (type === 'xxxmovie') {
-    const movie = data as XxxMovieDetails | null;
+  if (type === 'adultmovie') {
+    const movie = data as AdultMovieDetails | null;
     return {
       backdrop: movie?.backdropUrl ?? movie?.posterUrl,
       backdropType: 'tpdb',
@@ -117,8 +117,8 @@ const BlocklistModal = ({
             ? intl.formatMessage(globalMessages.collection)
             : type === 'scene'
               ? intl.formatMessage(globalMessages.scene)
-              : type === 'xxxmovie'
-                ? intl.formatMessage(globalMessages.xxxMovie)
+              : type === 'adultmovie'
+                ? intl.formatMessage(globalMessages.adultMovie)
                 : isMovie(data)
                   ? intl.formatMessage(globalMessages.movie)
                   : intl.formatMessage(globalMessages.tvshow)

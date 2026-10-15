@@ -1,7 +1,7 @@
 import { stashImageUrl } from '@app/utils/stashImage';
 import type Media from '@server/entity/Media';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import useSWR from 'swr';
 
 export interface AdultRequestItemDetails {
@@ -15,11 +15,11 @@ export interface AdultRequestItemDetails {
   // Wide artwork for row and card backgrounds
   backdropUrl?: string;
   imageType: 'stashdb' | 'tpdb';
-  // XXX movie covers are portrait, scene stills landscape
+  // Adult movie covers are portrait, scene stills landscape
   portrait: boolean;
 }
 
-// Loads the scene or XXX movie behind a request for rows and cards
+// Loads the scene or adult movie behind a request for rows and cards
 const useAdultRequestItem = (
   media: Pick<Media, 'mediaType' | 'stashId' | 'tpdbId'>,
   load: boolean,
@@ -27,8 +27,8 @@ const useAdultRequestItem = (
 ): AdultRequestItemDetails => {
   const isScene = media.mediaType === 'scene';
   const id = isScene ? media.stashId : media.tpdbId;
-  const { data, error } = useSWR<SceneDetails | XxxMovieDetails>(
-    load && id ? `/api/v1/${isScene ? 'scene' : 'xxxmovie'}/${id}` : null
+  const { data, error } = useSWR<SceneDetails | AdultMovieDetails>(
+    load && id ? `/api/v1/${isScene ? 'scene' : 'adultmovie'}/${id}` : null
   );
 
   const imageUrl = !data
@@ -44,7 +44,7 @@ const useAdultRequestItem = (
     subtitle: [data?.studio?.name, data?.releaseDate?.slice(0, 4)]
       .filter(Boolean)
       .join(' · '),
-    href: `/${isScene ? 'scene' : 'xxxmovie'}/${id}`,
+    href: `/${isScene ? 'scene' : 'adultmovie'}/${id}`,
     imageUrl,
     backdropUrl: !data
       ? undefined

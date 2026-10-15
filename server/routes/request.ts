@@ -192,9 +192,9 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             type: MediaType.SCENE,
           });
           break;
-        case 'xxxmovie':
+        case 'adultmovie':
           query = query.andWhere('request.type = :type', {
-            type: MediaType.XXX_MOVIE,
+            type: MediaType.ADULT_MOVIE,
           });
           break;
       }
@@ -290,7 +290,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             };
           }
           case MediaType.SCENE:
-          case MediaType.XXX_MOVIE: {
+          case MediaType.ADULT_MOVIE: {
             // Handled above, adult media always belongs to Whisparr
             return { ...r, profileName: undefined };
           }
@@ -335,7 +335,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
               };
             }
             case MediaType.SCENE:
-            case MediaType.XXX_MOVIE: {
+            case MediaType.ADULT_MOVIE: {
               // Handled above, adult media always belongs to Whisparr
               return { ...r, canRemove: false };
             }
@@ -398,7 +398,7 @@ requestRoutes.post<never, MediaRequest, MediaRequestBody | AdultRequestBody>(
       const idField =
         req.body.mediaType === MediaType.SCENE
           ? 'stashId'
-          : req.body.mediaType === MediaType.XXX_MOVIE
+          : req.body.mediaType === MediaType.ADULT_MOVIE
             ? 'tpdbId'
             : 'mediaId';
       if (!(idField in req.body)) {
@@ -619,11 +619,11 @@ requestRoutes.put<{ requestId: string }>(
         const ownerChanging = requestUser.id !== previousOwnerId;
 
         return requestLock.dispatch(userKey(requestUser.id), async () => {
-          // Scenes and XXX movies share the movie edit fields
+          // Scenes and adult movies share the movie edit fields
           if (
             req.body.mediaType === MediaType.MOVIE ||
             req.body.mediaType === MediaType.SCENE ||
-            req.body.mediaType === MediaType.XXX_MOVIE
+            req.body.mediaType === MediaType.ADULT_MOVIE
           ) {
             if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();

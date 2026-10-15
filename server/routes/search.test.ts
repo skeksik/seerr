@@ -103,7 +103,7 @@ describe('GET /search', () => {
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(
       res.body.results.map((r: { mediaType: string }) => r.mediaType),
-      ['performer', 'xxxmovie']
+      ['performer', 'adultmovie']
     );
     assert.strictEqual(res.body.totalPages, 4);
   });

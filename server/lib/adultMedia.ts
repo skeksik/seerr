@@ -30,7 +30,7 @@ export const lookupAdultTitle = async (
   return movie ? { id: movie.id, title: movie.title } : null;
 };
 
-// Media rows for scenes and XXX movies are keyed by their external id
+// Media rows for scenes and adult movies are keyed by their external id
 export const findOrCreateAdultMedia = async (
   em: EntityManager,
   mediaType: AdultMediaType,
@@ -47,7 +47,7 @@ export const findOrCreateAdultMedia = async (
       mediaType,
       [idField]: externalId,
       tmdbId: null,
-      isAdult: mediaType === MediaType.XXX_MOVIE,
+      isAdult: mediaType === MediaType.ADULT_MOVIE,
     })
   );
 };
@@ -62,7 +62,7 @@ export const isOnWatchlist = async (
     where: { mediaType, externalId, requestedBy: { id: user.id } },
   });
 
-// Notification subject and image for a scene or XXX movie, like the TMDB
+// Notification subject and image for a scene or adult movie, like the TMDB
 // title and poster for movies
 export const describeAdultMedia = async (
   media: Media
@@ -83,7 +83,7 @@ export const describeAdultMedia = async (
     };
   }
 
-  if (media.mediaType === MediaType.XXX_MOVIE && media.tpdbId) {
+  if (media.mediaType === MediaType.ADULT_MOVIE && media.tpdbId) {
     const movie = await TpdbAPI.fromSettings().getMovie(media.tpdbId);
 
     if (!movie) {
@@ -96,5 +96,5 @@ export const describeAdultMedia = async (
     };
   }
 
-  throw new Error(`Media ${media.id} is not a scene or XXX movie`);
+  throw new Error(`Media ${media.id} is not a scene or adult movie`);
 };

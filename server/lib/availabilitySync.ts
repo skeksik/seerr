@@ -135,7 +135,7 @@ class AvailabilitySync {
           throw new Error('Job aborted');
         }
 
-        if (media.mediaType === 'scene' || media.mediaType === 'xxxmovie') {
+        if (media.mediaType === 'scene' || media.mediaType === 'adultmovie') {
           await syncSceneAvailability(media);
           continue;
         }

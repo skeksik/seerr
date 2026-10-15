@@ -22,7 +22,7 @@ const messages = defineMessages('component.BlocklistBlock', {
 });
 
 interface BlocklistBlockProps {
-  // TMDB id, or the StashDB or ThePornDB UUID of a scene or XXX movie
+  // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
   tmdbId: number | string;
   mediaType: MediaType;
   onUpdate?: () => void;

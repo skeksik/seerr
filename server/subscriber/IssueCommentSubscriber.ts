@@ -49,7 +49,7 @@ export class IssueCommentSubscriber implements EntitySubscriberInterface<IssueCo
 
       if (
         media.mediaType === MediaType.SCENE ||
-        media.mediaType === MediaType.XXX_MOVIE
+        media.mediaType === MediaType.ADULT_MOVIE
       ) {
         ({ title, image } = await describeAdultMedia(media));
       } else if (media.mediaType === MediaType.MOVIE) {

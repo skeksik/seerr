@@ -68,7 +68,7 @@ const RecentRequestsSlider = () => {
         isLoading={!requests}
         // The server leaves adult requests out for viewers without access
         items={(requests?.results ?? []).map((request) =>
-          request.type === 'scene' || request.type === 'xxxmovie' ? (
+          request.type === 'scene' || request.type === 'adultmovie' ? (
             <SceneRequestCard
               key={`request-slider-item-${request.id}`}
               request={request}

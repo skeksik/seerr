@@ -27,7 +27,10 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
     <>
       <div className="slider-header">
         {/* Every studio or network, beyond the trending ones */}
-        <Link href={`/scenes/${type}`} className="slider-title min-w-0 pr-16">
+        <Link
+          href={`/discover/scenes/${type}`}
+          className="slider-title min-w-0 pr-16"
+        >
           <span className="truncate">{title}</span>
           <ArrowRightCircleIcon />
         </Link>
@@ -43,12 +46,12 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
               name={studio.name}
               image={stashImageUrl(studio.imageUrl, 300)}
               imageType="stashdb"
-              url={`/scenes/studio/${studio.id}`}
+              url={`/discover/scenes/studio/${studio.id}`}
             />
           )),
           <SeeAllStudiosCard
             key={`adult-${type}-all`}
-            url={`/scenes/${type}`}
+            url={`/discover/scenes/${type}`}
           />,
         ]}
       />

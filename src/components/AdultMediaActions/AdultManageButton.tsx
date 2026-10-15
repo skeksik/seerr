@@ -5,20 +5,24 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
 import { CogIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
-import type { XxxMovieDetails } from '@server/models/XxxMovie';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.AdultMediaActions', {
   managescene: 'Manage Scene',
-  managexxxmovie: 'Manage XXX Movie',
+  manageadultmovie: 'Manage Adult Movie',
 });
 
 type AdultManageButtonProps =
   | { mediaType: 'scene'; data: SceneDetails; revalidate: () => void }
-  | { mediaType: 'xxxmovie'; data: XxxMovieDetails; revalidate: () => void };
+  | {
+      mediaType: 'adultmovie';
+      data: AdultMovieDetails;
+      revalidate: () => void;
+    };
 
 // The movie page's cog: requests, Whisparr links and media data
 const AdultManageButton = (props: AdultManageButtonProps) => {
@@ -64,7 +68,7 @@ const AdultManageButton = (props: AdultManageButtonProps) => {
         content={intl.formatMessage(
           props.mediaType === 'scene'
             ? messages.managescene
-            : messages.managexxxmovie
+            : messages.manageadultmovie
         )}
       >
         <Button

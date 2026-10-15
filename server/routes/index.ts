@@ -29,6 +29,7 @@ import { getAppVersion, getCommitTag } from '@server/utils/appVersion';
 import restartFlag from '@server/utils/restartFlag';
 import { isPerson } from '@server/utils/typeHelpers';
 import { Router } from 'express';
+import adultMovieRoutes from './adultMovie';
 import authRoutes from './auth';
 import blocklistRoutes from './blocklist';
 import collectionRoutes from './collection';
@@ -44,7 +45,6 @@ import searchRoutes from './search';
 import serviceRoutes from './service';
 import tvRoutes from './tv';
 import user from './user';
-import xxxMovieRoutes from './xxxMovie';
 
 const router = Router();
 
@@ -175,7 +175,7 @@ router.use(
 router.use('/movie', isAuthenticated(), movieRoutes);
 router.use('/tv', isAuthenticated(), tvRoutes);
 router.use('/scene', isAuthenticated(), isAdultAllowed, sceneRoutes);
-router.use('/xxxmovie', isAuthenticated(), isAdultAllowed, xxxMovieRoutes);
+router.use('/adultmovie', isAuthenticated(), isAdultAllowed, adultMovieRoutes);
 router.use('/media', isAuthenticated(), mediaRoutes);
 router.use('/person', isAuthenticated(), personRoutes);
 router.use('/collection', isAuthenticated(), collectionRoutes);

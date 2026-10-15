@@ -40,7 +40,7 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   clearfilters: 'Clear Active Filters',
 });
 
-// Scenes filter on StashDB; XXX movies on ThePornDB
+// Scenes filter on StashDB; adult movies on ThePornDB
 export type AdultFilterKind = 'scene' | 'tpdb';
 
 // Query params the filters own; everything else (like sort) is kept
@@ -332,9 +332,11 @@ const AdultFilterSlideover = ({
   const tagNames = param(router.query.tagNames)?.split('|');
   const tagsExcludeNames = param(router.query.tagsExcludeNames)?.split('|');
   const isScene = kind === 'scene';
-  const lookupBase = isScene ? '/api/v1/scene/lookup' : '/api/v1/xxxmovie';
+  const lookupBase = isScene ? '/api/v1/scene/lookup' : '/api/v1/adultmovie';
   const nameUrl = (type: 'studio' | 'performer' | 'tag', id: string) =>
-    isScene ? `/api/v1/scene/${type}/${id}` : `/api/v1/xxxmovie/${type}/${id}`;
+    isScene
+      ? `/api/v1/scene/${type}/${id}`
+      : `/api/v1/adultmovie/${type}/${id}`;
   const resolveName =
     (type: 'studio' | 'performer' | 'tag') => async (id: string) =>
       (await axios.get<{ name: string }>(nameUrl(type, id))).data.name;

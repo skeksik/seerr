@@ -63,7 +63,7 @@ export class MediaRequest {
   ): Promise<MediaRequest> {
     if (
       requestBody.mediaType === MediaType.SCENE ||
-      requestBody.mediaType === MediaType.XXX_MOVIE
+      requestBody.mediaType === MediaType.ADULT_MOVIE
     ) {
       const adultBody = requestBody;
       const adultLockUserId =
@@ -105,7 +105,7 @@ export class MediaRequest {
     );
   }
 
-  // Scenes and XXX movies: keyed by an external id, always sent to Whisparr
+  // Scenes and adult movies: keyed by an external id, always sent to Whisparr
   private static async createAdultRequest(
     requestBody: AdultRequestBody,
     user: User
@@ -135,11 +135,11 @@ export class MediaRequest {
       !requestUser.hasPermission(Permission.REQUEST)
     ) {
       throw new RequestPermissionError(
-        `You do not have permission to make ${isScene ? 'scene' : 'XXX movie'} requests.`
+        `You do not have permission to make ${isScene ? 'scene' : 'Adult movie'} requests.`
       );
     }
 
-    // XXX movies share the movie quota
+    // Adult movies share the movie quota
     const quotas = await requestUser.getQuota();
     const quota = isScene ? quotas.scene : quotas.movie;
     const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
@@ -938,8 +938,8 @@ export class MediaRequest {
           ? 'Movie'
           : entity.type === MediaType.SCENE
             ? 'Scene'
-            : entity.type === MediaType.XXX_MOVIE
-              ? 'XXX Movie'
+            : entity.type === MediaType.ADULT_MOVIE
+              ? 'Adult Movie'
               : 'Series';
       let event: string | undefined;
       let notifyAdmin = true;
@@ -1052,7 +1052,7 @@ export class MediaRequest {
             ? [{ name: 'Studio', value: details.studio.name }]
             : [],
         });
-      } else if (entity.type === MediaType.XXX_MOVIE && media.tpdbId) {
+      } else if (entity.type === MediaType.ADULT_MOVIE && media.tpdbId) {
         const movie = await TpdbAPI.fromSettings().getMovie(media.tpdbId);
 
         if (!movie) {

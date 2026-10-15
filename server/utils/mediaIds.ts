@@ -22,6 +22,6 @@ export const getMediaPath = (media: {
 }): string =>
   media.mediaType === 'scene'
     ? `/scene/${media.stashId}`
-    : media.mediaType === 'xxxmovie'
-      ? `/xxxmovie/${media.tpdbId}`
+    : media.mediaType === 'adultmovie'
+      ? `/adultmovie/${media.tpdbId}`
       : `/${media.mediaType}/${media.tmdbId}`;

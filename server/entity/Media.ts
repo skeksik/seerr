@@ -117,9 +117,9 @@ class Media {
     }
   }
 
-  // Scenes and XXX movies by external id, with the viewer's watchlist entry
+  // Scenes and adult movies by external id, with the viewer's watchlist entry
   private static async getRelatedAdultMedia(
-    mediaType: MediaType.SCENE | MediaType.XXX_MOVIE,
+    mediaType: MediaType.SCENE | MediaType.ADULT_MOVIE,
     ids: string[],
     user?: User
   ): Promise<Media[]> {
@@ -154,11 +154,11 @@ class Media {
     return this.getRelatedAdultMedia(MediaType.SCENE, stashIds, user);
   }
 
-  public static async getRelatedXxxMovies(
+  public static async getRelatedAdultMovies(
     tpdbIds: string[],
     user?: User
   ): Promise<Media[]> {
-    return this.getRelatedAdultMedia(MediaType.XXX_MOVIE, tpdbIds, user);
+    return this.getRelatedAdultMedia(MediaType.ADULT_MOVIE, tpdbIds, user);
   }
 
   public static async getMediaByTpdbId(
@@ -166,7 +166,7 @@ class Media {
   ): Promise<Media | undefined> {
     try {
       const media = await getRepository(Media).findOne({
-        where: { tpdbId, mediaType: MediaType.XXX_MOVIE },
+        where: { tpdbId, mediaType: MediaType.ADULT_MOVIE },
         relations: { requests: true, issues: true },
       });
 
@@ -201,7 +201,7 @@ class Media {
   @Column({ type: 'varchar' })
   public mediaType: MediaType;
 
-  // Null for scenes and XXX movies, which are keyed by stashId and tpdbId
+  // Null for scenes and adult movies, which are keyed by stashId and tpdbId
   @Column({ type: 'int', nullable: true })
   @Index()
   public tmdbId: number | null;
@@ -210,11 +210,11 @@ class Media {
   @Column({ type: 'varchar', unique: true, nullable: true })
   public stashId?: string | null;
 
-  // ThePornDB movie UUID of an XXX movie, shared by Whisparr
+  // ThePornDB movie UUID of an adult movie, shared by Whisparr
   @Column({ type: 'varchar', unique: true, nullable: true })
   public tpdbId?: string | null;
 
-  // Adult movie sent to Whisparr instead of Radarr; always set on XXX movies
+  // Adult movie sent to Whisparr instead of Radarr; always set on adult movies
   @Column({ type: 'boolean', default: false })
   public isAdult: boolean;
 
@@ -368,8 +368,8 @@ class Media {
       return;
     }
 
-    // XXX movies are only tracked through Whisparr
-    if (this.mediaType === MediaType.XXX_MOVIE) {
+    // Adult movies are only tracked through Whisparr
+    if (this.mediaType === MediaType.ADULT_MOVIE) {
       return;
     }
 

@@ -16,21 +16,21 @@ import {
   tagsNeeded,
 } from '@server/lib/orientation';
 import logger from '@server/logger';
-import type { SiteLink } from '@server/models/Scene';
 import {
-  mapXxxPerformerDetails,
-  mapXxxStudioDetails,
-} from '@server/models/XxxCredit';
+  mapAdultPerformerDetails,
+  mapAdultStudioDetails,
+} from '@server/models/AdultCredit';
 import type {
-  XxxMovieListResponse,
-  XxxMovieResult,
-  XxxMovieStudio,
-} from '@server/models/XxxMovie';
+  AdultMovieListResponse,
+  AdultMovieResult,
+  AdultMovieStudio,
+} from '@server/models/AdultMovie';
 import {
   MAX_DURATION,
-  mapXxxMovieDetails,
-  mapXxxMovieResult,
-} from '@server/models/XxxMovie';
+  mapAdultMovieDetails,
+  mapAdultMovieResult,
+} from '@server/models/AdultMovie';
+import type { SiteLink } from '@server/models/Scene';
 import { isoDate } from '@server/utils/dateHelpers';
 import type { NextFunction } from 'express';
 import { Router } from 'express';
@@ -38,9 +38,9 @@ import { z } from 'zod';
 
 const PAGE_SIZE = 20;
 
-const xxxMovieRoutes = Router();
+const adultMovieRoutes = Router();
 
-export const xxxMovieSorts = [
+export const adultMovieSorts = [
   'released',
   'oldest',
   'added',
@@ -86,7 +86,7 @@ type MovieFilters = z.infer<typeof movieFilters>;
 
 const discoverQuery = movieFilters.extend({
   page: z.coerce.number().int().positive().default(1),
-  sort: z.enum(xxxMovieSorts).default('released'),
+  sort: z.enum(adultMovieSorts).default('released'),
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
@@ -279,14 +279,14 @@ const withMatches = async <T extends { id: number }>(
 const toResults = async (
   movies: TpdbMovie[],
   user?: User
-): Promise<XxxMovieResult[]> => {
-  const media = await Media.getRelatedXxxMovies(
+): Promise<AdultMovieResult[]> => {
+  const media = await Media.getRelatedAdultMovies(
     movies.map((m) => m.id),
     user
   );
 
   return movies.map((movie) => ({
-    ...mapXxxMovieResult(
+    ...mapAdultMovieResult(
       movie,
       media.find((m) => m.tpdbId === movie.id)
     ),
@@ -318,7 +318,7 @@ const handleError = (
   return next({ status: 500, message });
 };
 
-const tpdbSorts: Record<(typeof xxxMovieSorts)[number], TpdbMovieSort> = {
+const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   released: 'recently_released',
   oldest: 'former_released',
   added: 'recently_created',
@@ -332,7 +332,7 @@ const tpdbSorts: Record<(typeof xxxMovieSorts)[number], TpdbMovieSort> = {
 const discoverTpdb = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
-): Promise<XxxMovieListResponse> => {
+): Promise<AdultMovieListResponse> => {
   const tpdb = TpdbAPI.fromSettings();
   const plan = planMovies(user, filters);
   const query = {
@@ -379,7 +379,7 @@ const discoverTpdb = async (
   };
 };
 
-xxxMovieRoutes.get('/discover', async (req, res, next) => {
+adultMovieRoutes.get('/discover', async (req, res, next) => {
   const parsed = discoverQuery.safeParse(req.query);
 
   if (!parsed.success) {
@@ -391,13 +391,13 @@ xxxMovieRoutes.get('/discover', async (req, res, next) => {
 
     return res.status(200).json(list);
   } catch (e) {
-    return handleError(e, next, 'Unable to retrieve XXX movies.', {
+    return handleError(e, next, 'Unable to retrieve adult movies.', {
       query: req.query,
     });
   }
 });
 
-xxxMovieRoutes.get('/search', async (req, res, next) => {
+adultMovieRoutes.get('/search', async (req, res, next) => {
   const parsed = searchQuery.safeParse(req.query);
 
   if (!parsed.success) {
@@ -419,14 +419,14 @@ xxxMovieRoutes.get('/search', async (req, res, next) => {
       totalPages: list.meta.last_page,
       totalResults: list.meta.total,
       results: await toResults(movies, req.user),
-    } satisfies XxxMovieListResponse);
+    } satisfies AdultMovieListResponse);
   } catch (e) {
-    return handleError(e, next, 'Unable to search XXX movies.', { query });
+    return handleError(e, next, 'Unable to search adult movies.', { query });
   }
 });
 
 // Lookups for the ThePornDB filters
-xxxMovieRoutes.get('/studios', async (req, res, next) => {
+adultMovieRoutes.get('/studios', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
 
   if (!parsed.success) {
@@ -452,7 +452,7 @@ xxxMovieRoutes.get('/studios', async (req, res, next) => {
   }
 });
 
-xxxMovieRoutes.get('/performers', async (req, res, next) => {
+adultMovieRoutes.get('/performers', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
 
   if (!parsed.success) {
@@ -482,7 +482,7 @@ xxxMovieRoutes.get('/performers', async (req, res, next) => {
   }
 });
 
-xxxMovieRoutes.get('/tags', async (req, res, next) => {
+adultMovieRoutes.get('/tags', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
 
   if (!parsed.success) {
@@ -509,7 +509,7 @@ xxxMovieRoutes.get('/tags', async (req, res, next) => {
 });
 
 // The ThePornDB performer or site behind a StashDB performer or studio
-xxxMovieRoutes.get<{ type: string; id: string }>(
+adultMovieRoutes.get<{ type: string; id: string }>(
   '/match/:type/:id',
   async (req, res, next) => {
     const id = z.string().uuid().safeParse(req.params.id);
@@ -572,7 +572,7 @@ const mapMovieList = async (
   totalPages: number,
   totalResults: number,
   user?: User
-): Promise<XxxMovieListResponse> => ({
+): Promise<AdultMovieListResponse> => ({
   page,
   totalPages,
   totalResults,
@@ -583,7 +583,7 @@ const mapMovieList = async (
 });
 
 // Released movies with any of this movie's performers, newest first
-xxxMovieRoutes.get<{ id: string }>(
+adultMovieRoutes.get<{ id: string }>(
   '/:id/recommendations',
   async (req, res, next) => {
     const id = movieId.safeParse(req.params.id);
@@ -636,7 +636,7 @@ xxxMovieRoutes.get<{ id: string }>(
 );
 
 // ThePornDB's similar movies, a single page
-xxxMovieRoutes.get<{ id: string }>('/:id/similar', async (req, res, next) => {
+adultMovieRoutes.get<{ id: string }>('/:id/similar', async (req, res, next) => {
   const id = movieId.safeParse(req.params.id);
 
   if (!id.success) {
@@ -657,7 +657,7 @@ xxxMovieRoutes.get<{ id: string }>('/:id/similar', async (req, res, next) => {
   }
 });
 
-xxxMovieRoutes.get<{ type: string; id: string }>(
+adultMovieRoutes.get<{ type: string; id: string }>(
   '/:type/:id',
   async (req, res, next) => {
     const id = Number(req.params.id);
@@ -680,7 +680,7 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
           return next({ status: 404, message: 'Not found.' });
         }
 
-        const details = mapXxxPerformerDetails(performer);
+        const details = mapAdultPerformerDetails(performer);
 
         return res.status(200).json({
           ...details,
@@ -697,7 +697,7 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
         return next({ status: 404, message: 'Not found.' });
       }
 
-      const details = mapXxxStudioDetails(site, sites);
+      const details = mapAdultStudioDetails(site, sites);
       const match = await withStashDbStudio(details);
 
       return res.status(200).json({ ...details, stashDbId: match?.stashDbId });
@@ -712,8 +712,8 @@ xxxMovieRoutes.get<{ type: string; id: string }>(
 
 // Studio links go to the StashDB studio page when StashDB has the studio
 const withStashDbStudio = async (
-  studio?: XxxMovieStudio
-): Promise<XxxMovieStudio | undefined> => {
+  studio?: AdultMovieStudio
+): Promise<AdultMovieStudio | undefined> => {
   if (!studio) {
     return undefined;
   }
@@ -760,7 +760,7 @@ const withSiteIcons = async (links: SiteLink[]): Promise<SiteLink[]> => {
   }
 };
 
-xxxMovieRoutes.get('/:id', async (req, res, next) => {
+adultMovieRoutes.get('/:id', async (req, res, next) => {
   const parsed = z.string().uuid().safeParse(req.params.id);
 
   if (!parsed.success) {
@@ -775,7 +775,7 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
     }
 
     const media = await Media.getMediaByTpdbId(movie.id);
-    const details = mapXxxMovieDetails(movie, media?.filter(req.user));
+    const details = mapAdultMovieDetails(movie, media?.filter(req.user));
     const [studio, network] = await Promise.all([
       withStashDbStudio(details.studio),
       withStashDbStudio(details.network),
@@ -786,7 +786,7 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
       studio,
       network,
       onUserWatchlist: await isOnWatchlist(
-        MediaType.XXX_MOVIE,
+        MediaType.ADULT_MOVIE,
         movie.id,
         req.user
       ),
@@ -798,4 +798,4 @@ xxxMovieRoutes.get('/:id', async (req, res, next) => {
   }
 });
 
-export default xxxMovieRoutes;
+export default adultMovieRoutes;

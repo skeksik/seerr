@@ -7,8 +7,11 @@ import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
+import type {
+  AdultMovieDetails,
+  AdultMovieResult,
+} from '@server/models/AdultMovie';
 import type { SceneDetails, SceneResult } from '@server/models/Scene';
-import type { XxxMovieDetails, XxxMovieResult } from '@server/models/XxxMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useIntl } from 'react-intl';
@@ -20,16 +23,16 @@ const messages = defineMessages('components.AdultTitleList', {
 });
 
 interface AdultTitleListProps {
-  mediaType: 'scene' | 'xxxmovie';
+  mediaType: 'scene' | 'adultmovie';
   list: 'recommendations' | 'similar';
 }
 
 const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
   const router = useRouter();
   const intl = useIntl();
-  const id = router.query[mediaType === 'scene' ? 'sceneId' : 'xxxMovieId'];
+  const id = router.query[mediaType === 'scene' ? 'sceneId' : 'adultMovieId'];
   const { data: title, error: titleError } = useSWR<
-    SceneDetails | XxxMovieDetails
+    SceneDetails | AdultMovieDetails
   >(id ? `/api/v1/${mediaType}/${id}` : null);
   const {
     isLoadingInitialData,
@@ -39,7 +42,7 @@ const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<SceneResult | XxxMovieResult>(
+  } = useDiscover<SceneResult | AdultMovieResult>(
     `/api/v1/${mediaType}/${id}/${list}`
   );
 
@@ -82,7 +85,7 @@ const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
         />
       ) : (
         <ListView
-          items={titles as XxxMovieResult[]}
+          items={titles as AdultMovieResult[]}
           isEmpty={isEmpty}
           isLoading={isLoading}
           isReachingEnd={isReachingEnd}
@@ -93,7 +96,7 @@ const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
   );
 };
 
-// The movie Recommendations and Similar pages, for scenes and XXX movies
+// The movie Recommendations and Similar pages, for scenes and adult movies
 const AdultTitleList = (props: AdultTitleListProps) => {
   const canViewAdult = useAdult();
 

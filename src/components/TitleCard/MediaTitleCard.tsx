@@ -3,7 +3,7 @@ import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 
 interface MediaTitleCardProps {
   id: number;
-  mediaType: 'movie' | 'tv' | 'scene' | 'xxxmovie';
+  mediaType: 'movie' | 'tv' | 'scene' | 'adultmovie';
   tmdbId?: number | null;
   tvdbId?: number | null;
   // StashDB scene or ThePornDB movie UUID
@@ -22,7 +22,7 @@ const MediaTitleCard = ({
   externalId,
   ...props
 }: MediaTitleCardProps) => {
-  if (mediaType === 'scene' || mediaType === 'xxxmovie') {
+  if (mediaType === 'scene' || mediaType === 'adultmovie') {
     return externalId ? (
       <AdultTitleCard
         mediaType={mediaType}

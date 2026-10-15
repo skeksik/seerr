@@ -299,7 +299,7 @@ export class User {
     });
 
     // Movies and scenes count one per request; series count seasons below.
-    // XXX movies share the movie quota.
+    // Adult movies share the movie quota.
     const countRequests = async (
       types: MediaType[],
       limit: number | undefined,
@@ -332,7 +332,7 @@ export class User {
       : 0;
     const movieQuotaDays = this.movieQuotaDays ?? defaultQuotas.movie.quotaDays;
     const movieQuotaUsed = await countRequests(
-      [MediaType.MOVIE, MediaType.XXX_MOVIE],
+      [MediaType.MOVIE, MediaType.ADULT_MOVIE],
       movieQuotaLimit,
       movieQuotaDays
     );

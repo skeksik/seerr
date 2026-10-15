@@ -14,7 +14,7 @@ interface AdultLinkBlockProps {
 const linkClass =
   'flex items-center text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
 
-// ExternalLinkBlock for scenes and XXX movies: logos and icons alone, named
+// ExternalLinkBlock for scenes and adult movies: logos and icons alone, named
 // on hover. StashDB has neither, and its name keeps it apart from Stash
 const AdultLinkBlock = ({
   stashUrl,

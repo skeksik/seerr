@@ -2,6 +2,7 @@ import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
+import AdultMovieSlider from '@app/components/AdultMovies/AdultMovieSlider';
 import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -15,7 +16,6 @@ import SceneSlider from '@app/components/Scenes/SceneSlider';
 import SiteIcon from '@app/components/SiteIcon';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
-import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useSiteIcons from '@app/hooks/useSiteIcons';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -27,16 +27,16 @@ import { Transition } from '@headlessui/react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import type {
-  XxxMovieDetails as XxxMovieDetailsType,
-  XxxMovieStudio,
-} from '@server/models/XxxMovie';
+  AdultMovieDetails as AdultMovieDetailsType,
+  AdultMovieStudio,
+} from '@server/models/AdultMovie';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
-const messages = defineMessages('components.XxxMovieDetails', {
+const messages = defineMessages('components.AdultMovieDetails', {
   overview: 'Overview',
   overviewunavailable: 'Overview unavailable.',
   cast: 'Cast',
@@ -56,20 +56,20 @@ const messages = defineMessages('components.XxxMovieDetails', {
 const TAG_LIMIT = 20;
 
 // The StashDB studio page when StashDB has the studio, else ThePornDB's
-const studioHref = (studio: XxxMovieStudio): string =>
+const studioHref = (studio: AdultMovieStudio): string =>
   studio.stashDbId
-    ? `/scenes/studio/${studio.stashDbId}`
-    : `/xxxmovies/studio/${studio.id}`;
+    ? `/discover/scenes/studio/${studio.stashDbId}`
+    : `/discover/adultmovies/studio/${studio.id}`;
 
-const XxxMovieDetailsContent = () => {
+const AdultMovieDetailsContent = () => {
   const intl = useIntl();
   const router = useRouter();
   const [showAllTags, setShowAllTags] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const { hasPermission } = useUser();
-  const { data, error, mutate } = useSWR<XxxMovieDetailsType>(
-    router.query.xxxMovieId
-      ? `/api/v1/xxxmovie/${router.query.xxxMovieId}`
+  const { data, error, mutate } = useSWR<AdultMovieDetailsType>(
+    router.query.adultMovieId
+      ? `/api/v1/adultmovie/${router.query.adultMovieId}`
       : null
   );
   const siteIcon = useSiteIcons();
@@ -167,7 +167,7 @@ const XxxMovieDetailsContent = () => {
               downloadItem={data.mediaInfo?.downloadStatus}
               title={data.title}
               inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
-              mediaType="xxxmovie"
+              mediaType="adultmovie"
               externalId={data.id}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
@@ -186,7 +186,7 @@ const XxxMovieDetailsContent = () => {
         </div>
         <div className="media-actions gap-2">
           <AdultMediaActions
-            mediaType="xxxmovie"
+            mediaType="adultmovie"
             id={data.id}
             title={data.title}
             status={data.mediaInfo?.status}
@@ -203,12 +203,12 @@ const XxxMovieDetailsContent = () => {
             </Button>
           )}
           <AdultIssueButton
-            mediaType="xxxmovie"
+            mediaType="adultmovie"
             id={data.id}
             status={data.mediaInfo?.status}
           />
           <AdultManageButton
-            mediaType="xxxmovie"
+            mediaType="adultmovie"
             data={data}
             revalidate={() => mutate()}
           />
@@ -225,7 +225,7 @@ const XxxMovieDetailsContent = () => {
         >
           <SceneRequestModal
             item={{
-              mediaType: 'xxxmovie',
+              mediaType: 'adultmovie',
               id: data.id,
               title: data.title,
               backdrop: data.posterUrl,
@@ -260,7 +260,7 @@ const XxxMovieDetailsContent = () => {
               {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
                 (tag) => (
                   <Link
-                    href={`/xxxmovies?tags=${tag.id}`}
+                    href={`/discover/adultmovies?tags=${tag.id}`}
                     key={`tag-${tag.id}`}
                     className="mb-2 mr-2 inline-flex last:mr-0"
                   >
@@ -288,7 +288,7 @@ const XxxMovieDetailsContent = () => {
               href={studioHref(data.studio)}
               studio={data.studio.name}
               studioId={data.studio.id}
-              mediaType="xxxmovie"
+              mediaType="adultmovie"
               currentId={data.id}
               fallbackImageUrl={data.backdropUrl ?? data.posterUrl}
             />
@@ -365,37 +365,37 @@ const XxxMovieDetailsContent = () => {
       </div>
       {data.performers.length > 0 && (
         <PerformerSlider
-          sliderKey="xxx-movie-performers"
+          sliderKey="adult-movie-performers"
           title={intl.formatMessage(messages.cast)}
-          linkUrl={`/xxxmovie/${data.id}/cast`}
+          linkUrl={`/adultmovie/${data.id}/cast`}
           imageType="tpdb"
           performers={data.performers.map((performer) => ({
             id: performer.id,
             name: performer.name,
-            href: `/xxxmovies/performer/${performer.tpdbId}`,
+            href: `/discover/adultmovies/performer/${performer.tpdbId}`,
             imageUrl: performer.imageUrl,
           }))}
         />
       )}
       {/* The StashDB scenes the movie is cut into */}
       <SceneSlider
-        sliderKey="xxx-movie-scenes"
+        sliderKey="adult-movie-scenes"
         title={intl.formatMessage(messages.scenes)}
         url={`/api/v1/scene/movie/${data.id}`}
         hideWhenEmpty
       />
-      <XxxMovieSlider
-        sliderKey="xxx-recommendations"
+      <AdultMovieSlider
+        sliderKey="adult-recommendations"
         title={intl.formatMessage(messages.recommendations)}
-        url={`/api/v1/xxxmovie/${data.id}/recommendations?page=1`}
-        linkUrl={`/xxxmovie/${data.id}/recommendations`}
+        url={`/api/v1/adultmovie/${data.id}/recommendations?page=1`}
+        linkUrl={`/adultmovie/${data.id}/recommendations`}
         hideWhenEmpty
       />
-      <XxxMovieSlider
-        sliderKey="xxx-similar"
+      <AdultMovieSlider
+        sliderKey="adult-similar"
         title={intl.formatMessage(messages.similar)}
-        url={`/api/v1/xxxmovie/${data.id}/similar`}
-        linkUrl={`/xxxmovie/${data.id}/similar`}
+        url={`/api/v1/adultmovie/${data.id}/similar`}
+        linkUrl={`/adultmovie/${data.id}/similar`}
         hideWhenEmpty
       />
       <div className="extra-bottom-space relative" />
@@ -404,14 +404,14 @@ const XxxMovieDetailsContent = () => {
 };
 
 // Hooks above fetch unconditionally, so gate before mounting them
-const XxxMovieDetails = () => {
+const AdultMovieDetails = () => {
   const canViewAdult = useAdult();
 
   if (!canViewAdult) {
     return <ErrorPage statusCode={404} />;
   }
 
-  return <XxxMovieDetailsContent />;
+  return <AdultMovieDetailsContent />;
 };
 
-export default XxxMovieDetails;
+export default AdultMovieDetails;

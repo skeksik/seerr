@@ -260,7 +260,7 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
   if (data.adult) {
     movieAttributes.push(
       <span className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white">
-        {intl.formatMessage(globalMessages.xxx)}
+        {intl.formatMessage(globalMessages.adult)}
       </span>
     );
   }

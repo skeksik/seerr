@@ -36,7 +36,7 @@ export class Blocklist implements BlocklistItem {
   @Column({ nullable: true, type: 'varchar' })
   title?: string;
 
-  // Null for scenes and XXX movies, which are keyed by externalId
+  // Null for scenes and adult movies, which are keyed by externalId
   @Column({ type: 'int', nullable: true })
   @Index()
   public tmdbId: number | null;
@@ -68,7 +68,7 @@ export class Blocklist implements BlocklistItem {
     Object.assign(this, init);
   }
 
-  // Scenes and XXX movies: their media row is keyed by the external id
+  // Scenes and adult movies: their media row is keyed by the external id
   public static async addAdultToBlocklist(
     {
       mediaType,

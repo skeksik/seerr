@@ -163,10 +163,10 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.adultStudiosEdit);
       case DiscoverSliderType.ADULT_NETWORKS:
         return intl.formatMessage(sliderTitles.adultNetworksEdit);
-      case DiscoverSliderType.NEW_XXX_MOVIES:
-        return intl.formatMessage(sliderTitles.newXxxMovies);
-      case DiscoverSliderType.UPCOMING_XXX_MOVIES:
-        return intl.formatMessage(sliderTitles.upcomingXxxMovies);
+      case DiscoverSliderType.NEW_ADULT_MOVIES:
+        return intl.formatMessage(sliderTitles.newAdultMovies);
+      case DiscoverSliderType.UPCOMING_ADULT_MOVIES:
+        return intl.formatMessage(sliderTitles.upcomingAdultMovies);
       case DiscoverSliderType.TMDB_MOVIE_KEYWORD:
         return intl.formatMessage(sliderTitles.tmdbmoviekeyword);
       case DiscoverSliderType.TMDB_TV_KEYWORD:

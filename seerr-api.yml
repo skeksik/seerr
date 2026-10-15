@@ -42,8 +42,8 @@ tags:
     description: Blocklisted media from discovery page.
   - name: scenes
     description: Endpoints related to adult scenes from StashDB. Requires adult content to be enabled and the Adult Content permission.
-  - name: xxxmovies
-    description: Endpoints related to XXX movies from ThePornDB. Requires adult content to be enabled and the Adult Content permission.
+  - name: adultmovies
+    description: Endpoints related to adult movies from ThePornDB. Requires adult content to be enabled and the Adult Content permission.
 servers:
   - url: '{server}/api/v1'
     variables:
@@ -62,10 +62,10 @@ components:
         externalId:
           type: string
           nullable: true
-          description: StashDB scene or ThePornDB movie UUID, for scenes and XXX movies
+          description: StashDB scene or ThePornDB movie UUID, for scenes and adult movies
         mediaType:
           type: string
-          enum: [movie, tv, scene, xxxmovie]
+          enum: [movie, tv, scene, adultmovie]
         title:
           type: string
         media:
@@ -87,10 +87,10 @@ components:
         externalId:
           type: string
           nullable: true
-          description: StashDB scene or ThePornDB movie UUID, for scenes and XXX movies
+          description: StashDB scene or ThePornDB movie UUID, for scenes and adult movies
         mediaType:
           type: string
-          enum: [movie, tv, scene, xxxmovie]
+          enum: [movie, tv, scene, adultmovie]
         ratingKey:
           type: string
         type:
@@ -1417,7 +1417,7 @@ components:
           type: string
           readOnly: true
           nullable: true
-          description: ThePornDB movie UUID, set for XXX movies only
+          description: ThePornDB movie UUID, set for adult movies only
         isAdult:
           type: boolean
           readOnly: true
@@ -2528,7 +2528,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SceneResult'
-    XxxMovieList:
+    AdultMovieList:
       type: object
       properties:
         page:
@@ -2542,10 +2542,10 @@ components:
           example: 200
         results:
           type: array
-          description: ThePornDB movies (mediaType xxxmovie)
+          description: ThePornDB movies (mediaType adultmovie)
           items:
             type: object
-    XxxMovieLookup:
+    AdultMovieLookup:
       type: array
       items:
         type: object
@@ -5593,7 +5593,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or XXX movie
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -5607,7 +5607,7 @@ paths:
               - movie
               - tv
               - scene
-              - xxxmovie
+              - adultmovie
       responses:
         '200':
           description: Blocklist details in JSON
@@ -5618,7 +5618,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or XXX movie
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -5632,7 +5632,7 @@ paths:
               - movie
               - tv
               - scene
-              - xxxmovie
+              - adultmovie
       responses:
         '204':
           description: Succesfully removed media item
@@ -5842,7 +5842,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or XXX movie
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -5856,7 +5856,7 @@ paths:
               - movie
               - tv
               - scene
-              - xxxmovie
+              - adultmovie
       responses:
         '204':
           description: Succesfully removed watchlist item
@@ -7352,7 +7352,7 @@ paths:
           name: mediaType
           schema:
             type: string
-            enum: [movie, tv, scene, xxxmovie, all]
+            enum: [movie, tv, scene, adultmovie, all]
             nullable: true
             default: all
       responses:
@@ -7386,7 +7386,7 @@ paths:
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv, scene, xxxmovie]
+                  enum: [movie, tv, scene, adultmovie]
                   example: movie
                 mediaId:
                   type: number
@@ -7399,7 +7399,7 @@ paths:
                 tpdbId:
                   type: string
                   format: uuid
-                  description: ThePornDB movie ID, required for XXX movies
+                  description: ThePornDB movie ID, required for adult movies
                 tvdbId:
                   type: number
                   example: 123
@@ -7514,7 +7514,7 @@ paths:
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv, scene, xxxmovie]
+                  enum: [movie, tv, scene, adultmovie]
                 seasons:
                   type: array
                   items:
@@ -7836,12 +7836,12 @@ paths:
                       criticsScore:
                         type: number
                         example: 6.5
-  /xxxmovie/discover:
+  /adultmovie/discover:
     get:
-      summary: Discover XXX movies
-      description: Returns a page of XXX movies from ThePornDB.
+      summary: Discover adult movies
+      description: Returns a page of adult movies from ThePornDB.
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: query
           name: page
@@ -7936,16 +7936,16 @@ paths:
             enum: ['true', 'false']
       responses:
         '200':
-          description: XXX movies
+          description: Adult movies
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieList'
-  /xxxmovie/search:
+                $ref: '#/components/schemas/AdultMovieList'
+  /adultmovie/search:
     get:
       summary: Search ThePornDB movies
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: query
           name: query
@@ -7959,16 +7959,16 @@ paths:
             default: 1
       responses:
         '200':
-          description: XXX movies
+          description: Adult movies
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieList'
-  /xxxmovie/studios:
+                $ref: '#/components/schemas/AdultMovieList'
+  /adultmovie/studios:
     get:
       summary: Search ThePornDB studios
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: query
           name: query
@@ -8046,12 +8046,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieLookup'
-  /xxxmovie/performers:
+                $ref: '#/components/schemas/AdultMovieLookup'
+  /adultmovie/performers:
     get:
       summary: Search ThePornDB performers
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: query
           name: query
@@ -8129,12 +8129,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieLookup'
-  /xxxmovie/tags:
+                $ref: '#/components/schemas/AdultMovieLookup'
+  /adultmovie/tags:
     get:
       summary: Search ThePornDB tags
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: query
           name: query
@@ -8212,15 +8212,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieLookup'
-  /xxxmovie/{xxxMovieId}/recommendations:
+                $ref: '#/components/schemas/AdultMovieLookup'
+  /adultmovie/{adultMovieId}/recommendations:
     get:
-      summary: XXX movies with the same performers
+      summary: Adult movies with the same performers
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
-          name: xxxMovieId
+          name: adultMovieId
           required: true
           schema:
             type: string
@@ -8231,19 +8231,19 @@ paths:
             default: 1
       responses:
         '200':
-          description: A page of xxx movies
+          description: A page of adult movies
           content:
             application/json:
               schema:
                 type: object
-  /xxxmovie/{xxxMovieId}/similar:
+  /adultmovie/{adultMovieId}/similar:
     get:
-      summary: Similar xxx movies
+      summary: Similar adult movies
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
-          name: xxxMovieId
+          name: adultMovieId
           required: true
           schema:
             type: string
@@ -8254,17 +8254,17 @@ paths:
             default: 1
       responses:
         '200':
-          description: A page of xxx movies
+          description: A page of adult movies
           content:
             application/json:
               schema:
                 type: object
-  /xxxmovie/match/{type}/{id}:
+  /adultmovie/match/{type}/{id}:
     get:
       summary: Match a StashDB studio or performer on ThePornDB
       description: Performers match on their StashDB link, studios on their name.
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
           name: type
@@ -8295,12 +8295,12 @@ paths:
                     description: The performer's or site's ThePornDB page
         '404':
           description: No match on ThePornDB
-  /xxxmovie/studio/{id}:
+  /adultmovie/studio/{id}:
     get:
       summary: Get a ThePornDB studio
       description: Details for the studio page; filters use its name.
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
           name: id
@@ -8346,12 +8346,12 @@ paths:
                     type: string
                   tpdbUrl:
                     type: string
-  /xxxmovie/performer/{id}:
+  /adultmovie/performer/{id}:
     get:
       summary: Get a ThePornDB performer
       description: Details for the performer page; filters use its name.
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
           name: id
@@ -8402,15 +8402,15 @@ paths:
                     type: string
                   tpdbUrl:
                     type: string
-  /xxxmovie/{xxxMovieId}:
+  /adultmovie/{adultMovieId}:
     get:
-      summary: Get XXX movie details
+      summary: Get adult movie details
       description: Returns a ThePornDB movie with its Seerr media info.
       tags:
-        - xxxmovies
+        - adultmovies
       parameters:
         - in: path
-          name: xxxMovieId
+          name: adultMovieId
           required: true
           schema:
             type: string
@@ -10223,7 +10223,7 @@ paths:
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv, scene, xxxmovie]
+                  enum: [movie, tv, scene, adultmovie]
                 tmdbId:
                   type: number
                   description: Required for movies and series
