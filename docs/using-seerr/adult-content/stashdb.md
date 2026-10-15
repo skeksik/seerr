@@ -10,17 +10,17 @@ sidebar_position: 2
 
 ## Setup
 
-Go to **Settings &rarr; Metadata Providers &rarr; StashDB**.
+Go to **Settings &rarr; Metadata Providers**. The **Adult Content** section shows while adult content is enabled.
 
-#### GraphQL Endpoint
+#### StashDB GraphQL Endpoint
 
 The stash-box GraphQL endpoint. For StashDB this is `https://stashdb.org/graphql`.
 
-#### API Key
+#### StashDB API Key
 
 StashDB requires an account. Create an API key on your StashDB profile page and paste it here.
 
-Use **Test** to check the connection before saving.
+**Test** checks every provider on the page, and **Save Changes** saves them all.
 
 ## Notes
 

@@ -44,7 +44,7 @@ beforeEach(() => {
   const settings = getSettings();
   settings.main.enableAdult = true;
   settings.main.localLogin = true;
-  settings.tpdb = { apiKey: 'key' };
+  settings.tpdb = { url: 'https://api.theporndb.net', apiKey: 'key' };
   settings.stashdb = {
     endpoint: 'https://stashdb.test/graphql',
     apiKey: 'key',
@@ -72,7 +72,7 @@ beforeEach(() => {
 afterEach(() => {
   const settings = getSettings();
   settings.main.enableAdult = false;
-  settings.tpdb = { apiKey: '' };
+  settings.tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
   settings.stashdb = { endpoint: 'https://stashdb.org/graphql', apiKey: '' };
   mock.restoreAll();
 });

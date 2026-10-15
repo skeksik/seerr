@@ -72,20 +72,11 @@ export interface StashDbSettings {
 }
 
 // Stash is a companion library for scenes, not a login media server
+// ThePornDB's REST API, which lists movies; its GraphQL endpoint is a
+// stash-box for scenes only
 export interface TpdbSettings {
+  url: string;
   apiKey: string;
-}
-
-export enum XxxMovieSource {
-  TPDB = 'tpdb',
-  TMDB = 'tmdb',
-}
-
-// Where XXX movies are listed from. TMDB has no adult-only listing, so its
-// movies are discovered through the production companies of adult studios.
-export interface XxxMovieSettings {
-  source: XxxMovieSource;
-  tmdbCompanies: number[];
 }
 
 export interface StashSettings {
@@ -229,7 +220,6 @@ interface FullPublicSettings extends PublicSettings {
   applicationTitle: string;
   applicationUrl: string;
   enableAdult: boolean;
-  xxxMovieSource: XxxMovieSource;
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;
@@ -425,7 +415,6 @@ export interface AllSettings {
   stashdb: StashDbSettings;
   stash: StashSettings;
   tpdb: TpdbSettings;
-  xxxMovies: XxxMovieSettings;
   radarr: RadarrSettings[];
   whisparr: WhisparrSettings[];
   sonarr: SonarrSettings[];
@@ -512,11 +501,8 @@ class Settings {
         apiKey: '',
       },
       tpdb: {
+        url: 'https://api.theporndb.net',
         apiKey: '',
-      },
-      xxxMovies: {
-        source: XxxMovieSource.TPDB,
-        tmdbCompanies: [],
       },
       metadataSettings: {
         tv: MetadataProviderType.TMDB,
@@ -759,14 +745,6 @@ class Settings {
     this.data.tpdb = mergeSettings(this.data.tpdb, data);
   }
 
-  get xxxMovies(): XxxMovieSettings {
-    return this.data.xxxMovies;
-  }
-
-  set xxxMovies(data: XxxMovieSettings) {
-    this.data.xxxMovies = mergeSettings(this.data.xxxMovies, data);
-  }
-
   get stash(): StashSettings {
     return this.data.stash;
   }
@@ -824,7 +802,6 @@ class Settings {
       applicationTitle: this.data.main.applicationTitle,
       applicationUrl: this.data.main.applicationUrl,
       enableAdult: this.data.main.enableAdult,
-      xxxMovieSource: this.data.xxxMovies.source,
       hideAvailable: this.data.main.hideAvailable,
       hideBlocklisted: this.data.main.hideBlocklisted,
       hideRequested: this.data.main.hideRequested,

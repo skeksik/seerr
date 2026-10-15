@@ -1,6 +1,5 @@
 import Button from '@app/components/Common/Button';
 import SlideOver from '@app/components/Common/SlideOver';
-import { CompanySelector } from '@app/components/Selector';
 import { useBatchUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import defineMessages from '@app/utils/defineMessages';
 import { XCircleIcon } from '@heroicons/react/24/outline';
@@ -28,7 +27,7 @@ const messages = defineMessages('components.AdultFilterSlideover', {
 });
 
 // Scenes filter on StashDB; XXX movies on ThePornDB or TMDB studios
-export type AdultFilterKind = 'scene' | 'tpdb' | 'tmdb';
+export type AdultFilterKind = 'scene' | 'tpdb';
 
 // Query params the filters own; everything else (like sort) is kept
 const filterKeys = [
@@ -252,76 +251,60 @@ const AdultFilterSlideover = ({
           </div>
         </div>
         <span className="text-lg font-semibold">
-          {/* ThePornDB and TMDB filter on a single studio */}
+          {/* ThePornDB filters on a single studio */}
           {intl.formatMessage(isScene ? messages.studios : messages.studio)}
         </span>
-        {kind === 'tmdb' ? (
-          <CompanySelector
-            defaultValue={studio}
-            onChange={(value) =>
-              batchUpdate({ studio: value ? String(value.value) : undefined })
-            }
-          />
-        ) : (
-          <LookupSelect
-            inputId="studioFilter"
-            isMulti={isScene}
-            ids={studio?.split(',') ?? []}
-            searchUrl={`${lookupBase}/studios`}
-            resolveName={resolveName('studio')}
-            onChange={(options) =>
-              batchUpdate({
-                studio:
-                  options.map((option) => option.value).join(',') || undefined,
-              })
-            }
-          />
-        )}
-        {kind !== 'tmdb' && (
-          <>
-            <span className="text-lg font-semibold">
-              {intl.formatMessage(messages.performers)}
-            </span>
-            <LookupSelect
-              inputId="performerFilter"
-              isMulti
-              ids={performer?.split(',') ?? []}
-              searchUrl={`${lookupBase}/performers`}
-              resolveName={resolveName('performer')}
-              onChange={(options) =>
-                batchUpdate({
-                  performer:
-                    options.map((option) => option.value).join(',') ||
-                    undefined,
-                })
-              }
-            />
-            <span className="text-lg font-semibold">
-              {intl.formatMessage(messages.tags)}
-            </span>
-            <LookupSelect
-              inputId="tagFilter"
-              isMulti
-              ids={tags}
-              searchUrl={`${lookupBase}/tags`}
-              // ThePornDB cannot look tags up by id, so their names ride along
-              resolveName={isScene ? resolveName('tag') : undefined}
-              knownNames={isScene ? undefined : tagNames}
-              onChange={(options) =>
-                batchUpdate({
-                  tag: undefined,
-                  tags:
-                    options.map((option) => option.value).join(',') ||
-                    undefined,
-                  tagNames: isScene
-                    ? undefined
-                    : options.map((option) => option.label).join('|') ||
-                      undefined,
-                })
-              }
-            />
-          </>
-        )}
+        <LookupSelect
+          inputId="studioFilter"
+          isMulti={isScene}
+          ids={studio?.split(',') ?? []}
+          searchUrl={`${lookupBase}/studios`}
+          resolveName={resolveName('studio')}
+          onChange={(options) =>
+            batchUpdate({
+              studio:
+                options.map((option) => option.value).join(',') || undefined,
+            })
+          }
+        />
+        <span className="text-lg font-semibold">
+          {intl.formatMessage(messages.performers)}
+        </span>
+        <LookupSelect
+          inputId="performerFilter"
+          isMulti
+          ids={performer?.split(',') ?? []}
+          searchUrl={`${lookupBase}/performers`}
+          resolveName={resolveName('performer')}
+          onChange={(options) =>
+            batchUpdate({
+              performer:
+                options.map((option) => option.value).join(',') || undefined,
+            })
+          }
+        />
+        <span className="text-lg font-semibold">
+          {intl.formatMessage(messages.tags)}
+        </span>
+        <LookupSelect
+          inputId="tagFilter"
+          isMulti
+          ids={tags}
+          searchUrl={`${lookupBase}/tags`}
+          // ThePornDB cannot look tags up by id, so their names ride along
+          resolveName={isScene ? resolveName('tag') : undefined}
+          knownNames={isScene ? undefined : tagNames}
+          onChange={(options) =>
+            batchUpdate({
+              tag: undefined,
+              tags:
+                options.map((option) => option.value).join(',') || undefined,
+              tagNames: isScene
+                ? undefined
+                : options.map((option) => option.label).join('|') || undefined,
+            })
+          }
+        />
         {countAdultFilters(router.query) > 0 && (
           <div className="pt-4">
             <Button

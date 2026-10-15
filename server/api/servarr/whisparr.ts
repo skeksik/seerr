@@ -56,16 +56,6 @@ export interface WhisparrCredit {
   tags: number[];
 }
 
-export interface WhisparrStudio {
-  id: number;
-  title: string;
-  foreignId: string;
-  // TMDB production company id, 0 when Whisparr has none
-  tmdbId: number;
-  tpdbId?: string | null;
-  monitored: boolean;
-}
-
 export interface WhisparrMonitorOptions {
   qualityProfileId: number;
   rootFolderPath: string;
@@ -309,17 +299,6 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         label: 'Whisparr API',
         errorMessage: e.message,
         itemId,
-      });
-    }
-  }
-
-  public async getStudios(): Promise<WhisparrStudio[]> {
-    try {
-      const response = await this.axios.get<WhisparrStudio[]>('/studio');
-      return response.data;
-    } catch (e) {
-      throw new Error(`[Whisparr] Failed to retrieve studios: ${e.message}`, {
-        cause: e,
       });
     }
   }

@@ -6,7 +6,6 @@ import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
 import { findSearchProvider } from '@server/lib/search';
-import { getSettings, XxxMovieSource } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { PerformerResult } from '@server/models/Scene';
 import { mapSearchResults } from '@server/models/Search';
@@ -39,7 +38,7 @@ const tryAdultSource = async <T>(
 };
 
 // StashDB performers lead the first page; ThePornDB movies join TMDB's
-// results page by page (with the TMDB source, TMDB returns them itself)
+// results page by page
 const searchAdult = async (
   query: string,
   page: number,
@@ -55,11 +54,9 @@ const searchAdult = async (
           StashDbAPI.fromSettings().searchPerformers(query)
         )
       : null,
-    getSettings().xxxMovies.source === XxxMovieSource.TPDB
-      ? tryAdultSource('ThePornDB movies', () =>
-          TpdbAPI.fromSettings().getMovies({ query, page, perPage: 20 })
-        )
-      : null,
+    tryAdultSource('ThePornDB movies', () =>
+      TpdbAPI.fromSettings().getMovies({ query, page, perPage: 20 })
+    ),
   ]);
   const media = await Media.getRelatedXxxMovies(
     movies?.data.map((movie) => movie.id) ?? [],

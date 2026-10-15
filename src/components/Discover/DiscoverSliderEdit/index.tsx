@@ -165,8 +165,6 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.adultNetworksEdit);
       case DiscoverSliderType.NEW_XXX_MOVIES:
         return intl.formatMessage(sliderTitles.newXxxMovies);
-      case DiscoverSliderType.POPULAR_XXX_MOVIES:
-        return intl.formatMessage(sliderTitles.popularXxxMovies);
       case DiscoverSliderType.UPCOMING_XXX_MOVIES:
         return intl.formatMessage(sliderTitles.upcomingXxxMovies);
       case DiscoverSliderType.TMDB_MOVIE_KEYWORD:

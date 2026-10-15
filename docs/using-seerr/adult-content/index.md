@@ -21,7 +21,7 @@ These integrations work together:
 
 1. In **Settings &rarr; General**, turn on **Enable Adult Content**.
 2. Give the **Adult Content** permission to each user who should see it (**Users &rarr; Edit &rarr; Permissions**). Admins have access automatically.
-3. Set up [StashDB](./stashdb), the [XXX movie source](./xxx-movies), then [Whisparr](./whisparr), and optionally [Stash](./stash).
+3. Set up [StashDB](./stashdb) and [ThePornDB](./xxx-movies), then [Whisparr](./whisparr), and optionally [Stash](./stash).
 
 Users without the permission never see adult titles: scene pages show "not found", and adult movies, scenes and their requests are left out of search, discover, request lists and media lists.
 
@@ -38,7 +38,7 @@ Scene and XXX movie cards work like movie cards: hover one for its details and t
 
 ### Discover Rows
 
-The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies (plus popular ones with the TMDB source); and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and XXX movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
+The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming XXX movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and XXX movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
 
 ## Scenes
 
@@ -68,7 +68,7 @@ Scenes have their own request limit, next to the movie and series limits. Set th
 
 ## XXX Movies
 
-XXX movies come from ThePornDB by default, or from TMDB. See [XXX Movies](./xxx-movies). Requests for them go to Whisparr and count against the movie quota.
+XXX movies come from ThePornDB. See [XXX Movies](./xxx-movies). Requests for them go to Whisparr and count against the movie quota.
 
 Adult movies from TMDB also show up in the regular search for users with the **Adult Content** permission. When a default Whisparr server is set up, requests for them are sent to Whisparr instead of Radarr, unless Radarr already manages the movie.
 

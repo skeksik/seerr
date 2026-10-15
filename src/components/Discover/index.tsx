@@ -19,7 +19,6 @@ import SceneSlider from '@app/components/Scenes/SceneSlider';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
-import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -65,7 +64,6 @@ const Discover = () => {
   const { hasPermission } = useUser();
   const { addToast } = useToasts();
   const canViewAdult = useAdult();
-  const { currentSettings } = useSettings();
   const {
     data: discoverData,
     error: discoverError,
@@ -477,17 +475,6 @@ const Discover = () => {
                 title={intl.formatMessage(sliderTitles.newXxxMovies)}
                 url="/api/v1/xxxmovie/discover?sort=released&page=1"
                 linkUrl="/xxxmovies?sort=released"
-              />
-            );
-            break;
-          case DiscoverSliderType.POPULAR_XXX_MOVIES:
-            // ThePornDB has no popularity order
-            sliderComponent = currentSettings.xxxMovieSource === 'tmdb' && (
-              <XxxMovieSlider
-                sliderKey="popular-xxx-movies"
-                title={intl.formatMessage(sliderTitles.popularXxxMovies)}
-                url="/api/v1/xxxmovie/discover?sort=popularity&page=1"
-                linkUrl="/xxxmovies?sort=popularity"
               />
             );
             break;

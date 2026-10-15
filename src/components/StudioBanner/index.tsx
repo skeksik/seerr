@@ -44,7 +44,7 @@ const StudioBanner = ({
   const { data } = useSWR<SceneListResponse | XxxMovieListResponse>(
     mediaType === 'scene'
       ? `/api/v1/scene/discover?sort=date&released=before&releaseDate=${releasedBy()}&studio=${studioId}&page=1`
-      : `/api/v1/xxxmovie/discover?source=tpdb&sort=released&studio=${studioId}&page=1`
+      : `/api/v1/xxxmovie/discover?sort=released&studio=${studioId}&page=1`
   );
   const latest = data?.results.find((result) => result.id !== currentId);
   const latestImage = !latest

@@ -13,7 +13,6 @@ const defaultSettings: PublicSettingsResponse = {
   applicationTitle: 'Seerr',
   applicationUrl: '',
   enableAdult: false,
-  xxxMovieSource: 'tpdb',
   hideAvailable: false,
   hideBlocklisted: false,
   hideRequested: false,

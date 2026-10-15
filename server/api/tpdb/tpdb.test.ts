@@ -19,7 +19,7 @@ const stubGet = (response: unknown) =>
 
 describe('TpdbAPI', () => {
   afterEach(() => {
-    getSettings().tpdb = { apiKey: '' };
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
     mock.restoreAll();
   });
 
@@ -31,7 +31,7 @@ describe('TpdbAPI', () => {
   it('maps movie filters to ThePornDB query parameters', async () => {
     const get = stubGet({ data: [], meta: { total: 0 } });
 
-    await new TpdbAPI('key').getMovies({
+    await new TpdbAPI({ apiKey: 'key' }).getMovies({
       page: 2,
       siteId: 4611,
       performerIds: [82918, 1815349],
@@ -62,7 +62,7 @@ describe('TpdbAPI', () => {
   it('sorts searches by relevance', async () => {
     const get = stubGet({ data: [], meta: { total: 0 } });
 
-    await new TpdbAPI('key').getMovies({ query: 'anal teachings' });
+    await new TpdbAPI({ apiKey: 'key' }).getMovies({ query: 'anal teachings' });
 
     assert.strictEqual(
       get.mock.calls[0].arguments[1]?.params?.orderBy,
@@ -88,7 +88,9 @@ describe('TpdbAPI', () => {
       ],
     });
 
-    const performer = await new TpdbAPI('key').findPerformerByStashDbId(
+    const performer = await new TpdbAPI({
+      apiKey: 'key',
+    }).findPerformerByStashDbId(
       'bcb98a6e-08f3-48a9-90d5-f223901a56a5',
       'Molly Little'
     );
@@ -104,7 +106,7 @@ describe('TpdbAPI', () => {
         { id: 3372, uuid: 'vixen', name: 'Vixen' },
       ],
     });
-    const api = new TpdbAPI('key');
+    const api = new TpdbAPI({ apiKey: 'key' });
 
     assert.strictEqual((await api.findSiteByName('Vixen'))?.id, 3372);
     assert.strictEqual((await api.findSiteByName('vixen'))?.id, 103841);
@@ -122,6 +124,9 @@ describe('TpdbAPI', () => {
       }
     );
 
-    assert.strictEqual(await new TpdbAPI('key').getMovie('missing'), null);
+    assert.strictEqual(
+      await new TpdbAPI({ apiKey: 'key' }).getMovie('missing'),
+      null
+    );
   });
 });

@@ -422,7 +422,7 @@ describe('XXX movie requests', () => {
     );
 
   beforeEach(() => {
-    getSettings().tpdb = { apiKey: 'key' };
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: 'key' };
     mock.method(TpdbAPI.prototype, 'getMovie', async (id: string) => ({
       id,
       _id: 1,
@@ -432,7 +432,7 @@ describe('XXX movie requests', () => {
   });
 
   afterEach(() => {
-    getSettings().tpdb = { apiKey: '' };
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
   });
 
   it('creates an adult XXX movie keyed by ThePornDB id', async () => {

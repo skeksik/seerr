@@ -43,7 +43,7 @@ tags:
   - name: scenes
     description: Endpoints related to adult scenes from StashDB. Requires adult content to be enabled and the Adult Content permission.
   - name: xxxmovies
-    description: Endpoints related to XXX movies from ThePornDB or adult TMDB studios. Requires adult content to be enabled and the Adult Content permission.
+    description: Endpoints related to XXX movies from ThePornDB. Requires adult content to be enabled and the Adult Content permission.
 servers:
   - url: '{server}/api/v1'
     variables:
@@ -2262,25 +2262,18 @@ components:
             - certification: 'PG'
               meaning: 'Some material may not be suitable for children under 10.'
               order: 2
-    XxxMovieSettings:
+    TpdbSettings:
       type: object
       required:
-        - source
-        - tmdbCompanies
-        - tpdbApiKey
+        - url
+        - apiKey
       properties:
-        source:
+        url:
           type: string
-          enum: [tpdb, tmdb]
-          description: Where XXX movies are listed from
-        tmdbCompanies:
-          type: array
-          description: TMDB production companies whose movies count as XXX movies (TMDB source)
-          items:
-            type: number
-        tpdbApiKey:
+          example: https://api.theporndb.net
+          description: ThePornDB REST API address
+        apiKey:
           type: string
-          description: ThePornDB API key
     StashSyncStatus:
       type: object
       properties:
@@ -2515,7 +2508,7 @@ components:
           example: 200
         results:
           type: array
-          description: ThePornDB movies (mediaType xxxmovie), or adult TMDB movies (mediaType movie) with the TMDB source
+          description: ThePornDB movies (mediaType xxxmovie)
           items:
             type: object
     XxxMovieLookup:
@@ -3169,10 +3162,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TautulliSettings'
-  /settings/xxxmovies:
+  /settings/tpdb:
     get:
-      summary: Get XXX movie settings
-      description: Retrieves the XXX movie source, its TMDB studios and the ThePornDB API key.
+      summary: Get ThePornDB settings
+      description: Retrieves the ThePornDB API address and key.
       tags:
         - settings
       responses:
@@ -3181,10 +3174,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieSettings'
+                $ref: '#/components/schemas/TpdbSettings'
     post:
-      summary: Update XXX movie settings
-      description: Tests the ThePornDB key when one is set, then saves.
+      summary: Update ThePornDB settings
+      description: Tests the connection, then saves.
       tags:
         - settings
       requestBody:
@@ -3192,17 +3185,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/XxxMovieSettings'
+              $ref: '#/components/schemas/TpdbSettings'
       responses:
         '200':
           description: 'Values were successfully updated'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/XxxMovieSettings'
-  /settings/xxxmovies/test:
+                $ref: '#/components/schemas/TpdbSettings'
+  /settings/tpdb/test:
     post:
-      summary: Test a ThePornDB API key
+      summary: Test ThePornDB settings
+      description: Tests the ThePornDB API address and key without saving them.
       tags:
         - settings
       requestBody:
@@ -3210,35 +3204,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - apiKey
-              properties:
-                apiKey:
-                  type: string
+              $ref: '#/components/schemas/TpdbSettings'
       responses:
         '200':
-          description: The key works
-  /settings/xxxmovies/whisparr-companies:
-    get:
-      summary: TMDB companies of Whisparr studios
-      description: Lists the TMDB production companies of the studios on the default Whisparr server.
-      tags:
-        - settings
-      responses:
-        '200':
-          description: Companies
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: number
-                    name:
-                      type: string
+          description: Connection succeeded
   /settings/stash:
     get:
       summary: Get Stash settings
@@ -7836,16 +7805,10 @@ paths:
   /xxxmovie/discover:
     get:
       summary: Discover XXX movies
-      description: Returns a page of XXX movies from the configured source (ThePornDB or TMDB studios).
+      description: Returns a page of XXX movies from ThePornDB.
       tags:
         - xxxmovies
       parameters:
-        - in: query
-          name: source
-          description: Overrides the configured source
-          schema:
-            type: string
-            enum: [tpdb, tmdb]
         - in: query
           name: page
           schema:

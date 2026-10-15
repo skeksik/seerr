@@ -22,6 +22,8 @@ export class TpdbNotConfiguredError extends Error {
   }
 }
 
+export const DEFAULT_URL = 'https://api.theporndb.net';
+
 const STASHDB_PERFORMER =
   /^https:\/\/stashdb\.org\/performers\/([0-9a-f-]{36})\/?$/i;
 
@@ -47,9 +49,9 @@ export interface TpdbMovieQuery {
 }
 
 class TpdbAPI extends ExternalAPI {
-  constructor(apiKey: string) {
+  constructor({ url, apiKey }: { url?: string; apiKey: string }) {
     super(
-      'https://api.theporndb.net',
+      (url || DEFAULT_URL).replace(/\/+$/, ''),
       {},
       {
         headers: { Authorization: `Bearer ${apiKey}` },
@@ -65,13 +67,13 @@ class TpdbAPI extends ExternalAPI {
   }
 
   public static fromSettings(): TpdbAPI {
-    const { apiKey } = getSettings().tpdb;
+    const { url, apiKey } = getSettings().tpdb;
 
     if (!apiKey) {
       throw new TpdbNotConfiguredError();
     }
 
-    return new TpdbAPI(apiKey);
+    return new TpdbAPI({ url, apiKey });
   }
 
   // Cheapest authenticated call, used to validate keys

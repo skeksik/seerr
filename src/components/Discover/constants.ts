@@ -98,7 +98,6 @@ export const sliderTitles = defineMessages('components.Discover', {
   adultStudiosEdit: 'Studios (XXX)',
   adultNetworksEdit: 'Networks (XXX)',
   newXxxMovies: 'New XXX Movies',
-  popularXxxMovies: 'Popular XXX Movies',
   upcomingXxxMovies: 'Upcoming XXX Movies',
 });
 

@@ -7,13 +7,11 @@ import ListView from '@app/components/Common/ListView';
 import PageTitle from '@app/components/Common/PageTitle';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
-import useSettings from '@app/hooks/useSettings';
 import { useUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { BarsArrowDownIcon, FunnelIcon } from '@heroicons/react/24/solid';
-import type { MovieResult } from '@server/models/Search';
 import type { XxxMovieResult } from '@server/models/XxxMovie';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
@@ -24,27 +22,17 @@ const messages = defineMessages('components.XxxMovies', {
   sortOldest: 'Release Date Ascending',
   sortAdded: 'Recently Added to ThePornDB',
   sortDuration: 'Duration',
-  sortPopularity: 'Popularity',
-  sortTitle: 'Title (A-Z)',
   activefilters:
     '{count, plural, one {# Active Filter} other {# Active Filters}}',
 });
 
-// ThePornDB has no popularity or title order; TMDB has no added date
-const sortOptions = {
-  tpdb: [
-    ['released', messages.sortReleased],
-    ['oldest', messages.sortOldest],
-    ['added', messages.sortAdded],
-    ['duration', messages.sortDuration],
-  ],
-  tmdb: [
-    ['popularity', messages.sortPopularity],
-    ['released', messages.sortReleased],
-    ['oldest', messages.sortOldest],
-    ['title', messages.sortTitle],
-  ],
-} as const;
+// ThePornDB has no popularity or title order
+const sortOptions = [
+  ['released', messages.sortReleased],
+  ['oldest', messages.sortOldest],
+  ['added', messages.sortAdded],
+  ['duration', messages.sortDuration],
+] as const;
 
 // Query params the XXX movie API understands
 const apiParams = [
@@ -58,11 +46,9 @@ const apiParams = [
 const XxxMoviesContent = () => {
   const intl = useIntl();
   const router = useRouter();
-  const { currentSettings } = useSettings();
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
-  const source = currentSettings.xxxMovieSource;
-  const sorts = sortOptions[source];
+  const sorts = sortOptions;
 
   const sort =
     typeof router.query.sort === 'string' &&
@@ -83,7 +69,7 @@ const XxxMoviesContent = () => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<XxxMovieResult | MovieResult>('/api/v1/xxxmovie/discover', {
+  } = useDiscover<XxxMovieResult>('/api/v1/xxxmovie/discover', {
     ...filters,
     sort,
   });
@@ -119,7 +105,7 @@ const XxxMoviesContent = () => {
             </select>
           </div>
           <AdultFilterSlideover
-            kind={source}
+            kind="tpdb"
             show={showFilters}
             onClose={() => setShowFilters(false)}
           />

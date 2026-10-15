@@ -9,7 +9,7 @@ import type {
 } from '@server/lib/scanners/baseScanner';
 import BaseScanner from '@server/lib/scanners/baseScanner';
 import type { WhisparrSettings } from '@server/lib/settings';
-import { XxxMovieSource, getSettings } from '@server/lib/settings';
+import { getSettings } from '@server/lib/settings';
 import { uniqWith } from 'lodash';
 
 type SyncStatus = StatusBase & {
@@ -105,8 +105,8 @@ class WhisparrScanner
     }
   }
 
-  // Movies become XXX movies when they are listed from ThePornDB, unless an
-  // adult TMDB movie already tracks them; otherwise they are TMDB movies
+  // Movies become XXX movies when ThePornDB knows them, unless an adult TMDB
+  // movie already tracks them; otherwise they are TMDB movies
   private async processMovieItem(item: WhisparrItem, is4k: boolean) {
     const hasTmdb = item.tmdbId > 0;
 
@@ -117,8 +117,6 @@ class WhisparrScanner
       return;
     }
 
-    const preferTpdb =
-      getSettings().xxxMovies.source === XxxMovieSource.TPDB || !hasTmdb;
     const trackedByTmdb =
       hasTmdb &&
       (await getRepository(Media).exist({
@@ -129,7 +127,7 @@ class WhisparrScanner
         },
       }));
 
-    if (preferTpdb && !trackedByTmdb) {
+    if (!trackedByTmdb) {
       await this.processExternal(item, is4k, MediaType.XXX_MOVIE, item.tpdbId);
     } else {
       await this.processAdultMovie(item, is4k);

@@ -1,7 +1,6 @@
 import { stashDbPerformerId } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
-import type { MovieResult } from '@server/models/Search';
 
 export interface XxxMovieResult {
   // ThePornDB movie UUID
@@ -50,13 +49,11 @@ export interface XxxMovieDetails extends XxxMovieResult {
   tpdbUrl: string;
 }
 
-// XXX movie lists hold ThePornDB movies or, with the TMDB source, adult
-// TMDB movies that link to the regular movie page
 export interface XxxMovieListResponse {
   page: number;
   totalPages: number;
   totalResults: number;
-  results: (XxxMovieResult | MovieResult)[];
+  results: XxxMovieResult[];
 }
 
 // The CDN copies are the most reliable; studio-site images often vanish

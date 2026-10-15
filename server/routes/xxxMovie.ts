@@ -1,6 +1,4 @@
 import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
-import type { MovieSortOptions } from '@server/api/themoviedb';
-import TheMovieDb from '@server/api/themoviedb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
 import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
 import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
@@ -8,16 +6,14 @@ import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
-import { XxxMovieSource, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
-import { mapMovieResult } from '@server/models/Search';
 import type {
   XxxMovieListResponse,
   XxxMovieStudio,
 } from '@server/models/XxxMovie';
 import { mapXxxMovieDetails, mapXxxMovieResult } from '@server/models/XxxMovie';
 import { isoDate } from '@server/utils/dateHelpers';
-import type { NextFunction, Request } from 'express';
+import type { NextFunction } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -40,8 +36,6 @@ const ids = z
   .transform((value) => value.split(',').map(Number));
 
 const discoverQuery = z.object({
-  // Performer and studio pages always list ThePornDB movies
-  source: z.nativeEnum(XxxMovieSource).optional(),
   page: z.coerce.number().int().positive().default(1),
   sort: z.enum(xxxMovieSorts).default('released'),
   studio: z.coerce.number().int().positive().optional(),
@@ -49,7 +43,7 @@ const discoverQuery = z.object({
   performer: ids.optional(),
   tags: ids.optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
-  // ThePornDB takes one date bound, so both sources use one here
+  // ThePornDB takes one date bound
   released: z.enum(['after', 'before']).optional(),
   releaseDate: isoDate.optional(),
   upcoming: z
@@ -140,81 +134,6 @@ const discoverTpdb = async (
   };
 };
 
-const tmdbSorts: Record<(typeof xxxMovieSorts)[number], MovieSortOptions> = {
-  released: 'primary_release_date.desc',
-  oldest: 'primary_release_date.asc',
-  added: 'primary_release_date.desc',
-  popularity: 'popularity.desc',
-  title: 'original_title.asc',
-  duration: 'popularity.desc',
-};
-
-// TMDB cannot list adult movies on their own, so list the movies of the
-// configured adult studios instead
-const discoverTmdb = async (
-  req: Request,
-  query: DiscoverQuery
-): Promise<XxxMovieListResponse> => {
-  const { tmdbCompanies } = getSettings().xxxMovies;
-  const companies = query.studio ? [query.studio] : tmdbCompanies;
-
-  if (companies.length === 0) {
-    return { page: 1, totalPages: 0, totalResults: 0, results: [] };
-  }
-
-  const after =
-    query.releaseDate && query.released !== 'before'
-      ? query.releaseDate
-      : undefined;
-  const before =
-    query.releaseDate && query.released === 'before'
-      ? query.releaseDate
-      : undefined;
-  const releasedFrom = query.upcoming
-    ? today()
-    : (after ?? (query.year ? `${query.year}-01-01` : undefined));
-  const releasedTo = query.upcoming
-    ? undefined
-    : (before ??
-      (query.year
-        ? `${query.year}-12-31`
-        : query.sort === 'released' && !after
-          ? today()
-          : undefined));
-
-  const tmdb = new TheMovieDb({
-    discoverRegion: req.user?.settings?.discoverRegion,
-  });
-  const data = await tmdb.getDiscoverMovies({
-    page: query.page,
-    sortBy: query.upcoming ? 'primary_release_date.asc' : tmdbSorts[query.sort],
-    includeAdult: true,
-    originalLanguage: 'all',
-    studio: companies.join('|'),
-    primaryReleaseDateGte: releasedFrom,
-    primaryReleaseDateLte: releasedTo,
-  });
-  const media = await Media.getRelatedMedia(
-    req.user,
-    data.results.map((result) => ({ tmdbId: result.id, mediaType: 'movie' }))
-  );
-
-  return {
-    page: data.page,
-    totalPages: data.total_pages,
-    totalResults: data.total_results,
-    // Adult studios also release non-adult titles, which Radarr would get
-    results: data.results
-      .filter((result) => result.adult)
-      .map((result) =>
-        mapMovieResult(
-          result,
-          media.find((m) => m.tmdbId === result.id && m.mediaType === 'movie')
-        )
-      ),
-  };
-};
-
 xxxMovieRoutes.get('/discover', async (req, res, next) => {
   const parsed = discoverQuery.safeParse(req.query);
 
@@ -223,11 +142,7 @@ xxxMovieRoutes.get('/discover', async (req, res, next) => {
   }
 
   try {
-    const list =
-      (parsed.data.source ?? getSettings().xxxMovies.source) ===
-      XxxMovieSource.TMDB
-        ? await discoverTmdb(req, parsed.data)
-        : await discoverTpdb(parsed.data, req.user);
+    const list = await discoverTpdb(parsed.data, req.user);
 
     return res.status(200).json(list);
   } catch (e) {

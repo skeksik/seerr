@@ -243,7 +243,6 @@ CoreApp.getInitialProps = async (initialProps) => {
     applicationTitle: '',
     applicationUrl: '',
     enableAdult: false,
-    xxxMovieSource: 'tpdb',
     hideAvailable: false,
     hideBlocklisted: false,
     hideRequested: false,

@@ -13,7 +13,7 @@ import Media from '@server/entity/Media';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
 import { whisparrScanner } from '@server/lib/scanners/whisparr';
-import { XxxMovieSource, getSettings } from '@server/lib/settings';
+import { getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
 
 const SCENE_ID = '01a0de25-5c7e-75b7-b319-ee76dd9a4879';
@@ -80,7 +80,6 @@ beforeEach(() => {
 
 afterEach(() => {
   getSettings().whisparr = [];
-  getSettings().xxxMovies = { source: XxxMovieSource.TPDB, tmdbCompanies: [] };
   mock.restoreAll();
 });
 
@@ -169,23 +168,6 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(movie?.isAdult, true);
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(movie?.externalServiceId, 11);
-  });
-
-  it('uses the TMDB id when TMDB is the XXX movie source', async () => {
-    await requested({ mediaType: MediaType.MOVIE, tmdbId: 1786674 });
-    getSettings().xxxMovies = {
-      source: XxxMovieSource.TMDB,
-      tmdbCompanies: [],
-    };
-    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      movieItem({ id: 12, tmdbId: 1786674 }),
-    ]);
-
-    await whisparrScanner.run();
-
-    assert.strictEqual(await Media.getMediaByTpdbId(TPDB_ID), undefined);
-    const movie = await Media.getMedia(1786674, MediaType.MOVIE);
-    assert.strictEqual(movie?.isAdult, true);
   });
 
   it('keeps movies already tracked as adult TMDB movies', async () => {

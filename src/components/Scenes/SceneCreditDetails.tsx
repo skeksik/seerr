@@ -8,7 +8,6 @@ import SceneList from '@app/components/Scenes/SceneList';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
-import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
@@ -221,7 +220,6 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
   const router = useRouter();
   const id = router.query.id as string;
   const [sort, setSort] = useState('date');
-  const { currentSettings } = useSettings();
   const { data, error, mutate } = useSWR<CreditDetails>(
     id ? `/api/v1/scene/${type}/${id}` : null
   );
@@ -401,13 +399,8 @@ const SceneCreditDetailsContent = ({ type }: SceneCreditDetailsProps) => {
           <XxxMovieSlider
             sliderKey={`xxx-${type}-${tpdbMatch.id}`}
             title={intl.formatMessage(messages.xxxMovies)}
-            url={`/api/v1/xxxmovie/discover?source=tpdb&page=1&${type}=${tpdbMatch.id}`}
-            // The XXX Movies tab lists TMDB movies with the TMDB source
-            linkUrl={
-              currentSettings.xxxMovieSource === 'tpdb'
-                ? `/xxxmovies?${type}=${tpdbMatch.id}`
-                : undefined
-            }
+            url={`/api/v1/xxxmovie/discover?page=1&${type}=${tpdbMatch.id}`}
+            linkUrl={`/xxxmovies?${type}=${tpdbMatch.id}`}
             hideWhenEmpty
           />
         )}
