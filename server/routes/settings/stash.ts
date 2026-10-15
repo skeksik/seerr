@@ -1,4 +1,5 @@
 import StashAPI from '@server/api/stash';
+import { stashScanner } from '@server/lib/scanners/stash';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { Router } from 'express';
@@ -63,6 +64,21 @@ stashRoutes.post('/test', async (req, res, next) => {
     });
     return next({ status: 400, message: 'Unable to connect to Stash.' });
   }
+});
+
+// Like the Jellyfin library sync
+stashRoutes.get('/sync', (_req, res) => {
+  res.status(200).json(stashScanner.status());
+});
+
+stashRoutes.post('/sync', (req, res) => {
+  if (req.body.cancel) {
+    stashScanner.cancel();
+  } else if (req.body.start) {
+    stashScanner.run();
+  }
+
+  res.status(200).json(stashScanner.status());
 });
 
 export default stashRoutes;

@@ -4,7 +4,12 @@ import SensitiveInput from '@app/components/Common/SensitiveInput';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
-import { ArrowDownOnSquareIcon, BeakerIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowDownOnSquareIcon,
+  BeakerIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import type { StashSettings } from '@server/lib/settings';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
@@ -26,7 +31,20 @@ const messages = defineMessages('components.Settings.SettingsStash', {
   toastTestFailure: 'Failed to connect to Stash.',
   toastSaveSuccess: 'Stash settings saved successfully!',
   toastSaveFailure: 'Something went wrong while saving Stash settings.',
+  manualscan: 'Manual Library Scan',
+  manualscanDescription:
+    'Seerr scans Stash on the Stash Scan job schedule, every 15 minutes by default. Run it now to mark scenes available that Stash has matched to StashDB or that are named after a StashDB id.',
+  notrunning: 'Not Running',
+  progress: '{progress} of {total}',
+  startscan: 'Start Scan',
+  cancelscan: 'Cancel Scan',
 });
+
+interface SyncStatus {
+  running: boolean;
+  progress: number;
+  total: number;
+}
 
 const SettingsStash = () => {
   const intl = useIntl();
@@ -35,6 +53,18 @@ const SettingsStash = () => {
   const { data, error, mutate } = useSWR<StashSettings>(
     '/api/v1/settings/stash'
   );
+  const { data: sync, mutate: revalidateSync } = useSWR<SyncStatus>(
+    '/api/v1/settings/stash/sync',
+    { refreshInterval: (latest) => (latest?.running ? 1000 : 10000) }
+  );
+
+  const toggleScan = async (start: boolean) => {
+    await axios.post('/api/v1/settings/stash/sync', {
+      start,
+      cancel: !start,
+    });
+    revalidateSync();
+  };
 
   const schema = Yup.object().shape({
     url: Yup.string()
@@ -71,6 +101,57 @@ const SettingsStash = () => {
 
   return (
     <>
+      <div className="mb-6">
+        <h3 className="heading">{intl.formatMessage(messages.manualscan)}</h3>
+        <p className="description">
+          {intl.formatMessage(messages.manualscanDescription)}
+        </p>
+      </div>
+      <div className="section">
+        <div className="rounded-md bg-gray-800 p-4">
+          <div className="relative mb-6 h-8 w-full overflow-hidden rounded-full bg-gray-600">
+            {sync?.running && (
+              <div
+                className="h-8 bg-indigo-600 transition-all duration-200 ease-in-out"
+                style={{
+                  width: `${
+                    sync.total
+                      ? Math.round((sync.progress / sync.total) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            )}
+            <div className="absolute inset-0 flex h-8 w-full items-center justify-center text-sm">
+              <span>
+                {sync?.running
+                  ? intl.formatMessage(messages.progress, {
+                      progress: sync.progress,
+                      total: sync.total,
+                    })
+                  : intl.formatMessage(messages.notrunning)}
+              </span>
+            </div>
+          </div>
+          <div className="flex w-full justify-end">
+            {sync?.running ? (
+              <Button buttonType="danger" onClick={() => toggleScan(false)}>
+                <XMarkIcon />
+                <span>{intl.formatMessage(messages.cancelscan)}</span>
+              </Button>
+            ) : (
+              <Button
+                buttonType="warning"
+                disabled={!data?.url}
+                onClick={() => toggleScan(true)}
+              >
+                <MagnifyingGlassIcon />
+                <span>{intl.formatMessage(messages.startscan)}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
       <div className="mb-6 mt-10">
         <h3 className="heading">
           {intl.formatMessage(messages.stashSettings)}

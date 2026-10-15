@@ -2281,6 +2281,18 @@ components:
         tpdbApiKey:
           type: string
           description: ThePornDB API key
+    StashSyncStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+          example: false
+        progress:
+          type: number
+          example: 0
+        total:
+          type: number
+          example: 100
     StashSettings:
       type: object
       required:
@@ -3281,6 +3293,43 @@ paths:
                   version:
                     type: string
                     example: v0.31.1
+  /settings/stash/sync:
+    get:
+      summary: Get status of the Stash scan
+      description: Returns the progress of the Stash library scan.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: Status of the Stash scan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSyncStatus'
+    post:
+      summary: Start or cancel the Stash scan
+      description: Starts or cancels the Stash library scan and returns its progress.
+      tags:
+        - settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cancel:
+                  type: boolean
+                  example: false
+                start:
+                  type: boolean
+                  example: false
+      responses:
+        '200':
+          description: Status of the Stash scan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSyncStatus'
   /settings/stashdb:
     get:
       summary: Get StashDB settings

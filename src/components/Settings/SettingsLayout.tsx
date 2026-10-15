@@ -19,6 +19,7 @@ const messages = defineMessages('components.Settings', {
   menuJobs: 'Jobs & Cache',
   menuAbout: 'About',
   menuMetadataProviders: 'Metadata Providers',
+  menuStash: 'Stash',
 });
 
 type SettingsLayoutProps = {
@@ -50,6 +51,16 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
           route: '/settings/jellyfin',
           regex: /^\/settings\/jellyfin/,
         },
+    // The scene library, next to the media server
+    ...(settings.currentSettings.enableAdult
+      ? [
+          {
+            text: intl.formatMessage(messages.menuStash),
+            route: '/settings/stash',
+            regex: /^\/settings\/stash/,
+          },
+        ]
+      : []),
     {
       text: intl.formatMessage(messages.menuServices),
       route: '/settings/services',

@@ -210,7 +210,12 @@ export const ServerInstance = ({
   );
 };
 
-const SettingsServices = () => {
+interface SettingsServicesProps {
+  // More servers, shown above the override rules that apply to them
+  extraServices?: React.ReactNode;
+}
+
+const SettingsServices = ({ extraServices }: SettingsServicesProps) => {
   const intl = useIntl();
   const {
     data: radarrData,
@@ -509,6 +514,7 @@ const SettingsServices = () => {
           </>
         )}
       </div>
+      {extraServices}
       <div className="mb-6 mt-10">
         <h3 className="heading">
           {intl.formatMessage(messages.overrideRules)}
