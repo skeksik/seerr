@@ -38,6 +38,8 @@ export interface UserSettings {
   watchlistSyncTv?: boolean;
   adultSafeMode?: boolean;
   blurAdultImages?: boolean;
+  disabledOrientations?: string[];
+  uncheckedOrientations?: string[];
 }
 
 interface UserHookResponse {

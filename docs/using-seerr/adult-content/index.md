@@ -29,8 +29,14 @@ Users without the permission never see adult titles: scene pages show "not found
 
 Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel.
 
-- **XXX Movies** filters by release date, studio, performer and tags (ThePornDB) or by release date and studio (TMDB).
+- **XXX Movies** filters by release date, studio, performers and tags from ThePornDB.
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
+
+Both also leave out studios, performers and tags picked under **Exclude**, and **And** / **Or** sets whether titles need all of the picked performers or tags, or any. Once something is picked, suggestions for the other fields leave out anything that would find no title next to it; for XXX movies only the first ten suggestions are checked, as ThePornDB allows few requests.
+
+**Sexual Preferences** shows straight, lesbian, bisexual or gay titles, and those with trans performers or futanari, like the filter adult sites offer. StashDB's orientation tags decide where a scene has them; otherwise its cast does: women and men are straight, two or more women lesbian, men alone gay, a lone woman both straight and lesbian, and any trans performer trans. StashDB's "Missing Performer" tags count toward the cast, so a scene with only its male performer listed is not taken for a gay one. XXX movies use ThePornDB's tags and cast the same way. Bisexual and futanari are known from tags only. Titles nothing is known about always show. Without straight, the lists ask for titles tagged with a picked orientation, as filtering the others out would leave pages nearly empty.
+
+Each user picks which sexual preferences are on by default in their **General** settings. Admins can take some away from a user under **Allowed Sexual Preferences**, the same way they set request limits; those never show for that user, not even in search or recommendations.
 
 Search shows matching scenes in a row above the regular results. XXX movies and performers join the regular results: StashDB's first, then ThePornDB's. A ThePornDB performer that links to a StashDB performer opens the StashDB page, and is left out when that performer is already listed; the rest are marked ThePornDB and open their ThePornDB page. Adult TMDB movies carry an **XXX** badge instead of the movie one.
 

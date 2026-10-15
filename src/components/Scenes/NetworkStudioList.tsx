@@ -81,10 +81,12 @@ const NetworkStudioListContent = ({ source }: NetworkStudioListProps) => {
           />
         </div>
       </div>
-      <ul className="flex flex-wrap justify-center gap-4 sm:justify-start">
+      {/* Cards stretch so each row fills the page */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
         {studios.map((studio) => (
           <li key={`network-studio-${studio.id}`}>
             <CompanyCard
+              fullWidth
               name={studio.name}
               image={
                 source === 'stashdb'

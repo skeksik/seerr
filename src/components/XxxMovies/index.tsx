@@ -1,4 +1,5 @@
 import AdultFilterSlideover, {
+  adultFilterParams,
   countAdultFilters,
 } from '@app/components/AdultFilterSlideover';
 import Button from '@app/components/Common/Button';
@@ -34,15 +35,6 @@ const sortOptions = [
   ['duration', messages.sortDuration],
 ] as const;
 
-// Query params the XXX movie API understands
-const apiParams = [
-  'studio',
-  'performer',
-  'tags',
-  'released',
-  'releaseDate',
-] as const;
-
 const XxxMoviesContent = () => {
   const intl = useIntl();
   const router = useRouter();
@@ -56,7 +48,7 @@ const XxxMoviesContent = () => {
       ? router.query.sort
       : sorts[0][0];
   const filters = Object.fromEntries(
-    apiParams
+    adultFilterParams
       .map((key) => [key, router.query[key]] as const)
       .filter(([, value]) => typeof value === 'string' && value !== '')
   );

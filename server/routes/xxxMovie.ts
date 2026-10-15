@@ -6,6 +6,14 @@ import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
+import type { Orientation } from '@server/lib/orientation';
+import {
+  TPDB_ORIENTATION_TAG_IDS,
+  classifyMovie,
+  hiddenOrientations,
+  isHidden,
+  tagsNeeded,
+} from '@server/lib/orientation';
 import logger from '@server/logger';
 import type { SiteLink } from '@server/models/Scene';
 import {
@@ -47,6 +55,15 @@ const discoverQuery = z.object({
   // ThePornDB takes one site but any number of performers
   performer: ids.optional(),
   tags: ids.optional(),
+  // ThePornDB cannot leave anything out, so these are filtered here
+  studioExclude: ids.optional(),
+  performerExclude: ids.optional(),
+  tagsExclude: ids.optional(),
+  // Whether a movie needs all of the performers or tags, or any
+  performerMode: z.enum(['and', 'or']).optional(),
+  tagMode: z.enum(['and', 'or']).optional(),
+  // Comma-separated sexual preferences to show; the user's defaults if unset
+  orientation: z.string().optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   // ThePornDB takes one date bound
   released: z.enum(['after', 'before']).optional(),
@@ -64,7 +81,104 @@ const searchQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
 });
 
-const lookupQuery = z.object({ query: z.string().trim().min(1) });
+const lookupQuery = z.object({
+  query: z.string().trim().min(1),
+  // The filters already picked, so suggestions that find nothing are left out
+  studio: z.coerce.number().int().positive().optional(),
+  performer: ids.optional(),
+  tags: ids.optional(),
+  performerMode: z.enum(['and', 'or']).optional(),
+  tagMode: z.enum(['and', 'or']).optional(),
+});
+
+type LookupFilters = Omit<z.infer<typeof lookupQuery>, 'query'>;
+
+// ThePornDB allows two requests a second, so only the first suggestions are
+// checked
+const CHECKED_SUGGESTIONS = 10;
+
+// Drops suggestions that would find no movie next to the picked filters,
+// like the scene lookups. One site is taken at a time, so a studio is
+// checked against the performers and tags alone
+const withMatches = async <T extends { id: number }>(
+  type: 'studio' | 'performer' | 'tag',
+  results: T[],
+  filters: LookupFilters
+): Promise<T[]> => {
+  const keepOwn =
+    (type === 'performer' && filters.performerMode !== 'or') ||
+    (type === 'tag' && filters.tagMode !== 'or');
+  const base: TpdbMovieQuery = {
+    perPage: 1,
+    siteId: type === 'studio' ? undefined : filters.studio,
+    performerIds: type === 'performer' && !keepOwn ? [] : filters.performer,
+    tagIds: type === 'tag' && !keepOwn ? [] : filters.tags,
+    anyPerformer: filters.performerMode === 'or',
+    anyTag: filters.tagMode === 'or',
+  };
+
+  if (!base.siteId && !base.performerIds?.length && !base.tagIds?.length) {
+    return results;
+  }
+
+  try {
+    const tpdb = TpdbAPI.fromSettings();
+    const checked = results.slice(0, CHECKED_SUGGESTIONS);
+    const totals = await Promise.all(
+      checked.map(async (result) => {
+        const list = await tpdb.getMovies(
+          type === 'studio'
+            ? { ...base, siteId: result.id }
+            : type === 'performer'
+              ? {
+                  ...base,
+                  performerIds: [...(base.performerIds ?? []), result.id],
+                }
+              : { ...base, tagIds: [...(base.tagIds ?? []), result.id] }
+        );
+        return list.meta.total;
+      })
+    );
+    return checked.filter((_, i) => totals[i] > 0);
+  } catch (e) {
+    logger.debug('Unable to count movies for filter suggestions', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return results;
+  }
+};
+
+interface MovieListFilter {
+  hidden: Set<Orientation>;
+  exclude?: { siteIds?: number[]; performerIds?: number[]; tagIds?: number[] };
+}
+
+// ThePornDB has no exclusions, so excluded studios, performers and tags and
+// hidden sexual preferences are filtered here
+const filterMovies = (
+  movies: TpdbMovie[],
+  { hidden, exclude }: MovieListFilter
+): TpdbMovie[] => {
+  const sites = new Set(exclude?.siteIds);
+  const performers = new Set(exclude?.performerIds);
+  const tags = new Set(exclude?.tagIds);
+
+  return movies.filter(
+    (movie) =>
+      ![movie.site?.id, movie.site?.parent_id, movie.site?.network_id].some(
+        (id) => id != null && sites.has(id)
+      ) &&
+      !movie.performers?.some(
+        (performer) =>
+          performers.has(performer._id) ||
+          (performer.parent?._id != null &&
+            performers.has(performer.parent._id))
+      ) &&
+      !movie.tags?.some((tag) => tags.has(tag.id)) &&
+      !isHidden(classifyMovie(movie), hidden)
+  );
+};
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -111,18 +225,36 @@ const discoverTpdb = async (
     dateBound = { value: query.releaseDate ?? today(), operation: '<=' };
   }
 
+  const hidden = hiddenOrientations(user, query.orientation);
+  const orientationTags = query.tags?.length
+    ? []
+    : tagsNeeded(hidden).flatMap((key) => {
+        const id = TPDB_ORIENTATION_TAG_IDS[key];
+        return id ? [id] : [];
+      });
   const list = await TpdbAPI.fromSettings().getMovies({
     page: query.page,
     perPage: PAGE_SIZE,
     sort: query.upcoming ? 'former_released' : tpdbSorts[query.sort],
     siteId: query.studio,
     performerIds: query.performer,
-    tagIds: query.tags,
+    anyPerformer: query.performerMode === 'or',
+    // Without straight, movies tagged with a shown orientation are asked for
+    tagIds: orientationTags.length ? orientationTags : query.tags,
+    anyTag: query.tagMode === 'or' || orientationTags.length > 0,
     year: query.year,
     date: dateBound,
   });
+  const movies = filterMovies(list.data, {
+    hidden,
+    exclude: {
+      siteIds: query.studioExclude,
+      performerIds: query.performerExclude,
+      tagIds: query.tagsExclude,
+    },
+  });
   const media = await Media.getRelatedXxxMovies(
-    list.data.map((m) => m.id),
+    movies.map((m) => m.id),
     user
   );
 
@@ -130,7 +262,7 @@ const discoverTpdb = async (
     page: query.page,
     totalPages: list.meta.last_page,
     totalResults: list.meta.total,
-    results: list.data.map((movie) =>
+    results: movies.map((movie) =>
       mapXxxMovieResult(
         movie,
         media.find((m) => m.tpdbId === movie.id)
@@ -172,8 +304,11 @@ xxxMovieRoutes.get('/search', async (req, res, next) => {
       page,
       perPage: PAGE_SIZE,
     });
+    const movies = filterMovies(list.data, {
+      hidden: hiddenOrientations(req.user),
+    });
     const media = await Media.getRelatedXxxMovies(
-      list.data.map((m) => m.id),
+      movies.map((m) => m.id),
       req.user
     );
 
@@ -181,7 +316,7 @@ xxxMovieRoutes.get('/search', async (req, res, next) => {
       page,
       totalPages: list.meta.last_page,
       totalResults: list.meta.total,
-      results: list.data.map((movie) =>
+      results: movies.map((movie) =>
         mapXxxMovieResult(
           movie,
           media.find((m) => m.tpdbId === movie.id)
@@ -202,11 +337,16 @@ xxxMovieRoutes.get('/studios', async (req, res, next) => {
   }
 
   try {
-    const sites = await TpdbAPI.fromSettings().searchSites(parsed.data.query);
+    const { query, ...filters } = parsed.data;
+    const sites = await TpdbAPI.fromSettings().searchSites(query);
 
-    return res
-      .status(200)
-      .json(sites.map((site) => ({ id: site.id, name: site.name })));
+    return res.status(200).json(
+      await withMatches(
+        'studio',
+        sites.map((site) => ({ id: site.id, name: site.name })),
+        filters
+      )
+    );
   } catch (e) {
     return handleError(e, next, 'Unable to search studios.', {
       query: parsed.data.query,
@@ -222,16 +362,19 @@ xxxMovieRoutes.get('/performers', async (req, res, next) => {
   }
 
   try {
-    const performers = await TpdbAPI.fromSettings().searchPerformers(
-      parsed.data.query
-    );
+    const { query, ...filters } = parsed.data;
+    const performers = await TpdbAPI.fromSettings().searchPerformers(query);
 
     return res.status(200).json(
-      performers.map((performer) => ({
-        id: performer._id,
-        name: performer.name,
-        imageUrl: performer.image ?? undefined,
-      }))
+      await withMatches(
+        'performer',
+        performers.map((performer) => ({
+          id: performer._id,
+          name: performer.name,
+          imageUrl: performer.image ?? undefined,
+        })),
+        filters
+      )
     );
   } catch (e) {
     return handleError(e, next, 'Unable to search performers.', {
@@ -248,11 +391,16 @@ xxxMovieRoutes.get('/tags', async (req, res, next) => {
   }
 
   try {
-    const tags = await TpdbAPI.fromSettings().searchTags(parsed.data.query);
+    const { query, ...filters } = parsed.data;
+    const tags = await TpdbAPI.fromSettings().searchTags(query);
 
-    return res
-      .status(200)
-      .json(tags.map((tag) => ({ id: tag.id, name: tag.name })));
+    return res.status(200).json(
+      await withMatches(
+        'tag',
+        tags.map((tag) => ({ id: tag.id, name: tag.name })),
+        filters
+      )
+    );
   } catch (e) {
     return handleError(e, next, 'Unable to search tags.', {
       query: parsed.data.query,
@@ -319,8 +467,9 @@ const mapMovieList = async (
   totalResults: number,
   user?: User
 ): Promise<XxxMovieListResponse> => {
+  const shown = filterMovies(movies, { hidden: hiddenOrientations(user) });
   const media = await Media.getRelatedXxxMovies(
-    movies.map((m) => m.id),
+    shown.map((m) => m.id),
     user
   );
 
@@ -328,7 +477,7 @@ const mapMovieList = async (
     page,
     totalPages,
     totalResults,
-    results: movies.map((movie) =>
+    results: shown.map((movie) =>
       mapXxxMovieResult(
         movie,
         media.find((m) => m.tpdbId === movie.id)

@@ -23,8 +23,9 @@ import ImdbLogo from '@app/assets/services/imdb.svg';
 import StashLogo from '@app/assets/services/stash.svg';
 import TmdbLogo from '@app/assets/services/tmdb.svg';
 import TpdbIcon from '@app/assets/services/tpdb-icon.svg';
-import CachedImage from '@app/components/Common/CachedImage';
 import Tooltip from '@app/components/Common/Tooltip';
+import SiteIcon from '@app/components/SiteIcon';
+import useSiteIcons from '@app/hooks/useSiteIcons';
 
 type Logo = React.FC<React.SVGProps<SVGSVGElement>>;
 
@@ -78,11 +79,15 @@ export interface ProfileLink {
 // The TMDB and IMDb logos of a person page, for StashDB performers and
 // studios and their many profile links
 const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
+  const siteIcon = useSiteIcons();
   const seen = new Set<string>();
-  const unique = links.filter(({ url }) => {
-    const key = url.replace(/\/+$/, '').toLowerCase();
-    return seen.has(key) ? false : (seen.add(key), true);
-  });
+  const unique = links
+    .filter(({ url }) => {
+      const key = url.replace(/\/+$/, '').toLowerCase();
+      return seen.has(key) ? false : (seen.add(key), true);
+    })
+    // Links of our own, like ThePornDB's, get StashDB's icon by host
+    .map((link) => ({ ...link, icon: link.icon ?? siteIcon(link.url) }));
 
   // StashDB's icon for the site first, then a logo of ours
   const shown = unique.flatMap((link) => {
@@ -110,15 +115,7 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
             className="flex h-6 items-center text-white opacity-50 transition duration-300 hover:opacity-100"
           >
             {icon ? (
-              <CachedImage
-                type="stashdb"
-                src={icon}
-                alt=""
-                width={20}
-                height={20}
-                adult={false}
-                className="h-5 w-5 rounded-sm"
-              />
+              <SiteIcon icon={icon} />
             ) : (
               Logo && <Logo className={size ?? 'h-5 w-5 fill-current'} />
             )}

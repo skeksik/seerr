@@ -254,6 +254,18 @@ components:
           nullable: true
           description: 'Enable watchlist sync for TV'
           example: false
+        disabledOrientations:
+          type: array
+          items:
+            type: string
+          description: 'Sexual preferences never shown to the user; only admins set these, for other users'
+          example: ['gay']
+        uncheckedOrientations:
+          type: array
+          items:
+            type: string
+          description: 'Sexual preferences left unpicked in the filters by default'
+          example: ['trans']
     MainSettings:
       type: object
       properties:
@@ -7844,19 +7856,54 @@ paths:
             default: released
         - in: query
           name: studio
-          description: ThePornDB site id, or TMDB company id with the TMDB source
+          description: ThePornDB site id
           schema:
             type: number
         - in: query
           name: performer
-          description: Comma-separated ThePornDB performer ids, all must match (ThePornDB only)
+          description: Comma-separated ThePornDB performer ids (all must match, unless performerMode is or)
           schema:
             type: string
         - in: query
           name: tags
-          description: Comma-separated ThePornDB tag ids (ThePornDB only)
+          description: Comma-separated ThePornDB tag ids (all must match, unless tagMode is or)
           schema:
             type: string
+        - in: query
+          name: studioExclude
+          description: Comma-separated ThePornDB site ids to leave out, with the sites under them
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          description: Comma-separated ThePornDB performer ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          description: Comma-separated ThePornDB tag ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          description: Whether movies need all of the performers or any
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          description: Whether movies need all of the tags or any
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: orientation
+          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa), or none; the user's defaults when left out
+          schema:
+            type: string
+            example: straight,lesbian
         - in: query
           name: year
           schema:
@@ -7918,6 +7965,33 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: studio
+          description: Picked site id; suggestions that would find nothing are left out
+          schema:
+            type: number
+        - in: query
+          name: performer
+          description: Picked performer ids
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Picked tag ids
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
       responses:
         '200':
           description: Matches
@@ -7936,6 +8010,33 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: studio
+          description: Picked site id; suggestions that would find nothing are left out
+          schema:
+            type: number
+        - in: query
+          name: performer
+          description: Picked performer ids
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Picked tag ids
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
       responses:
         '200':
           description: Matches
@@ -7954,6 +8055,33 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: studio
+          description: Picked site id; suggestions that would find nothing are left out
+          schema:
+            type: number
+        - in: query
+          name: performer
+          description: Picked performer ids
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Picked tag ids
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
       responses:
         '200':
           description: Matches
@@ -8196,7 +8324,7 @@ paths:
             type: string
         - in: query
           name: performer
-          description: Comma-separated StashDB performer ids (all must match)
+          description: Comma-separated StashDB performer ids (all must match, unless performerMode is or)
           schema:
             type: string
         - in: query
@@ -8207,9 +8335,44 @@ paths:
             format: uuid
         - in: query
           name: tags
-          description: Comma-separated StashDB tag ids (all must match)
+          description: Comma-separated StashDB tag ids (all must match, unless tagMode is or)
           schema:
             type: string
+        - in: query
+          name: studioExclude
+          description: Comma-separated StashDB studio ids to leave out, with the studios under them
+          schema:
+            type: string
+        - in: query
+          name: performerExclude
+          description: Comma-separated StashDB performer ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: tagsExclude
+          description: Comma-separated StashDB tag ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          description: Whether scenes need all of the performers or any
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          description: Whether scenes need all of the tags or any
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: orientation
+          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa), or none; the user's defaults when left out
+          schema:
+            type: string
+            example: straight,lesbian
         - in: query
           name: released
           schema:
@@ -8232,6 +8395,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneList'
+  /scene/sites:
+    get:
+      summary: List StashDB sites with icons
+      description: The sites profile and scene links belong to, with StashDB's icon for each.
+      tags:
+        - scenes
+      responses:
+        '200':
+          description: Sites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    url:
+                      type: string
+                    icon:
+                      type: string
   /scene/lookup/{type}:
     get:
       summary: Search StashDB studios, performers or tags
@@ -8250,6 +8435,33 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: studio
+          description: Picked studio ids; suggestions that would find nothing are left out
+          schema:
+            type: string
+        - in: query
+          name: performer
+          description: Picked performer ids
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Picked tag ids
+          schema:
+            type: string
+        - in: query
+          name: performerMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - in: query
+          name: tagMode
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
       responses:
         '200':
           description: Matches

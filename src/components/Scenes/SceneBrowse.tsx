@@ -1,4 +1,5 @@
 import AdultFilterSlideover, {
+  adultFilterParams,
   countAdultFilters,
 } from '@app/components/AdultFilterSlideover';
 import Button from '@app/components/Common/Button';
@@ -39,17 +40,6 @@ const sortOptions = [
   ['created_at', messages.sortCreated],
 ] as const;
 
-// Query params the scene API understands
-const apiParams = [
-  'sort',
-  'studio',
-  'performer',
-  'tags',
-  'tag',
-  'released',
-  'releaseDate',
-] as const;
-
 const SceneBrowseContent = () => {
   const intl = useIntl();
   const router = useRouter();
@@ -65,7 +55,7 @@ const SceneBrowseContent = () => {
         ? 'date'
         : 'trending';
   const filters = Object.fromEntries(
-    apiParams
+    adultFilterParams
       .map((key) => [key, router.query[key]] as const)
       .filter(([, value]) => typeof value === 'string' && value !== '')
   );

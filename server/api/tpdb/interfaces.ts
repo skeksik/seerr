@@ -16,6 +16,9 @@ export interface TpdbSiteSummary {
   logo?: string | null;
   network?: { id: number; uuid: string; name: string } | null;
   parent?: { id: number; uuid: string; name: string } | null;
+  // Movies name their site's parent and network by id only
+  parent_id?: number | null;
+  network_id?: number | null;
 }
 
 // Profile links by site name, e.g. { StashDB: 'https://stashdb.org/…' }
@@ -37,6 +40,8 @@ export interface TpdbPerformerSummary {
   aliases?: string[] | null;
   image?: string | null;
   extras?: TpdbPerformerExtras | null;
+  // Movie performers carry theirs singular
+  extra?: TpdbPerformerExtras | null;
   // The performer across all sites; site performers point to it
   parent?: {
     id: string;

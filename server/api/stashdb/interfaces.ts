@@ -91,7 +91,7 @@ export interface StashDbSceneSummary {
   images: StashDbImage[];
   studio?: StashDbStudioSummary | null;
   performers: { as?: string | null; performer: StashDbPerformerSummary }[];
-  // Only when asked for, e.g. to rank scenes by shared tags
+  // Ids only in lists, for ranking by shared tags and orientation
   tags?: { id: string }[];
 }
 

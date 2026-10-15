@@ -31,6 +31,7 @@ const SCENE_SUMMARY_FIELDS = `
     as
     performer { id name disambiguation gender images { ${IMAGE_FIELDS} } }
   }
+  tags { id }
 `;
 
 const SCENE_FIELDS = `
@@ -71,10 +72,14 @@ export interface StashDbSceneQuery {
   performerIds?: string[];
   tagIds?: string[];
   any?: { performers?: boolean; tags?: boolean };
-  // Also return each scene's tag ids, for ranking by shared tags
-  withTags?: boolean;
   // stash-box takes a single date bound
   date?: { value: string; modifier: 'GREATER_THAN' | 'LESS_THAN' };
+  // Left out, as far as stash-box allows; see sceneInput
+  exclude?: {
+    studioIds?: string[];
+    performerIds?: string[];
+    tagIds?: string[];
+  };
   // For queries known to be slow, in place of the client's 15s
   timeout?: number;
 }
@@ -176,7 +181,42 @@ class StashDbAPI extends ExternalAPI {
     return data.searchScenes;
   }
 
-  public async queryScenes({
+  public async queryScenes(
+    query: StashDbSceneQuery = {}
+  ): Promise<StashDbSceneList> {
+    const data = await this.query<{ queryScenes: StashDbSceneList }>(
+      `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${SCENE_LIST_FIELDS} } }`,
+      { input: await this.sceneInput(query) },
+      LIST_TTL,
+      query.timeout
+    );
+
+    return data.queryScenes;
+  }
+
+  // How many scenes each query finds, in one request
+  public async countScenes(queries: StashDbSceneQuery[]): Promise<number[]> {
+    if (queries.length === 0) {
+      return [];
+    }
+
+    const inputs = await Promise.all(
+      queries.map((query) => this.sceneInput({ ...query, perPage: 1 }))
+    );
+    const data = await this.query<Record<string, { count: number }>>(
+      `query (${inputs.map((_, i) => `$c${i}: SceneQueryInput!`).join(', ')}) {
+        ${inputs.map((_, i) => `c${i}: queryScenes(input: $c${i}) { count }`).join('\n')}
+      }`,
+      Object.fromEntries(inputs.map((input, i) => [`c${i}`, input])),
+      LIST_TTL
+    );
+
+    return inputs.map((_, i) => data[`c${i}`]?.count ?? 0);
+  }
+
+  // stash-box takes one criterion per field, so an exclusion only goes along
+  // when nothing is included on that field; callers filter out the rest
+  private async sceneInput({
     page = 1,
     perPage = 20,
     sort = 'TRENDING',
@@ -186,49 +226,66 @@ class StashDbAPI extends ExternalAPI {
     tagIds,
     date,
     any,
-    withTags = false,
-    timeout,
-  }: StashDbSceneQuery = {}): Promise<StashDbSceneList> {
+    exclude,
+  }: StashDbSceneQuery): Promise<Record<string, unknown>> {
     const criterion = (
-      ids: string[] | undefined,
+      include: string[] | undefined,
+      excluded: string[] | undefined,
       modifier: 'INCLUDES' | 'INCLUDES_ALL'
-    ) => (ids?.length ? { value: ids, modifier } : undefined);
+    ) =>
+      include?.length
+        ? { value: include, modifier }
+        : excluded?.length
+          ? { value: excluded, modifier: 'EXCLUDES' }
+          : undefined;
 
-    const fields = withTags
-      ? `count scenes { ${SCENE_SUMMARY_FIELDS} tags { id } }`
-      : SCENE_LIST_FIELDS;
-    const data = await this.query<{ queryScenes: StashDbSceneList }>(
-      `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${fields} } }`,
-      {
-        input: {
-          page,
-          per_page: perPage,
-          sort,
-          direction,
-          studios: criterion(
-            studioIds?.length
-              ? await this.withChildStudios(studioIds)
-              : undefined,
-            'INCLUDES'
-          ),
-          performers: criterion(
-            performerIds,
-            any?.performers ? 'INCLUDES' : 'INCLUDES_ALL'
-          ),
-          tags: criterion(tagIds, any?.tags ? 'INCLUDES' : 'INCLUDES_ALL'),
-          date,
-        },
-      },
-      LIST_TTL,
-      timeout
+    return {
+      page,
+      per_page: perPage,
+      sort,
+      direction,
+      studios: criterion(
+        studioIds?.length ? await this.withChildStudios(studioIds) : undefined,
+        exclude?.studioIds?.length
+          ? await this.withChildStudios(exclude.studioIds)
+          : undefined,
+        'INCLUDES'
+      ),
+      performers: criterion(
+        performerIds,
+        exclude?.performerIds,
+        any?.performers ? 'INCLUDES' : 'INCLUDES_ALL'
+      ),
+      tags: criterion(
+        tagIds,
+        exclude?.tagIds,
+        any?.tags ? 'INCLUDES' : 'INCLUDES_ALL'
+      ),
+      date,
+    };
+  }
+
+  // Tag ids by name or alias; names StashDB does not know are left out
+  public async getTagIds(names: string[]): Promise<Record<string, string>> {
+    const data = await this.query<Record<string, { id: string } | null>>(
+      `query (${names.map((_, i) => `$t${i}: String!`).join(', ')}) {
+        ${names.map((_, i) => `t${i}: findTagOrAlias(name: $t${i}) { id }`).join('\n')}
+      }`,
+      Object.fromEntries(names.map((name, i) => [`t${i}`, name])),
+      DETAILS_TTL
     );
 
-    return data.queryScenes;
+    return Object.fromEntries(
+      names.flatMap((name, i) => {
+        const id = data[`t${i}`]?.id;
+        return id ? [[name, id]] : [];
+      })
+    );
   }
 
   // Networks hold no scenes of their own, so a studio filter also takes in
   // the studios under it
-  private async withChildStudios(ids: string[]): Promise<string[]> {
+  public async withChildStudios(ids: string[]): Promise<string[]> {
     const data = await this.query<
       Record<string, { child_studios: { id: string }[] } | null>
     >(

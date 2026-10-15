@@ -11,6 +11,7 @@ import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import SceneSlider from '@app/components/Scenes/SceneSlider';
+import SiteIcon from '@app/components/SiteIcon';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
 import useAdult from '@app/hooks/useAdult';
@@ -349,7 +350,11 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
                       href={url.url}
                       target="_blank"
                       rel="noreferrer"
+                      className="flex items-center gap-1.5"
                     >
+                      {url.icon && (
+                        <SiteIcon icon={url.icon} className="h-4 w-4" />
+                      )}
                       {linkLabel(url.url)}
                     </a>
                   ))}

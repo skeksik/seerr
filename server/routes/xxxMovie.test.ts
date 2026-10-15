@@ -147,6 +147,35 @@ describe('GET /xxxmovie/discover', () => {
     assert.strictEqual(query?.date?.operation, '<=');
   });
 
+  it('leaves out excluded and hidden movies, which ThePornDB cannot', async () => {
+    const gay = {
+      ...movie,
+      id: 'gay',
+      tags: [{ id: 1065, name: 'Gay' }],
+    };
+    const excluded = {
+      ...movie,
+      id: 'excluded',
+      tags: [{ id: 71, name: 'Blonde' }],
+    };
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [movie, gay, excluded],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 3 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/xxxmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      [MOVIE_ID]
+    );
+    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.anyTag, true);
+  });
+
   it('pads release dates from the date picker', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [],

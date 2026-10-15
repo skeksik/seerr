@@ -9,10 +9,12 @@ import PageTitle from '@app/components/Common/PageTitle';
 import Tag from '@app/components/Common/Tag';
 import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
+import SiteIcon from '@app/components/SiteIcon';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
 import XxxMovieSlider from '@app/components/XxxMovies/XxxMovieSlider';
 import useAdult from '@app/hooks/useAdult';
+import useSiteIcons from '@app/hooks/useSiteIcons';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
@@ -66,6 +68,8 @@ const XxxMovieDetailsContent = () => {
       ? `/api/v1/xxxmovie/${router.query.xxxMovieId}`
       : null
   );
+  const siteIcon = useSiteIcons();
+  const urlIcon = data?.url ? siteIcon(data.url) : undefined;
 
   if (!data && !error) {
     return <LoadingSpinner />;
@@ -315,7 +319,13 @@ const XxxMovieDetailsContent = () => {
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
                 <span className="media-fact-value">
-                  <a href={data.url} target="_blank" rel="noreferrer">
+                  <a
+                    href={data.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5"
+                  >
+                    {urlIcon && <SiteIcon icon={urlIcon} className="h-4 w-4" />}
                     {linkLabel(data.url)}
                   </a>
                 </span>

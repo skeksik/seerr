@@ -8,6 +8,8 @@ interface CompanyCardProps {
   url: string;
   // Adult studio logos come from StashDB or ThePornDB
   imageType?: 'tmdb' | 'stashdb' | 'tpdb';
+  // Takes the width of its grid cell instead of a fixed one
+  fullWidth?: boolean;
 }
 
 const CompanyCard = ({
@@ -15,13 +17,16 @@ const CompanyCard = ({
   url,
   name,
   imageType = 'tmdb',
+  fullWidth = false,
 }: CompanyCardProps) => {
   const [isHovered, setHovered] = useState(false);
 
   return (
     <Link
       href={url}
-      className={`relative flex h-32 w-56 transform-gpu cursor-pointer items-center justify-center p-8 shadow ring-1 transition duration-300 ease-in-out sm:h-36 sm:w-72 ${
+      className={`relative flex h-32 transform-gpu cursor-pointer items-center justify-center p-8 shadow ring-1 transition duration-300 ease-in-out sm:h-36 ${
+        fullWidth ? 'w-full' : 'w-56 sm:w-72'
+      } ${
         isHovered
           ? 'scale-105 bg-gray-700 ring-gray-500'
           : 'scale-100 bg-gray-800 ring-gray-700'

@@ -25,6 +25,10 @@ import authRoutes from './auth';
 import sceneRoutes from './scene';
 
 const SCENE_ID = '01a138c1-a8cf-74b2-a8bb-e617e9c6f20f';
+const INCLUDED_TAG = '2a9b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
+const EXCLUDED_TAG = '3b0c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e';
+const GAY_TAG = '237e0f29-4db5-4d01-af7c-a620a73ed432';
+const TRANS_TAG = 'dc81ff52-bad0-4441-b20c-fd258b087d77';
 
 const scene: StashDbScene = {
   id: SCENE_ID,
@@ -335,8 +339,78 @@ describe('GET /scene/discover', () => {
       studioIds: ['6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'],
       performerIds: undefined,
       tagIds: [],
+      any: { performers: false, tags: false },
+      exclude: { studioIds: undefined, performerIds: undefined, tagIds: [] },
       date: undefined,
     });
+  });
+
+  it('excludes what StashDB can and filters out the rest', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({
+        count: 3,
+        scenes: [
+          scene,
+          { ...scene, id: 'excluded', tags: [{ id: EXCLUDED_TAG }] },
+          {
+            ...scene,
+            id: 'gay',
+            performers: [
+              {
+                performer: { id: 'm1', name: 'M1', gender: 'MALE', images: [] },
+              },
+              {
+                performer: { id: 'm2', name: 'M2', gender: 'MALE', images: [] },
+              },
+            ],
+          },
+        ],
+      })
+    );
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({
+      Gay: GAY_TAG,
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      `/scene/discover?tags=${INCLUDED_TAG}&tagsExclude=${EXCLUDED_TAG}&performerMode=or&orientation=straight,lesbian`
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      [SCENE_ID]
+    );
+    const query = queryScenes.mock.calls[0].arguments[0];
+    assert.deepStrictEqual(query?.any, { performers: true, tags: false });
+    // Tags are included, so the exclusions cannot go along to StashDB
+    assert.deepStrictEqual(query?.tagIds, [INCLUDED_TAG]);
+  });
+
+  it('sends hidden feature tags along when no tag is included', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({
+      Gay: GAY_TAG,
+      Transgender: TRANS_TAG,
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    // Gay is hidden too, but a gay-tagged scene may also be tagged straight
+    const res = await agent.get(
+      '/scene/discover?orientation=straight,lesbian,bisexual,futa'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      queryScenes.mock.calls[0].arguments[0]?.exclude?.tagIds,
+      [TRANS_TAG]
+    );
   });
 
   it('maps release date bounds and upcoming scenes', async () => {
@@ -448,6 +522,55 @@ describe('studio rankings', () => {
       res.body.map((studio: { id: string }) => studio.id),
       ['n']
     );
+  });
+});
+
+describe('GET /scene/lookup/:type', () => {
+  it('leaves out suggestions that find nothing next to the picked filters', async () => {
+    mock.method(StashDbAPI.prototype, 'searchTags', async () => [
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+    ]);
+    const countScenes = mock.method(
+      StashDbAPI.prototype,
+      'countScenes',
+      async () => [3, 0]
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      `/scene/lookup/tags?query=x&performer=${SCENE_ID}&tags=${INCLUDED_TAG}`
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, [{ id: 'a', name: 'A' }]);
+    // Tags need all of them, so the picked one stays in each count
+    assert.deepStrictEqual(countScenes.mock.calls[0].arguments[0]?.[1], {
+      studioIds: undefined,
+      performerIds: [SCENE_ID],
+      tagIds: [INCLUDED_TAG, 'b'],
+      any: { performers: false, tags: false },
+    });
+  });
+
+  it('checks nothing without other filters', async () => {
+    mock.method(StashDbAPI.prototype, 'searchStudios', async () => [
+      { id: 'a', name: 'A' },
+    ]);
+    const countScenes = mock.method(
+      StashDbAPI.prototype,
+      'countScenes',
+      async () => []
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      `/scene/lookup/studios?query=x&studio=${INCLUDED_TAG}`
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.length, 1);
+    assert.strictEqual(countScenes.mock.callCount(), 0);
   });
 });
 

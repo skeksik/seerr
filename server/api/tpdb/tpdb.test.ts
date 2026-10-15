@@ -53,6 +53,7 @@ describe('TpdbAPI', () => {
       performer_and: 1,
       'tags[70]': 70,
       'tags[1139]': 1139,
+      tag_and: 1,
       year: undefined,
       date: '2026-10-14',
       date_operation: '<=',

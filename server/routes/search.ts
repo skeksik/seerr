@@ -5,6 +5,11 @@ import TpdbAPI, { stashDbPerformerId } from '@server/api/tpdb';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
+import {
+  classifyMovie,
+  hiddenOrientations,
+  isHidden,
+} from '@server/lib/orientation';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
 import type { PerformerResult } from '@server/models/Scene';
@@ -94,15 +99,20 @@ const searchAdult = async (
       ];
     });
   const performerResults = [...stashDbResults, ...tpdbResults];
+  // Disabled and unchecked sexual preferences stay out of search too
+  const hidden = hiddenOrientations(user);
+  const shownMovies = (movies?.data ?? []).filter(
+    (movie) => !isHidden(classifyMovie(movie), hidden)
+  );
   const media = await Media.getRelatedXxxMovies(
-    movies?.data.map((movie) => movie.id) ?? [],
+    shownMovies.map((movie) => movie.id),
     user
   );
 
   return {
     results: [
       ...performerResults,
-      ...(movies?.data ?? []).map((movie) =>
+      ...shownMovies.map((movie) =>
         mapXxxMovieResult(
           movie,
           media.find((m) => m.tpdbId === movie.id)

@@ -1,14 +1,30 @@
 import type { WhisparrCreditType } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
+import type { StashDbSceneQuery } from '@server/api/stashdb';
 import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
 import type {
   StashDbSceneList,
   StashDbSceneSort,
+  StashDbSceneSummary,
 } from '@server/api/stashdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { isOnWatchlist } from '@server/lib/adultMedia';
+import type {
+  Orientation,
+  StashDbOrientationTagIds,
+} from '@server/lib/orientation';
+import {
+  FEATURE_ORIENTATIONS,
+  ORIENTATIONS,
+  STASHDB_MISSING_PERFORMER_TAGS,
+  STASHDB_ORIENTATION_TAGS,
+  classifyScene,
+  hiddenOrientations,
+  isHidden,
+  tagsNeeded,
+} from '@server/lib/orientation';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { getWhisparrServer } from '@server/lib/whisparrMedia';
@@ -53,6 +69,8 @@ const uuids = z
   .transform((value) => value.split(',').filter(Boolean))
   .pipe(z.array(z.string().uuid()).max(25));
 
+const filterMode = z.enum(['and', 'or']).optional();
+
 const discoverQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
   sort: z.enum(sortValues).default('trending'),
@@ -60,6 +78,14 @@ const discoverQuery = z.object({
   studio: uuids.optional(),
   performer: uuids.optional(),
   tags: uuids.optional(),
+  studioExclude: uuids.optional(),
+  performerExclude: uuids.optional(),
+  tagsExclude: uuids.optional(),
+  // Whether a scene needs all of the performers or tags, or any
+  performerMode: filterMode,
+  tagMode: filterMode,
+  // Comma-separated sexual preferences to show; the user's defaults if unset
+  orientation: z.string().optional(),
   // Single tag, kept for older links
   tag: z.string().uuid().optional(),
   // stash-box takes one date bound
@@ -137,13 +163,82 @@ const getMonitorStatus = async (
   }
 };
 
+interface SceneListFilter {
+  hidden: Set<Orientation>;
+  exclude?: StashDbSceneQuery['exclude'];
+}
+
+// Orientation tag ids for this stash-box instance; without them the cast
+// alone decides
+const orientationTagIds = async (
+  api: StashDbAPI
+): Promise<StashDbOrientationTagIds> => {
+  try {
+    const ids = await api.getTagIds([
+      ...Object.values(STASHDB_ORIENTATION_TAGS),
+      ...Object.values(STASHDB_MISSING_PERFORMER_TAGS),
+    ]);
+    return {
+      orientations: Object.fromEntries(
+        ORIENTATIONS.flatMap((orientation) => {
+          const id = ids[STASHDB_ORIENTATION_TAGS[orientation]];
+          return id ? [[orientation, id]] : [];
+        })
+      ),
+      missing: Object.fromEntries(
+        Object.entries(STASHDB_MISSING_PERFORMER_TAGS).flatMap(([key, name]) =>
+          ids[name] ? [[key, ids[name]]] : []
+        )
+      ),
+    };
+  } catch (e) {
+    logger.debug('Unable to look up StashDB orientation tags', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return { orientations: {}, missing: {} };
+  }
+};
+
+// Leaves out what stash-box could not: exclusions next to inclusions on the
+// same field, and hidden sexual preferences
+const filterScenes = async (
+  api: StashDbAPI,
+  scenes: StashDbSceneSummary[],
+  { hidden, exclude }: SceneListFilter
+): Promise<StashDbSceneSummary[]> => {
+  const tagIds = hidden.size ? await orientationTagIds(api) : undefined;
+  const studios = new Set(
+    exclude?.studioIds?.length
+      ? await api.withChildStudios(exclude.studioIds)
+      : []
+  );
+  const performers = new Set(exclude?.performerIds);
+  const tags = new Set(exclude?.tagIds);
+
+  return scenes.filter(
+    (scene) =>
+      !(scene.studio && studios.has(scene.studio.id)) &&
+      !(scene.studio?.parent && studios.has(scene.studio.parent.id)) &&
+      !scene.performers.some(({ performer }) => performers.has(performer.id)) &&
+      !scene.tags?.some((tag) => tags.has(tag.id)) &&
+      !(tagIds && isHidden(classifyScene(scene, tagIds), hidden))
+  );
+};
+
 const mapSceneList = async (
   list: StashDbSceneList,
   page: number,
-  user?: User
+  user?: User,
+  filter: SceneListFilter = { hidden: hiddenOrientations(user) }
 ): Promise<SceneListResponse> => {
+  const scenes = await filterScenes(
+    StashDbAPI.fromSettings(),
+    list.scenes,
+    filter
+  );
   const media = await Media.getRelatedScenes(
-    list.scenes.map((s) => s.id),
+    scenes.map((s) => s.id),
     user
   );
 
@@ -151,7 +246,7 @@ const mapSceneList = async (
     page,
     totalPages: Math.ceil(list.count / PAGE_SIZE),
     totalResults: list.count,
-    results: list.scenes.map((scene) =>
+    results: scenes.map((scene) =>
       mapSceneResult(
         scene,
         media.find((m) => m.stashId === scene.id)
@@ -188,14 +283,45 @@ sceneRoutes.get('/discover', async (req, res, next) => {
     performer,
     tags,
     tag,
+    studioExclude,
+    performerExclude,
+    tagsExclude,
+    performerMode,
+    tagMode,
+    orientation,
     released,
     releaseDate,
     upcoming,
   } = parsed.data;
   const today = new Date().toISOString().slice(0, 10);
+  const tagIds = [...(tags ?? []), ...(tag ? [tag] : [])];
 
   try {
-    const list = await StashDbAPI.fromSettings().queryScenes({
+    const api = StashDbAPI.fromSettings();
+    const hidden = hiddenOrientations(req.user, orientation);
+    const orientationIds = hidden.size
+      ? (await orientationTagIds(api)).orientations
+      : {};
+    const needed = tagIds.length ? [] : tagsNeeded(hidden);
+    // Without straight, scenes tagged with a shown orientation are asked for.
+    // Otherwise tags of hidden features go along when no tag is included; a
+    // hidden audience tag cannot, as the scene may suit a shown one too
+    const idsOf = (keys: Orientation[]) =>
+      keys.flatMap((key) => {
+        const id = orientationIds[key];
+        return id ? [id] : [];
+      });
+    const orientationTags = idsOf(needed);
+    const hiddenTags =
+      tagIds.length || orientationTags.length
+        ? []
+        : idsOf(FEATURE_ORIENTATIONS.filter((key) => hidden.has(key)));
+    const exclude = {
+      studioIds: studioExclude,
+      performerIds: performerExclude,
+      tagIds: [...(tagsExclude ?? []), ...hiddenTags],
+    };
+    const list = await api.queryScenes({
       page,
       perPage: PAGE_SIZE,
       sort: upcoming
@@ -208,7 +334,12 @@ sceneRoutes.get('/discover', async (req, res, next) => {
         upcoming || sort === 'title' || sort === 'oldest' ? 'ASC' : 'DESC',
       studioIds: studio,
       performerIds: performer,
-      tagIds: [...(tags ?? []), ...(tag ? [tag] : [])],
+      tagIds: orientationTags.length ? orientationTags : tagIds,
+      any: {
+        performers: performerMode === 'or',
+        tags: tagMode === 'or' || orientationTags.length > 0,
+      },
+      exclude,
       date: upcoming
         ? { value: today, modifier: 'GREATER_THAN' }
         : releaseDate
@@ -219,7 +350,12 @@ sceneRoutes.get('/discover', async (req, res, next) => {
           : undefined,
     });
 
-    return res.status(200).json(await mapSceneList(list, page, req.user));
+    return res.status(200).json(
+      await mapSceneList(list, page, req.user, {
+        hidden,
+        exclude: { ...exclude, tagIds: tagsExclude },
+      })
+    );
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {
       query: req.query,
@@ -270,7 +406,89 @@ sceneRoutes.get('/trending-studios', async (req, res, next) => {
   }
 });
 
-const lookupQuery = z.object({ query: z.string().trim().min(1) });
+// StashDB's sites with their icons, for links from anywhere
+sceneRoutes.get('/sites', async (req, res, next) => {
+  try {
+    const sites = await StashDbAPI.fromSettings().getSites();
+
+    return res
+      .status(200)
+      .json(
+        sites.flatMap((site) =>
+          site.url && site.icon
+            ? [{ name: site.name, url: site.url.trim(), icon: site.icon }]
+            : []
+        )
+      );
+  } catch (e) {
+    return handleError(e, next, 'Unable to retrieve StashDB sites.', {});
+  }
+});
+
+const lookupQuery = z.object({
+  query: z.string().trim().min(1),
+  // The filters already picked, so suggestions that find nothing are left out
+  studio: uuids.optional(),
+  performer: uuids.optional(),
+  tags: uuids.optional(),
+  performerMode: filterMode,
+  tagMode: filterMode,
+});
+
+type LookupType = 'studios' | 'performers' | 'tags';
+
+const lookupField = {
+  studios: 'studioIds',
+  performers: 'performerIds',
+  tags: 'tagIds',
+} as const;
+
+// Drops suggestions that would find no scene next to the picked filters.
+// A suggestion is checked on its own field only when that field needs all
+// of its values; studios and "any" fields only ever add scenes
+const withMatches = async <T extends { id: string }>(
+  api: StashDbAPI,
+  type: LookupType,
+  results: T[],
+  filters: Omit<z.infer<typeof lookupQuery>, 'query'>
+): Promise<T[]> => {
+  const base: StashDbSceneQuery = {
+    studioIds: filters.studio,
+    performerIds: filters.performer,
+    tagIds: filters.tags,
+    any: {
+      performers: filters.performerMode === 'or',
+      tags: filters.tagMode === 'or',
+    },
+  };
+  const field = lookupField[type];
+  const keepOwn =
+    (type === 'performers' && filters.performerMode !== 'or') ||
+    (type === 'tags' && filters.tagMode !== 'or');
+  const constrained = (Object.keys(lookupField) as LookupType[]).some(
+    (other) => (other !== type || keepOwn) && !!base[lookupField[other]]?.length
+  );
+
+  if (!constrained || results.length === 0) {
+    return results;
+  }
+
+  try {
+    const counts = await api.countScenes(
+      results.map((result) => ({
+        ...base,
+        [field]: [...(keepOwn ? (base[field] ?? []) : []), result.id],
+      }))
+    );
+    return results.filter((_, i) => counts[i] > 0);
+  } catch (e) {
+    logger.debug('Unable to count scenes for filter suggestions', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return results;
+  }
+};
 
 // Autocomplete for the scene filters
 const studioListQuery = z.object({
@@ -371,7 +589,7 @@ sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
   const { type } = req.params;
 
-  if (!['studios', 'performers', 'tags'].includes(type)) {
+  if (!Object.keys(lookupField).includes(type)) {
     return next({ status: 404, message: 'Not found.' });
   }
 
@@ -380,15 +598,18 @@ sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
   }
 
   try {
+    const { query, ...filters } = parsed.data;
     const stashDb = StashDbAPI.fromSettings();
     const results =
       type === 'studios'
-        ? await stashDb.searchStudios(parsed.data.query)
+        ? await stashDb.searchStudios(query)
         : type === 'performers'
-          ? await stashDb.searchPerformers(parsed.data.query)
-          : await stashDb.searchTags(parsed.data.query);
+          ? await stashDb.searchPerformers(query)
+          : await stashDb.searchTags(query);
 
-    return res.status(200).json(results);
+    return res
+      .status(200)
+      .json(await withMatches(stashDb, type as LookupType, results, filters));
   } catch (e) {
     return handleError(e, next, 'Unable to search StashDB.', {
       type,
@@ -483,7 +704,6 @@ sceneRoutes.get<{ sceneId: string }>(
             sort: 'POPULARITY',
             tagIds: [...tagIds],
             any: { tags: true },
-            withTags: true,
             // StashDB sorts most of its catalogue by popularity when a scene
             // has many tags, which takes 10-20s
             timeout: SIMILAR_TIMEOUT,
