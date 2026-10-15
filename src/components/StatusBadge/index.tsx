@@ -31,6 +31,8 @@ interface StatusBadgeProps {
   // Defaults to Radarr or Sonarr by media type
   serviceName?: string;
   tmdbId?: number | null;
+  // StashDB scene or ThePornDB movie UUID, for their manage links
+  externalId?: string | null;
   mediaType?: `${MediaType}`;
   title?: string | string[];
   statusLabelOverride?: string;
@@ -45,6 +47,7 @@ const StatusBadge = ({
   serviceUrl,
   serviceName,
   tmdbId,
+  externalId,
   mediaType,
   title,
   statusLabelOverride,
@@ -98,11 +101,20 @@ const StatusBadge = ({
               : 'Jellyfin',
     });
   } else if (hasPermission(Permission.MANAGE_REQUESTS)) {
-    if (mediaType && tmdbId) {
-      mediaLink = `/${mediaType}/${tmdbId}?manage=1`;
+    const manageId =
+      mediaType === 'scene' || mediaType === 'xxxmovie' ? externalId : tmdbId;
+
+    if (mediaType && manageId) {
+      mediaLink = `/${mediaType}/${manageId}?manage=1`;
       mediaLinkDescription = intl.formatMessage(messages.managemedia, {
         mediaType: intl.formatMessage(
-          mediaType === 'movie' ? globalMessages.movie : globalMessages.tvshow
+          mediaType === 'movie'
+            ? globalMessages.movie
+            : mediaType === 'tv'
+              ? globalMessages.tvshow
+              : mediaType === 'scene'
+                ? globalMessages.scene
+                : globalMessages.xxxMovie
         ),
       });
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {

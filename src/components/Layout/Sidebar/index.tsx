@@ -81,14 +81,14 @@ const SidebarLinks: SidebarLinkProps[] = [
     href: '/xxxmovies',
     messagesKey: 'browsexxxmovies',
     svgIcon: <FireIcon className="mr-3 h-6 w-6" />,
-    activeRegExp: /^\/xxxmovies?(\/|$)/,
+    activeRegExp: /^\/xxxmovies$/,
     requiresAdult: true,
   },
   {
     href: '/scenes',
     messagesKey: 'browsescenes',
     svgIcon: <VideoCameraIcon className="mr-3 h-6 w-6" />,
-    activeRegExp: /^\/scenes?(\/|$)/,
+    activeRegExp: /^\/scenes$/,
     requiresAdult: true,
   },
   {

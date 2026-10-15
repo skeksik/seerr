@@ -102,6 +102,7 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
               title={item.title}
               inProgress={(request.media.downloadStatus ?? []).length > 0}
               mediaType={request.type === 'scene' ? 'scene' : 'xxxmovie'}
+              externalId={request.media.stashId ?? request.media.tpdbId}
               serviceUrl={request.media.serviceUrl}
               plexUrl={request.media.mediaUrl}
             />

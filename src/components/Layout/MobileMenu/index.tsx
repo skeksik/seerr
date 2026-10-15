@@ -104,7 +104,7 @@ const MobileMenu = ({
       content: intl.formatMessage(menuMessages.browsexxxmovies),
       svgIcon: <FireIcon className="h-6 w-6" />,
       svgIconSelected: <FilledFireIcon className="h-6 w-6" />,
-      activeRegExp: /^\/xxxmovies?(\/|$)/,
+      activeRegExp: /^\/xxxmovies$/,
       requiresAdult: true,
     },
     {
@@ -112,7 +112,7 @@ const MobileMenu = ({
       content: intl.formatMessage(menuMessages.browsescenes),
       svgIcon: <VideoCameraIcon className="h-6 w-6" />,
       svgIconSelected: <FilledVideoCameraIcon className="h-6 w-6" />,
-      activeRegExp: /^\/scenes?(\/|$)/,
+      activeRegExp: /^\/scenes$/,
       requiresAdult: true,
     },
     {

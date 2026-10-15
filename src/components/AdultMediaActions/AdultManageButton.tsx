@@ -7,7 +7,8 @@ import { CogIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { SceneDetails } from '@server/models/Scene';
 import type { XxxMovieDetails } from '@server/models/XxxMovie';
-import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.AdultMediaActions', {
@@ -23,8 +24,21 @@ type AdultManageButtonProps =
 const AdultManageButton = (props: AdultManageButtonProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
+  const router = useRouter();
   const [showManager, setShowManager] = useState(false);
   const media = props.data.mediaInfo;
+
+  // Status badges link here with ?manage=1, as they do for movies
+  useEffect(() => {
+    if (router.query.manage === '1') {
+      setShowManager(true);
+      const query = { ...router.query };
+      delete query.manage;
+      router.replace({ pathname: router.pathname, query }, undefined, {
+        shallow: true,
+      });
+    }
+  }, [router]);
 
   // Titles Whisparr follows get the cog before anyone requests them
   if (

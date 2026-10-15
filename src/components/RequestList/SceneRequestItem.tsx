@@ -217,6 +217,7 @@ const SceneRequestItem = ({
                 title={title}
                 inProgress={(data.media.downloadStatus ?? []).length > 0}
                 mediaType={request.type === 'scene' ? 'scene' : 'xxxmovie'}
+                externalId={data.media.stashId ?? data.media.tpdbId}
                 serviceUrl={data.media.serviceUrl}
                 plexUrl={data.media.mediaUrl}
               />
