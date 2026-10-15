@@ -486,7 +486,10 @@ const TitleCard = ({
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div
-                className={`flex gap-1 ${isScene ? 'flex-row' : 'flex-col'}`}
+                // Wide scene cards keep them right, beside the status
+                className={`flex gap-1 ${
+                  isScene ? 'ml-auto mr-1 flex-row' : 'flex-col'
+                }`}
               >
                 {user?.userType !== UserType.PLEX &&
                   (toggleWatchlist ? (
@@ -635,10 +638,14 @@ const TitleCard = ({
                             currentStatus !== MediaStatus.DELETED)
                             ? isScene
                               ? 2
-                              : 5
+                              : mediaType === 'xxxmovie'
+                                ? 2
+                                : 5
                             : isScene
                               ? 1
-                              : 3,
+                              : mediaType === 'xxxmovie'
+                                ? 2
+                                : 3,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

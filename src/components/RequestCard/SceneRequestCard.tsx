@@ -109,21 +109,34 @@ const SceneRequestCard = ({ request }: SceneRequestCardProps) => {
           )}
         </div>
       </div>
-      {item.portrait && (
-        <Link
-          href={href}
-          className="relative z-10 w-20 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md shadow-sm transition duration-300 hover:scale-105 hover:shadow-md sm:w-28"
-          style={{ aspectRatio: '2 / 3' }}
-        >
+      {/* Covers sit like movie posters; scene stills are landscape */}
+      <Link
+        href={href}
+        className={`relative z-10 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md bg-gray-700 shadow-sm transition duration-300 hover:scale-105 hover:shadow-md ${
+          item.portrait ? 'w-20 sm:w-28' : 'w-28 self-center sm:w-40'
+        }`}
+        style={{ aspectRatio: item.portrait ? '2 / 3' : '16 / 9' }}
+      >
+        {item.imageUrl ? (
           <CachedImage
             type={item.imageType}
-            src={item.imageUrl ?? '/images/seerr_poster_not_found.png'}
+            src={item.imageUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
           />
-        </Link>
-      )}
+        ) : (
+          item.portrait && (
+            <CachedImage
+              type="tmdb"
+              src="/images/seerr_poster_not_found.png"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              fill
+            />
+          )
+        )}
+      </Link>
     </div>
   );
 };
