@@ -105,4 +105,15 @@ describe('StashDbAPI', () => {
     assert.strictEqual(input.performers, undefined);
     assert.strictEqual(input.sort, 'DATE');
   });
+
+  it('counts every scene, not only the trending ones', async () => {
+    const api = new TestStashDbAPI([{ data: { c0: { count: 3 } } }]);
+
+    assert.deepStrictEqual(
+      await api.countScenes([{ tagIds: ['tag'], sort: 'TRENDING' }]),
+      [3]
+    );
+    const { c0 } = JSON.parse(api.requests[0].data).variables;
+    assert.strictEqual(c0.sort, 'DATE');
+  });
 });

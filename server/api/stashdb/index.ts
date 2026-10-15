@@ -201,8 +201,12 @@ class StashDbAPI extends ExternalAPI {
       return [];
     }
 
+    // Trending counts only the scenes trending now, so the count goes by
+    // date, which counts them all
     const inputs = await Promise.all(
-      queries.map((query) => this.sceneInput({ ...query, perPage: 1 }))
+      queries.map((query) =>
+        this.sceneInput({ ...query, sort: 'DATE', perPage: 1 })
+      )
     );
     const data = await this.query<Record<string, { count: number }>>(
       `query (${inputs.map((_, i) => `$c${i}: SceneQueryInput!`).join(', ')}) {
