@@ -1,24 +1,32 @@
+import type { AdultFilterKind } from '@app/components/AdultFilterSlideover';
 import AdultFilterSlideover, {
+  activeFiltersMessage,
   adultFilterParams,
   countAdultFilters,
 } from '@app/components/AdultFilterSlideover';
+import withAdultGate from '@app/components/Common/AdultGate';
+import Alert from '@app/components/Common/Alert';
 import Button from '@app/components/Common/Button';
 import Header from '@app/components/Common/Header';
+import ListView from '@app/components/Common/ListView';
 import PageTitle from '@app/components/Common/PageTitle';
-import SceneList from '@app/components/Scenes/SceneList';
-import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
 import { useUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
+import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { BarsArrowDownIcon, FunnelIcon } from '@heroicons/react/24/solid';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
 import type { SceneResult } from '@server/models/Scene';
+import type { AxiosError } from 'axios';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import type { MessageDescriptor } from 'react-intl';
 import { useIntl } from 'react-intl';
 
-const messages = defineMessages('components.Scenes.SceneBrowse', {
+const messages = defineMessages('components.Scenes.AdultBrowse', {
   sortPopularityDesc: 'Popularity Descending',
   sortPopularityAsc: 'Popularity Ascending',
   sortTrending: 'Trending',
@@ -30,36 +38,79 @@ const messages = defineMessages('components.Scenes.SceneBrowse', {
   sortDurationAsc: 'Duration Ascending',
   sortTitleAsc: 'Title (A-Z) Ascending',
   sortTitleDesc: 'Title (Z-A) Descending',
-  activefilters:
-    '{count, plural, one {# Active Filter} other {# Active Filters}}',
+  notconfigured: '{provider} is not configured',
+  notconfiguredDescription:
+    'Add a {provider} API key in <SettingsLink>Metadata settings</SettingsLink>.',
+  notconfiguredUser: 'Ask an administrator to configure {provider}.',
 });
 
-// Like the Movies and Series tabs, with StashDB's trending order besides
-const sortOptions = [
-  ['popularity', messages.sortPopularityDesc],
-  ['popularity_asc', messages.sortPopularityAsc],
-  ['trending', messages.sortTrending],
-  ['date', messages.sortDateDesc],
-  ['oldest', messages.sortDateAsc],
-  ['created_at', messages.sortAddedDesc],
-  ['created_at_asc', messages.sortAddedAsc],
-  ['duration', messages.sortDurationDesc],
-  ['duration_asc', messages.sortDurationAsc],
-  ['title', messages.sortTitleAsc],
-  ['title_desc', messages.sortTitleDesc],
-] as const;
+interface BrowseConfig {
+  endpoint: string;
+  // The first is the default
+  sortOptions: readonly (readonly [string, MessageDescriptor])[];
+  title: MessageDescriptor;
+  provider: string;
+}
 
-const SceneBrowseContent = () => {
+const browseConfigs: Record<AdultFilterKind, BrowseConfig> = {
+  // Like the Movies and Series tabs, with StashDB's trending order besides
+  scene: {
+    endpoint: '/api/v1/scene/discover',
+    sortOptions: [
+      ['popularity', messages.sortPopularityDesc],
+      ['popularity_asc', messages.sortPopularityAsc],
+      ['trending', messages.sortTrending],
+      ['date', messages.sortDateDesc],
+      ['oldest', messages.sortDateAsc],
+      ['created_at', messages.sortAddedDesc],
+      ['created_at_asc', messages.sortAddedAsc],
+      ['duration', messages.sortDurationDesc],
+      ['duration_asc', messages.sortDurationAsc],
+      ['title', messages.sortTitleAsc],
+      ['title_desc', messages.sortTitleDesc],
+    ],
+    title: globalMessages.scenes,
+    provider: 'StashDB',
+  },
+  // ThePornDB has no popularity or title order
+  adultmovie: {
+    endpoint: '/api/v1/adultmovie/discover',
+    sortOptions: [
+      ['released', messages.sortDateDesc],
+      ['oldest', messages.sortDateAsc],
+      ['added', messages.sortAddedDesc],
+      ['added_asc', messages.sortAddedAsc],
+      ['duration', messages.sortDurationDesc],
+      ['duration_asc', messages.sortDurationAsc],
+    ],
+    title: globalMessages.adultMovies,
+    provider: 'ThePornDB',
+  },
+};
+
+interface AdultBrowseProps {
+  kind: AdultFilterKind;
+}
+
+// The Scenes and Adult Movies tabs, sorted and filtered through the URL
+const AdultBrowse = ({ kind }: AdultBrowseProps) => {
   const intl = useIntl();
   const router = useRouter();
+  const { hasPermission } = useUser();
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
+  const {
+    endpoint,
+    sortOptions,
+    title: titleMessage,
+    provider,
+  } = browseConfigs[kind];
 
   const sort =
     typeof router.query.sort === 'string' &&
     sortOptions.some(([value]) => value === router.query.sort)
       ? router.query.sort
-      : 'popularity';
+      : sortOptions[0][0];
   const filters = Object.fromEntries(
     adultFilterParams
       .map((key) => [key, router.query[key]] as const)
@@ -74,17 +125,41 @@ const SceneBrowseContent = () => {
     titles,
     fetchMore,
     error,
-  } = useDiscover<SceneResult>(
-    '/api/v1/scene/discover',
+  } = useDiscover<SceneResult | AdultMovieResult>(
+    endpoint,
     { ...filters, sort },
     { filteredPages: true }
   );
+  const title = intl.formatMessage(titleMessage);
+
+  // The API answers 503 until the provider has an API key
+  if ((error as AxiosError | undefined)?.response?.status === 503) {
+    return (
+      <>
+        <PageTitle title={title} />
+        <div className="mt-4">
+          <Alert
+            title={intl.formatMessage(messages.notconfigured, { provider })}
+          >
+            {hasPermission(Permission.ADMIN)
+              ? intl.formatMessage(messages.notconfiguredDescription, {
+                  provider,
+                  SettingsLink: (msg: React.ReactNode) => (
+                    <Link href="/settings/metadata" className="underline">
+                      {msg}
+                    </Link>
+                  ),
+                })
+              : intl.formatMessage(messages.notconfiguredUser, { provider })}
+          </Alert>
+        </div>
+      </>
+    );
+  }
 
   if (error) {
     return <ErrorPage statusCode={500} />;
   }
-
-  const title = intl.formatMessage(globalMessages.scenes);
 
   return (
     <>
@@ -111,7 +186,7 @@ const SceneBrowseContent = () => {
             </select>
           </div>
           <AdultFilterSlideover
-            kind="scene"
+            kind={kind}
             show={showFilters}
             onClose={() => setShowFilters(false)}
           />
@@ -119,7 +194,7 @@ const SceneBrowseContent = () => {
             <Button onClick={() => setShowFilters(true)} className="w-full">
               <FunnelIcon />
               <span>
-                {intl.formatMessage(messages.activefilters, {
+                {intl.formatMessage(activeFiltersMessage, {
                   count: countAdultFilters(router.query),
                 })}
               </span>
@@ -127,8 +202,9 @@ const SceneBrowseContent = () => {
           </div>
         </div>
       </div>
-      <SceneList
-        scenes={titles}
+      <ListView
+        items={titles}
+        landscape={kind === 'scene'}
         isEmpty={isEmpty}
         isLoading={
           isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
@@ -140,15 +216,4 @@ const SceneBrowseContent = () => {
   );
 };
 
-// Hooks above fetch unconditionally, so gate before mounting them
-const SceneBrowse = () => {
-  const canViewAdult = useAdult();
-
-  if (!canViewAdult) {
-    return <ErrorPage statusCode={404} />;
-  }
-
-  return <SceneBrowseContent />;
-};
-
-export default SceneBrowse;
+export default withAdultGate(AdultBrowse);

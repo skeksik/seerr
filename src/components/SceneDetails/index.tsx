@@ -1,74 +1,33 @@
-import AdultLinkBlock from '@app/components/AdultLinkBlock';
-import AdultMediaActions from '@app/components/AdultMediaActions';
-import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
-import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
-import Button from '@app/components/Common/Button';
-import CachedImage from '@app/components/Common/CachedImage';
+import AdultTitleDetails, {
+  refreshWhileDownloading,
+} from '@app/components/AdultTitleDetails';
+import withAdultGate from '@app/components/Common/AdultGate';
+import {
+  creditHref,
+  toSliderPerformer,
+} from '@app/components/Common/adultRoutes';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
-import PageTitle from '@app/components/Common/PageTitle';
-import PlayButton from '@app/components/Common/PlayButton';
-import Tag from '@app/components/Common/Tag';
-import Tooltip from '@app/components/Common/Tooltip';
-import { orientationMessages } from '@app/components/OrientationSelector';
-import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
-import PerformerSlider from '@app/components/Scenes/PerformerSlider';
-import SceneSlider from '@app/components/Scenes/SceneSlider';
-import SiteIcon from '@app/components/SiteIcon';
-import StatusBadge from '@app/components/StatusBadge';
-import StudioBanner from '@app/components/StudioBanner';
-import useAdult from '@app/hooks/useAdult';
-import { Permission, useUser } from '@app/hooks/useUser';
-import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
-import defineMessages from '@app/utils/defineMessages';
 import { linkLabel } from '@app/utils/linkLabel';
 import { stashImageUrl } from '@app/utils/stashImage';
-import { Transition } from '@headlessui/react';
-import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
-import { MediaStatus } from '@server/constants/media';
 import type { SceneDetails as SceneDetailsType } from '@server/models/Scene';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Fragment, useState } from 'react';
-import { useIntl } from 'react-intl';
-import useSWR from 'swr';
-
-const messages = defineMessages('components.SceneDetails', {
-  overview: 'Overview',
-  overviewunavailable: 'Overview unavailable.',
-  cast: 'Cast',
-  releasedate: 'Release Date',
-  productiondate: 'Production Date',
-  duration: 'Duration',
-  studio: 'Studio',
-  network: 'Network',
-  code: 'Studio Code',
-  director: 'Director',
-  links: 'Links',
-  recommendations: 'Recommendations',
-  similar: 'Similar',
-  minutes: '{minutes} min',
-  showalltags: 'Show all {count} tags',
-  playonstash: 'Play on Stash',
-});
-
-// StashDB scenes often carry 70+ tags
-const TAG_LIMIT = 20;
+import useSWR, { useSWRConfig } from 'swr';
 
 interface SceneDetailsProps {
   scene?: SceneDetailsType;
 }
 
-const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
-  const intl = useIntl();
+const SceneDetails = ({ scene }: SceneDetailsProps) => {
   const router = useRouter();
-  const [showAllTags, setShowAllTags] = useState(false);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const { hasPermission } = useUser();
-  const { data, error, mutate } = useSWR<SceneDetailsType>(
-    `/api/v1/scene/${router.query.sceneId}`,
-    { fallbackData: scene }
-  );
+  const { cache } = useSWRConfig();
+  const key = `/api/v1/scene/${router.query.sceneId}`;
+  const { data, error, mutate } = useSWR<SceneDetailsType>(key, {
+    fallbackData: scene,
+    // The server just fetched it, unless an older copy is cached
+    revalidateOnMount: !scene || cache.get(key) !== undefined,
+    refreshInterval: refreshWhileDownloading(scene),
+  });
 
   if (!data && !error) {
     return <LoadingSpinner />;
@@ -78,382 +37,53 @@ const SceneDetailsContent = ({ scene }: SceneDetailsProps) => {
     return <ErrorPage statusCode={404} />;
   }
 
-  const status = data.mediaInfo?.status ?? MediaStatus.UNKNOWN;
-  const canRequest =
-    hasPermission(Permission.REQUEST) &&
-    (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
-  const year = data.releaseDate?.slice(0, 4);
-  const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
-  const attributes: React.ReactNode[] = [];
-
-  // Sexual preferences, which the Filters panel goes by, boxed like a
-  // movie's certification
-  if (data.orientations?.length) {
-    attributes.push(
-      <span className="flex gap-1">
-        {data.orientations.map((orientation) => (
-          <span key={orientation} className="rounded-md border p-0.5 py-0">
-            {intl.formatMessage(orientationMessages[orientation])}
-          </span>
-        ))}
-      </span>
-    );
-  }
-
-  if (data.studio) {
-    attributes.push(
-      <Link href={`/discover/scenes/studio/${data.studio.id}`}>
-        {data.studio.name}
-      </Link>
-    );
-  }
-
-  if (minutes) {
-    attributes.push(intl.formatMessage(messages.minutes, { minutes }));
-  }
+  const backdrop = stashImageUrl(data.imageUrl, 1280);
 
   return (
-    <div className="media-page" style={{ height: 493 }}>
-      {data.imageUrl && (
-        <div className="media-page-bg-image">
-          <CachedImage
-            type="stashdb"
-            alt=""
-            src={stashImageUrl(data.imageUrl, 1280) ?? ''}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            fill
-            priority
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                'linear-gradient(180deg, rgba(17, 24, 39, 0.47) 0%, rgba(17, 24, 39, 1) 100%)',
-            }}
-          />
-        </div>
-      )}
-      <PageTitle title={data.title} />
-      <div className="media-header">
-        {data.imageUrl && (
-          <div className="w-64 overflow-hidden rounded shadow md:w-80 md:rounded-lg md:shadow-2xl xl:mr-4 xl:w-96">
-            <CachedImage
-              type="stashdb"
-              src={stashImageUrl(data.imageUrl, 600) ?? ''}
-              alt=""
-              sizes="100vw"
-              style={{ width: '100%', height: 'auto' }}
-              width={600}
-              height={338}
-              priority
-            />
-          </div>
-        )}
-        <div className="media-title">
-          <div className="media-status">
-            <StatusBadge
-              status={data.mediaInfo?.status}
-              downloadItem={data.mediaInfo?.downloadStatus}
-              title={data.title}
-              inProgress={(data.mediaInfo?.downloadStatus ?? []).length > 0}
-              mediaType="scene"
-              externalId={data.id}
-              plexUrl={data.mediaInfo?.mediaUrl}
-              serviceUrl={data.mediaInfo?.serviceUrl}
-            />
-          </div>
-          <h1 data-testid="media-title">
-            {data.title} {year && <span className="media-year">({year})</span>}
-          </h1>
-          <span className="media-attributes">
-            {attributes.map((attribute, k) => (
-              <Fragment key={k}>
-                {k > 0 && <span>|</span>}
-                <span>{attribute}</span>
-              </Fragment>
-            ))}
-          </span>
-        </div>
-        <div className="media-actions gap-2">
-          <AdultMediaActions
-            mediaType="scene"
-            id={data.id}
-            title={data.title}
-            status={data.mediaInfo?.status}
-            onUserWatchlist={data.onUserWatchlist}
-            onChange={() => mutate()}
-          />
-          {data.mediaInfo?.mediaUrl && (
-            <div className="z-20">
-              <PlayButton
-                links={[
-                  {
-                    text: intl.formatMessage(messages.playonstash),
-                    url: data.mediaInfo.mediaUrl,
-                    svg: <PlayIcon />,
-                  },
-                ]}
-              />
-            </div>
-          )}
-          {canRequest && (
-            <Button
-              buttonType="primary"
-              onClick={() => setShowRequestModal(true)}
-            >
-              <ArrowDownTrayIcon />
-              <span>{intl.formatMessage(globalMessages.request)}</span>
-            </Button>
-          )}
-          <AdultIssueButton
-            mediaType="scene"
-            id={data.id}
-            status={data.mediaInfo?.status}
-          />
-          <AdultManageButton
-            mediaType="scene"
-            data={data}
-            revalidate={() => mutate()}
-          />
-        </div>
-        <Transition
-          as="div"
-          show={showRequestModal}
-          enter="transition-opacity duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition-opacity duration-300"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <SceneRequestModal
-            item={{
-              mediaType: 'scene',
-              id: data.id,
-              title: data.title,
-              backdrop: stashImageUrl(data.imageUrl, 1280),
-              backdropType: 'stashdb',
-            }}
-            onCancel={() => setShowRequestModal(false)}
-            onComplete={() => {
-              setShowRequestModal(false);
-              mutate();
-            }}
-          />
-        </Transition>
-      </div>
-      <div className="media-overview">
-        <div className="media-overview-left">
-          <h2>{intl.formatMessage(messages.overview)}</h2>
-          <p className="whitespace-pre-line">
-            {data.details || intl.formatMessage(messages.overviewunavailable)}
-          </p>
-          {data.director && (
-            <ul className="media-crew">
-              <li>
-                <span>{intl.formatMessage(messages.director)}</span>
-                <span className="font-normal text-gray-400">
-                  {data.director}
-                </span>
-              </li>
-            </ul>
-          )}
-          {data.tags.length > 0 && (
-            <div className="mt-6">
-              {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
-                (tag) => (
-                  <Link
-                    href={`/discover/scenes?sort=date&tags=${tag.id}`}
-                    key={`tag-${tag.id}`}
-                    className="mb-2 mr-2 inline-flex last:mr-0"
-                  >
-                    <Tag>{tag.name}</Tag>
-                  </Link>
-                )
-              )}
-              {!showAllTags && data.tags.length > TAG_LIMIT && (
-                <button
-                  type="button"
-                  className="mb-2 inline-flex text-sm text-gray-400 transition duration-300 hover:text-gray-100 hover:underline"
-                  onClick={() => setShowAllTags(true)}
-                >
-                  {intl.formatMessage(messages.showalltags, {
-                    count: data.tags.length,
-                  })}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="media-overview-right">
-          {data.studio && (
-            <StudioBanner
-              href={`/discover/scenes/studio/${data.studio.id}`}
-              studio={data.studio.name}
-              studioId={data.studio.id}
-              mediaType="scene"
-              currentId={data.id}
-              fallbackImageUrl={stashImageUrl(data.imageUrl, 1280)}
-            />
-          )}
-          <div className="media-facts">
-            {data.releaseDate && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.releasedate)}</span>
-                <span className="media-fact-value">
-                  {intl.formatDate(data.releaseDate, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    timeZone: 'UTC',
-                  })}
-                </span>
-              </div>
-            )}
-            {data.productionDate &&
-              data.productionDate !== data.releaseDate && (
-                <div className="media-fact">
-                  <span>{intl.formatMessage(messages.productiondate)}</span>
-                  <span className="media-fact-value">
-                    {intl.formatDate(data.productionDate, {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      timeZone: 'UTC',
-                    })}
-                  </span>
-                </div>
-              )}
-            {minutes && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.duration)}</span>
-                <span className="media-fact-value">
-                  {intl.formatMessage(messages.minutes, { minutes })}
-                </span>
-              </div>
-            )}
-            {data.studio && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.studio)}</span>
-                <span className="media-fact-value">
-                  <Link href={`/discover/scenes/studio/${data.studio.id}`}>
-                    {data.studio.name}
-                  </Link>
-                </span>
-              </div>
-            )}
-            {data.studio?.parent && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.network)}</span>
-                <span className="media-fact-value">
-                  <Link
-                    href={`/discover/scenes/studio/${data.studio.parent.id}`}
-                  >
-                    {data.studio.parent.name}
-                  </Link>
-                </span>
-              </div>
-            )}
-            {data.code && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.code)}</span>
-                <span className="media-fact-value">{data.code}</span>
-              </div>
-            )}
-            {data.urls.length > 0 && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.links)}</span>
-                <span className="media-fact-value flex flex-col items-end gap-1">
-                  {/* Sites with an icon show it alone, named on hover */}
-                  {data.urls.some((url) => url.icon) && (
-                    <span className="flex flex-wrap justify-end gap-2">
-                      {data.urls.flatMap((url) =>
-                        url.icon
-                          ? [
-                              <Tooltip
-                                key={url.url}
-                                content={linkLabel(url.url)}
-                              >
-                                <a
-                                  href={url.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  aria-label={linkLabel(url.url)}
-                                >
-                                  <SiteIcon icon={url.icon} />
-                                </a>
-                              </Tooltip>,
-                            ]
-                          : []
-                      )}
-                    </span>
-                  )}
-                  {data.urls
-                    .filter((url) => !url.icon)
-                    .map((url) => (
-                      <a
-                        key={url.url}
-                        href={url.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {linkLabel(url.url)}
-                      </a>
-                    ))}
-                </span>
-              </div>
-            )}
-            <div className="media-fact">
-              <AdultLinkBlock
-                stashUrl={data.mediaInfo?.mediaUrl}
-                stashDbUrl={data.stashDbUrl}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      {data.performers.length > 0 && (
-        <PerformerSlider
-          sliderKey="scene-performers"
-          title={intl.formatMessage(messages.cast)}
-          linkUrl={`/scene/${data.id}/cast`}
-          imageType="stashdb"
-          performers={data.performers.map((performer) => ({
-            id: performer.id,
-            name: performer.name,
-            subName: performer.as ?? performer.disambiguation,
-            href: `/discover/scenes/performer/${performer.id}`,
-            imageUrl: stashImageUrl(performer.imageUrl, 300),
-          }))}
-        />
-      )}
-      <SceneSlider
-        sliderKey="scene-recommendations"
-        title={intl.formatMessage(messages.recommendations)}
-        url={`/api/v1/scene/${data.id}/recommendations?page=1`}
-        linkUrl={`/scene/${data.id}/recommendations`}
-        hideWhenEmpty
-      />
-      <SceneSlider
-        sliderKey="scene-similar"
-        title={intl.formatMessage(messages.similar)}
-        url={`/api/v1/scene/${data.id}/similar?page=1`}
-        linkUrl={`/scene/${data.id}/similar`}
-        hideWhenEmpty
-      />
-      <div className="extra-bottom-space relative" />
-    </div>
+    <AdultTitleDetails
+      title={{
+        mediaType: 'scene',
+        id: data.id,
+        title: data.title,
+        overview: data.details,
+        releaseDate: data.releaseDate,
+        productionDate: data.productionDate,
+        duration: data.duration,
+        orientations: data.orientations,
+        studio: data.studio && {
+          id: data.studio.id,
+          name: data.studio.name,
+          href: creditHref('scene', 'studio', data.studio.id),
+        },
+        network: data.studio?.parent && {
+          name: data.studio.parent.name,
+          href: creditHref('scene', 'studio', data.studio.parent.id),
+        },
+        code: data.code,
+        directors: data.director ? [data.director] : [],
+        tags: data.tags,
+        tagHref: (id) => `/discover/scenes?sort=date&tags=${id}`,
+        links: data.urls.map((url) => ({
+          url: url.url,
+          site: linkLabel(url.url),
+          icon: url.icon,
+        })),
+        imageType: 'stashdb',
+        backdrop: backdrop ? { src: backdrop } : undefined,
+        poster: { src: stashImageUrl(data.imageUrl, 600), landscape: true },
+        requestBackdrop: backdrop,
+        performers: data.performers.map((performer) =>
+          toSliderPerformer('scene', performer)
+        ),
+        mediaInfo: data.mediaInfo,
+        onUserWatchlist: data.onUserWatchlist,
+        playUrl: data.mediaInfo?.mediaUrl,
+        stashDbUrl: data.stashDbUrl,
+      }}
+      manage={{ mediaType: 'scene', data, revalidate: () => mutate() }}
+      revalidate={() => mutate()}
+    />
   );
 };
 
-const SceneDetails = ({ scene }: SceneDetailsProps) => {
-  const canViewAdult = useAdult();
-
-  if (!canViewAdult) {
-    return <ErrorPage statusCode={404} />;
-  }
-
-  return <SceneDetailsContent scene={scene} />;
-};
-
-export default SceneDetails;
+export default withAdultGate(SceneDetails);

@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 
 interface StashDbSite {
@@ -14,20 +15,33 @@ const hostOf = (url: string): string => {
   }
 };
 
-// StashDB's icons for the sites links point to, matched by host
-const useSiteIcons = () => {
-  const { data } = useSWR<StashDbSite[]>('/api/v1/scene/sites', {
-    revalidateOnFocus: false,
-    shouldRetryOnError: false,
-    dedupingInterval: 3600000,
-  });
+// StashDB's icons for the sites links point to, matched by host. Pass false
+// when every link already has an icon, to skip the request
+const useSiteIcons = (enabled = true) => {
+  const { data } = useSWR<StashDbSite[]>(
+    enabled ? '/api/v1/scene/sites' : null,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      dedupingInterval: 3600000,
+    }
+  );
+  // The first site of a host wins, as a lookup through the list would find
+  const icons = useMemo(() => {
+    const byHost = new Map<string, string>();
+    (data ?? []).forEach((site) => {
+      const host = hostOf(site.url);
+      if (host && !byHost.has(host)) {
+        byHost.set(host, site.icon);
+      }
+    });
+    return byHost;
+  }, [data]);
 
-  return (url: string): string | undefined => {
-    const host = hostOf(url);
-    return host
-      ? data?.find((site) => hostOf(site.url) === host)?.icon
-      : undefined;
-  };
+  return useCallback(
+    (url: string): string | undefined => icons.get(hostOf(url)),
+    [icons]
+  );
 };
 
 export default useSiteIcons;

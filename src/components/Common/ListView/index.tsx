@@ -1,15 +1,16 @@
 import AdultMovieCard from '@app/components/AdultMovieCard';
+import { toSliderPerformer } from '@app/components/Common/adultRoutes';
 import PersonCard from '@app/components/PersonCard';
+import SceneCard from '@app/components/SceneCard';
 import TitleCard from '@app/components/TitleCard';
 import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
-import { stashImageUrl } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { WatchlistItem } from '@server/interfaces/api/discoverInterfaces';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
-import type { PerformerResult } from '@server/models/Scene';
+import type { PerformerResult, SceneResult } from '@server/models/Scene';
 import type {
   CollectionResult,
   MovieResult,
@@ -26,6 +27,7 @@ type ListViewProps = {
     | CollectionResult
     | AdultMovieResult
     | PerformerResult
+    | SceneResult
   )[];
   plexItems?: WatchlistItem[];
   isEmpty?: boolean;
@@ -33,6 +35,8 @@ type ListViewProps = {
   isReachingEnd?: boolean;
   onScrollBottom: () => void;
   mutateParent?: () => void;
+  // Scene stills are 16:9, so their cards get wider rows
+  landscape?: boolean;
 };
 
 const ListView = ({
@@ -43,6 +47,7 @@ const ListView = ({
   isReachingEnd,
   plexItems,
   mutateParent,
+  landscape = false,
 }: ListViewProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
@@ -60,7 +65,7 @@ const ListView = ({
           {intl.formatMessage(globalMessages.noresults)}
         </div>
       )}
-      <ul className="cards-vertical">
+      <ul className={landscape ? 'cards-horizontal' : 'cards-vertical'}>
         {plexItems?.map((title, index) => {
           return (
             <li key={`${title.ratingKey}-${index}`}>
@@ -156,36 +161,23 @@ const ListView = ({
                   />
                 );
                 break;
-            }
-
-            if (title.mediaType === 'adultmovie') {
-              titleCard = <AdultMovieCard movie={title} canExpand />;
-            }
-
-            if (title.mediaType === 'performer') {
-              titleCard = (
-                <PersonCard
-                  personId={title.id}
-                  name={title.name}
-                  subName={title.disambiguation}
-                  href={
-                    title.source === 'tpdb'
-                      ? `/discover/adultmovies/performer/${title.id}`
-                      : `/discover/scenes/performer/${title.id}`
-                  }
-                  image={
-                    title.imageUrl
-                      ? title.imageType === 'tpdb'
-                        ? { src: title.imageUrl, type: 'tpdb' }
-                        : {
-                            src: stashImageUrl(title.imageUrl, 300) as string,
-                            type: 'stashdb',
-                          }
-                      : undefined
-                  }
-                  canExpand
-                />
-              );
+              case 'adultmovie':
+                titleCard = <AdultMovieCard movie={title} canExpand />;
+                break;
+              case 'scene':
+                titleCard = <SceneCard scene={title} canExpand />;
+                break;
+              case 'performer':
+                titleCard = (
+                  <PersonCard
+                    {...toSliderPerformer(
+                      title.source === 'tpdb' ? 'adultmovie' : 'scene',
+                      title
+                    )}
+                    canExpand
+                  />
+                );
+                break;
             }
 
             return <li key={`${title.id}-${index}`}>{titleCard}</li>;
@@ -194,7 +186,11 @@ const ListView = ({
           !isReachingEnd &&
           [...Array(20)].map((_item, i) => (
             <li key={`placeholder-${i}`}>
-              <TitleCard.Placeholder canExpand />
+              {landscape ? (
+                <SceneCard.Placeholder canExpand />
+              ) : (
+                <TitleCard.Placeholder canExpand />
+              )}
             </li>
           ))}
       </ul>

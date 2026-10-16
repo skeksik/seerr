@@ -1,8 +1,7 @@
 import StashLogo from '@app/assets/services/stash.svg';
 import TpdbLogo from '@app/assets/services/tpdb.svg';
-import Tooltip from '@app/components/Common/Tooltip';
-import SiteIcon from '@app/components/SiteIcon';
-import useSiteIcons from '@app/hooks/useSiteIcons';
+import type { ProfileLink } from '@app/components/AdultProfileLinks';
+import AdultProfileLinks from '@app/components/AdultProfileLinks';
 
 interface AdultLinkBlockProps {
   // Play link, like the Jellyfin logo on movie pages
@@ -11,69 +10,37 @@ interface AdultLinkBlockProps {
   tpdbUrl?: string;
 }
 
-const linkClass =
-  'flex items-center text-sm font-bold text-white opacity-50 transition duration-300 hover:opacity-100';
-
 // ExternalLinkBlock for scenes and adult movies: logos and icons alone, named
-// on hover. StashDB has neither, and its name keeps it apart from Stash
+// on hover. StashDB is named, which keeps it apart from Stash's logo
 const AdultLinkBlock = ({
   stashUrl,
   stashDbUrl,
   tpdbUrl,
 }: AdultLinkBlockProps) => {
-  const siteIcon = useSiteIcons();
-  const tpdbIcon = tpdbUrl ? siteIcon(tpdbUrl) : undefined;
+  const links: ProfileLink[] = [];
+
+  if (stashUrl) {
+    links.push({
+      url: stashUrl,
+      site: 'Stash',
+      logo: [StashLogo, 'h-5 w-auto'],
+    });
+  }
+  if (stashDbUrl) {
+    links.push({ url: stashDbUrl, site: 'StashDB' });
+  }
+  if (tpdbUrl) {
+    // ThePornDB's full logo, unless StashDB has an icon for it
+    links.push({ url: tpdbUrl, site: 'ThePornDB', logo: [TpdbLogo, 'w-24'] });
+  }
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2">
-      {stashUrl && (
-        <Tooltip content="Stash">
-          <a
-            href={stashUrl}
-            className={linkClass}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Stash"
-          >
-            <StashLogo className="h-5 w-auto" />
-          </a>
-        </Tooltip>
-      )}
-      {stashDbUrl && (
-        <a
-          href={stashDbUrl}
-          className={linkClass}
-          target="_blank"
-          rel="noreferrer"
-        >
-          StashDB
-        </a>
-      )}
-      {tpdbUrl &&
-        (tpdbIcon ? (
-          <Tooltip content="ThePornDB">
-            <a
-              href={tpdbUrl}
-              className={linkClass}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="ThePornDB"
-            >
-              <SiteIcon icon={tpdbIcon} />
-            </a>
-          </Tooltip>
-        ) : (
-          <a
-            href={tpdbUrl}
-            className="w-24 opacity-50 transition duration-300 hover:opacity-100"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="ThePornDB"
-          >
-            <TpdbLogo />
-          </a>
-        ))}
-    </div>
+    <AdultProfileLinks
+      links={links}
+      align="center"
+      className="w-full gap-x-5 gap-y-2"
+      textSites={['StashDB']}
+    />
   );
 };
 

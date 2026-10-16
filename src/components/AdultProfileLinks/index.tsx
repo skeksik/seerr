@@ -78,32 +78,73 @@ export interface ProfileLink {
   site: string;
   // stash-box's icon for the site, shown over a logo of ours
   icon?: string;
+  // A logo for a link no host of ours matches, like a Stash server's
+  logo?: [Logo, string?];
 }
 
+const alignments = {
+  // Centred on small screens, like the rest of a person page's header
+  responsive: 'justify-center lg:justify-start',
+  center: 'justify-center',
+  end: 'justify-end',
+};
+
+interface AdultProfileLinksProps {
+  links: ProfileLink[];
+  // Spacing between the links
+  className?: string;
+  align?: keyof typeof alignments;
+  // Sites listed by name even when they have a logo, like StashDB next to
+  // a Stash play link, whose logos are the same
+  textSites?: string[];
+}
+
+// A logo of ours for the link: its own, one by host, or a studio's home
+const logoFor = (link: ProfileLink): [Logo, string?] | undefined => {
+  if (link.logo) {
+    return link.logo;
+  }
+
+  const host = hostOf(link.url);
+  const found = logos.find(([pattern]) => pattern.test(host));
+
+  if (found) {
+    return [found[1], found[2]];
+  }
+
+  return HOME_SITES.includes(link.site.toLowerCase())
+    ? [HomeIcon as Logo, 'h-5 w-5']
+    : undefined;
+};
+
 // The TMDB and IMDb logos of a person page, for StashDB performers and
-// studios and their many profile links
-const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
-  const siteIcon = useSiteIcons();
+// studios and their many profile links, and for the links of title pages
+const AdultProfileLinks = ({
+  links,
+  className = 'gap-x-4 gap-y-2',
+  align = 'responsive',
+  textSites = [],
+}: AdultProfileLinksProps) => {
   const seen = new Set<string>();
-  const unique = links
-    .filter(({ url }) => {
-      const key = url.replace(/\/+$/, '').toLowerCase();
-      return seen.has(key) ? false : (seen.add(key), true);
-    })
-    // Links of our own, like ThePornDB's, get StashDB's icon by host
-    .map((link) => ({ ...link, icon: link.icon ?? siteIcon(link.url) }));
+  const unique = links.filter(({ url }) => {
+    const key = url.replace(/\/+$/, '').toLowerCase();
+    return seen.has(key) ? false : (seen.add(key), true);
+  });
+  const isText = (link: ProfileLink) => textSites.includes(link.site);
+  // Links of our own, like ThePornDB's, get StashDB's icon by host
+  const siteIcon = useSiteIcons(
+    unique.some((link) => !link.icon && !isText(link))
+  );
 
   // StashDB's icon for the site first, then a logo of ours
   const shown = unique.flatMap((link) => {
-    const found: [RegExp, Logo, string?] | undefined = link.icon
-      ? undefined
-      : (logos.find(([pattern]) => pattern.test(hostOf(link.url))) ??
-        // A studio's own site
-        (HOME_SITES.includes(link.site.toLowerCase())
-          ? [/./, HomeIcon as Logo, 'h-5 w-5']
-          : undefined));
-    return link.icon || found
-      ? [{ ...link, Logo: found?.[1], size: found?.[2] }]
+    if (isText(link)) {
+      return [];
+    }
+    const icon = link.icon ?? siteIcon(link.url);
+    const logo = icon ? undefined : logoFor(link);
+    return icon || logo
+      ? [{ ...link, icon, Logo: logo?.[0], size: logo?.[1] }]
       : [];
   });
   // Sites with neither are listed by name, so they stay apart
@@ -112,7 +153,9 @@ const AdultProfileLinks = ({ links }: { links: ProfileLink[] }) => {
   );
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 lg:justify-start">
+    <div
+      className={`flex flex-wrap items-center ${alignments[align]} ${className}`}
+    >
       {shown.map(({ url, site, icon, Logo, size }) => (
         <Tooltip key={url} content={site}>
           <a
