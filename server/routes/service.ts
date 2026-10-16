@@ -114,10 +114,7 @@ serviceRoutes.get<{ whisparrId: string }>(
       });
     }
 
-    const whisparr = new WhisparrAPI({
-      apiKey: whisparrSettings.apiKey,
-      url: WhisparrAPI.buildUrl(whisparrSettings, '/api/v3'),
-    });
+    const whisparr = WhisparrAPI.forServer(whisparrSettings);
 
     const profiles = await whisparr.getProfiles();
     const rootFolders = await whisparr.getRootFolders();

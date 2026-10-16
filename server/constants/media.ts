@@ -21,6 +21,18 @@ export type AdultMediaType = MediaType.SCENE | MediaType.ADULT_MOVIE;
 export const isAdultMediaType = (type: MediaType): type is AdultMediaType =>
   type === MediaType.SCENE || type === MediaType.ADULT_MOVIE;
 
+// The Media field holding a scene's or adult movie's id
+export const adultIdField = (
+  mediaType: AdultMediaType
+): 'stashId' | 'tpdbId' =>
+  mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
+
+// A media type from a route's query, or undefined for anything else
+export const parseMediaType = (value: unknown): MediaType | undefined =>
+  Object.values(MediaType).includes(value as MediaType)
+    ? (value as MediaType)
+    : undefined;
+
 // Media types whose metadata comes from TMDB
 export type TmdbMediaType = MediaType.MOVIE | MediaType.TV;
 

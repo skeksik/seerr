@@ -1,4 +1,4 @@
-import type { MediaType } from '@server/constants/media';
+import { MediaType } from '@server/constants/media';
 
 // Scenes have no TMDB id, so reaching TMDB-only code with one is a bug
 export const requireTmdbId = (media: {
@@ -20,8 +20,8 @@ export const getMediaPath = (media: {
   stashId?: string | null;
   tpdbId?: string | null;
 }): string =>
-  media.mediaType === 'scene'
+  media.mediaType === MediaType.SCENE
     ? `/scene/${media.stashId}`
-    : media.mediaType === 'adultmovie'
+    : media.mediaType === MediaType.ADULT_MOVIE
       ? `/adultmovie/${media.tpdbId}`
       : `/${media.mediaType}/${media.tmdbId}`;

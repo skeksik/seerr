@@ -1,4 +1,4 @@
-import { stashDbPerformerId } from '@server/api/tpdb';
+import { stashDbPerformerId, tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
 import type { Orientation } from '@server/lib/orientation';
@@ -111,5 +111,5 @@ export const mapAdultMovieDetails = (
   tags: (movie.tags ?? []).map(({ id, name }) => ({ id, name })),
   directors: (movie.directors ?? []).map((director) => director.name),
   url: movie.url ?? undefined,
-  tpdbUrl: `https://theporndb.net/movies/${movie.id}`,
+  tpdbUrl: tpdbUrl('movies', movie.id),
 });

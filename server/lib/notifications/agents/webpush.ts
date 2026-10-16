@@ -1,11 +1,11 @@
 import { IssueType, IssueTypeName } from '@server/constants/issue';
-import { MediaRequestStatus, MediaType } from '@server/constants/media';
+import { MediaRequestStatus } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import MediaRequest from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
 import { UserPushSubscription } from '@server/entity/UserPushSubscription';
 import { defineMessages, getIntl } from '@server/i18n';
-import globalMessages from '@server/i18n/globalMessages';
+import globalMessages, { mediaTypeMessage } from '@server/i18n/globalMessages';
 import type { NotificationAgentConfig } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -78,15 +78,7 @@ class WebPushAgent
     const { embedPoster } = getSettings().notifications.agents.webpush;
 
     const mediaType = payload.media
-      ? intl.formatMessage(
-          payload.media.mediaType === MediaType.MOVIE
-            ? globalMessages.movie
-            : payload.media.mediaType === MediaType.SCENE
-              ? globalMessages.scene
-              : payload.media.mediaType === MediaType.ADULT_MOVIE
-                ? globalMessages.adultMovie
-                : globalMessages.series
-        )
+      ? intl.formatMessage(mediaTypeMessage(payload.media.mediaType))
       : undefined;
     const is4k = payload.request?.is4k;
     const quality = is4k ? '4K ' : '';

@@ -1,24 +1,27 @@
-import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
-import TpdbAPI from '@server/api/tpdb';
 import {
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
 } from '@server/constants/media';
-import { getRepository } from '@server/datasource';
+import dataSource, { getRepository } from '@server/datasource';
 import type {
   AdultRequestBody,
   MediaRequestBody,
 } from '@server/interfaces/api/requestInterfaces';
 import { canViewAdult } from '@server/lib/adult';
+import {
+  describeAdultMedia,
+  findOrCreateAdultMedia,
+  lookupAdultTitle,
+} from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
-import { mapSceneResult } from '@server/models/Scene';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
@@ -33,8 +36,10 @@ import {
   AfterUpdate,
   Column,
   Entity,
+  In,
   Index,
   ManyToOne,
+  Not,
   OneToMany,
   PrimaryGeneratedColumn,
   RelationCount,
@@ -158,55 +163,45 @@ export class MediaRequest {
       );
     }
 
-    let externalId: string;
+    const found = await lookupAdultTitle(
+      requestBody.mediaType,
+      isScene ? requestBody.stashId : requestBody.tpdbId
+    );
 
-    if (requestBody.mediaType === MediaType.SCENE) {
-      const scene = await StashDbAPI.fromSettings().getScene(
-        requestBody.stashId
+    if (!found) {
+      throw new Error(
+        isScene
+          ? 'Scene not found on StashDB.'
+          : 'Movie not found on ThePornDB.'
       );
-
-      if (!scene || scene.deleted) {
-        throw new Error('Scene not found on StashDB.');
-      }
-      externalId = scene.id;
-    } else {
-      const movie = await TpdbAPI.fromSettings().getMovie(requestBody.tpdbId);
-
-      if (!movie) {
-        throw new Error('Movie not found on ThePornDB.');
-      }
-      externalId = movie.id;
     }
 
-    const idField = isScene ? 'stashId' : 'tpdbId';
-    let media = await mediaRepository.findOne({
-      where: { [idField]: externalId, mediaType: requestBody.mediaType },
-      relations: ['requests'],
-    });
+    const media = await findOrCreateAdultMedia(
+      dataSource.manager,
+      requestBody.mediaType,
+      found.id
+    );
 
-    if (!media) {
-      media = new Media({
-        mediaType: requestBody.mediaType,
-        [idField]: externalId,
-        tmdbId: null,
-        isAdult: !isScene,
-        status: MediaStatus.PENDING,
-      });
+    if (!media.id) {
+      media.status = MediaStatus.PENDING;
     } else {
       if (media.status === MediaStatus.BLOCKLISTED) {
         throw new BlocklistedMediaError('This media is blocklisted.');
       }
 
-      const active = (media.requests ?? []).find(
-        (r) =>
-          r.status !== MediaRequestStatus.DECLINED &&
-          r.status !== MediaRequestStatus.COMPLETED
-      );
+      const active = await requestRepository.exist({
+        where: {
+          media: { id: media.id },
+          status: Not(
+            In([MediaRequestStatus.DECLINED, MediaRequestStatus.COMPLETED])
+          ),
+        },
+      });
 
       if (active) {
         logger.warn('Duplicate adult request blocked', {
           mediaType: requestBody.mediaType,
-          externalId,
+          externalId: found.id,
           label: 'Media Request',
         });
         throw new DuplicateMediaRequestError(
@@ -1024,14 +1019,9 @@ export class MediaRequest {
             },
           ],
         });
-      } else if (entity.type === MediaType.SCENE && media.stashId) {
-        const scene = await StashDbAPI.fromSettings().getScene(media.stashId);
-
-        if (!scene) {
-          throw new Error(`Scene ${media.stashId} not found on StashDB`);
-        }
-
-        const details = mapSceneResult(scene);
+      } else if (isAdultMediaType(entity.type)) {
+        const { title, image, overview, studio } =
+          await describeAdultMedia(media);
         notificationManager.sendNotification(type, {
           media,
           request: entity,
@@ -1039,43 +1029,14 @@ export class MediaRequest {
           notifySystem,
           notifyUser: notifyAdmin ? undefined : entity.requestedBy,
           event,
-          subject: `${details.title}${
-            details.releaseDate ? ` (${details.releaseDate.slice(0, 4)})` : ''
-          }`,
-          message: truncate(scene.details ?? '', {
+          subject: title,
+          message: truncate(overview ?? '', {
             length: 500,
             separator: /\s/,
             omission: '…',
           }),
-          image: details.imageUrl ? `${details.imageUrl}?size=600` : undefined,
-          extra: details.studio
-            ? [{ name: 'Studio', value: details.studio.name }]
-            : [],
-        });
-      } else if (entity.type === MediaType.ADULT_MOVIE && media.tpdbId) {
-        const movie = await TpdbAPI.fromSettings().getMovie(media.tpdbId);
-
-        if (!movie) {
-          throw new Error(`Movie ${media.tpdbId} not found on ThePornDB`);
-        }
-
-        notificationManager.sendNotification(type, {
-          media,
-          request: entity,
-          notifyAdmin,
-          notifySystem,
-          notifyUser: notifyAdmin ? undefined : entity.requestedBy,
-          event,
-          subject: `${movie.title}${
-            movie.date ? ` (${movie.date.slice(0, 4)})` : ''
-          }`,
-          message: truncate(movie.description ?? '', {
-            length: 500,
-            separator: /\s/,
-            omission: '…',
-          }),
-          image: movie.posters?.large ?? movie.image ?? undefined,
-          extra: movie.site ? [{ name: 'Studio', value: movie.site.name }] : [],
+          image,
+          extra: studio ? [{ name: 'Studio', value: studio }] : [],
         });
       }
     } catch (e) {

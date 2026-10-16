@@ -9,10 +9,30 @@ import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { stashScanner } from '@server/lib/scanners/stash';
 import { syncSceneAvailability } from '@server/lib/sceneAvailability';
+import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
 
 const SCENE_ID = '01a0de25-5c7e-75b7-b319-ee76dd9a4879';
+
+const whisparrServer: WhisparrSettings = {
+  id: 0,
+  name: 'Whisparr',
+  hostname: 'whisparr.test',
+  port: 6969,
+  apiKey: 'key',
+  useSsl: false,
+  activeProfileId: 1,
+  activeProfileName: 'Any',
+  activeDirectory: '/data',
+  tags: [],
+  is4k: false,
+  isDefault: true,
+  syncEnabled: true,
+  preventSearch: false,
+  tagRequests: false,
+  overrideRule: [],
+};
 
 const stashScene = (overrides: Partial<StashScene> = {}): StashScene => ({
   id: '56',
@@ -69,7 +89,7 @@ describe('StashScanner', () => {
 
     await stashScanner.run();
 
-    const media = await Media.getMediaByStashId(SCENE_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(media?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(media?.stashMediaId, '27');
     assert.strictEqual(await getRepository(Media).count(), 1);
@@ -89,7 +109,7 @@ describe('StashScanner', () => {
 
     await stashScanner.run();
 
-    const media = await Media.getMediaByStashId(SCENE_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(media?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(media?.stashMediaId, '56');
     assert.strictEqual(media?.mediaUrl, 'http://stash.test/scenes/56');
@@ -134,7 +154,7 @@ describe('syncSceneAvailability', () => {
 
     await syncSceneAvailability(media);
 
-    const latest = await Media.getMediaByStashId(SCENE_ID);
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
   });
 
@@ -144,32 +164,13 @@ describe('syncSceneAvailability', () => {
 
     await syncSceneAvailability(media);
 
-    const latest = await Media.getMediaByStashId(SCENE_ID);
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(latest?.status, MediaStatus.DELETED);
     assert.strictEqual(latest?.stashMediaId, null);
   });
 
   it('keeps scenes whose file is still in Whisparr', async () => {
-    getSettings().whisparr = [
-      {
-        id: 0,
-        name: 'Whisparr',
-        hostname: 'whisparr.test',
-        port: 6969,
-        apiKey: 'key',
-        useSsl: false,
-        activeProfileId: 1,
-        activeProfileName: 'Any',
-        activeDirectory: '/data',
-        tags: [],
-        is4k: false,
-        isDefault: true,
-        syncEnabled: true,
-        preventSearch: false,
-        tagRequests: false,
-        overrideRule: [],
-      },
-    ];
+    getSettings().whisparr = [whisparrServer];
     const media = await saveScene({
       stashMediaId: null,
       serviceId: 0,
@@ -177,11 +178,49 @@ describe('syncSceneAvailability', () => {
     });
     mock.method(WhisparrAPI.prototype, 'getItem', async () => ({
       hasFile: true,
+      stashId: SCENE_ID,
     }));
 
     await syncSceneAvailability(media);
 
-    const latest = await Media.getMediaByStashId(SCENE_ID);
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
+  });
+
+  it('counts a Whisparr item of another scene as gone', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const media = await saveScene({
+      stashMediaId: null,
+      serviceId: 0,
+      externalServiceId: 9,
+    });
+    mock.method(WhisparrAPI.prototype, 'getItem', async () => ({
+      hasFile: true,
+      stashId: '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10',
+    }));
+
+    await syncSceneAvailability(media);
+
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(latest?.status, MediaStatus.DELETED);
+  });
+
+  it('counts Whisparr errors other than 404 as present', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const media = await saveScene({
+      stashMediaId: null,
+      serviceId: 0,
+      externalServiceId: 9,
+    });
+    mock.method(WhisparrAPI.prototype, 'getItem', async () => {
+      throw new Error('[Whisparr] Failed to retrieve item: 503', {
+        cause: { response: { status: 503 } },
+      });
+    });
+
+    await syncSceneAvailability(media);
+
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
   });
 
@@ -193,7 +232,7 @@ describe('syncSceneAvailability', () => {
 
     await syncSceneAvailability(media);
 
-    const latest = await Media.getMediaByStashId(SCENE_ID);
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(latest?.stashMediaId, '56');
   });

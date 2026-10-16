@@ -24,6 +24,12 @@ export class TpdbNotConfiguredError extends Error {
 
 const DEFAULT_URL = 'https://api.theporndb.net';
 
+// A movie, performer or site page on the ThePornDB site
+export const tpdbUrl = (
+  kind: 'movies' | 'performers' | 'sites',
+  id: string
+): string => `https://theporndb.net/${kind}/${id}`;
+
 const STASHDB_PERFORMER =
   /^https:\/\/stashdb\.org\/performers\/([0-9a-f-]{36})\/?$/i;
 

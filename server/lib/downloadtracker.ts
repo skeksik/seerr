@@ -84,10 +84,7 @@ class DownloadTracker {
       settings.whisparr
         .filter((server) => server.syncEnabled)
         .map(async (server) => {
-          const whisparr = new WhisparrAPI({
-            apiKey: server.apiKey,
-            url: WhisparrAPI.buildUrl(server, '/api/v3'),
-          });
+          const whisparr = WhisparrAPI.forServer(server);
 
           try {
             await whisparr.refreshMonitoredDownloads();

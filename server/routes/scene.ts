@@ -1,7 +1,7 @@
 import type { WhisparrCreditType } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import type { StashDbSceneQuery } from '@server/api/stashdb';
-import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
+import StashDbAPI from '@server/api/stashdb';
 import type {
   StashDbSceneList,
   StashDbSceneSort,
@@ -11,9 +11,22 @@ import TpdbAPI from '@server/api/tpdb';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
+import type { SuggestionType } from '@server/lib/adultLists';
+import {
+  handleError,
+  hasPickedFilters,
+  mergeByDate,
+  pageParam,
+  pageQuery,
+  searchQuery,
+  sharedFilters,
+  withSuggestion,
+  withoutSeen,
+} from '@server/lib/adultLists';
 import { isOnWatchlist } from '@server/lib/adultMedia';
 import { mergedStudioList } from '@server/lib/mergedStudios';
 import type {
+  Narrow,
   Orientation,
   StashDbOrientationTagIds,
 } from '@server/lib/orientation';
@@ -25,13 +38,18 @@ import {
   classifyScene,
   hiddenOrientations,
   isHidden,
+  joinedPlan,
+  onlyUnidentified,
+  orientationTagIds,
+  planOrientationTags,
   tagHint,
-  tagsBeside,
-  tagsNeeded,
 } from '@server/lib/orientation';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { getWhisparrServer } from '@server/lib/whisparrMedia';
+import {
+  getWhisparrServer,
+  whisparrServiceUrl,
+} from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import type {
@@ -49,8 +67,8 @@ import {
   pickImage,
   rankStudios,
 } from '@server/models/Scene';
-import { isoDate } from '@server/utils/dateHelpers';
-import type { NextFunction, Request } from 'express';
+import { today } from '@server/utils/dateHelpers';
+import type { Request } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -83,8 +101,6 @@ const uuids = z
   .transform((value) => value.split(',').filter(Boolean))
   .pipe(z.array(z.string().uuid()).max(25));
 
-const filterMode = z.enum(['and', 'or']).optional();
-
 // The Filters panel; lists and filter suggestions take the same
 const sceneFilters = z.object({
   // Comma-separated StashDB ids
@@ -94,32 +110,22 @@ const sceneFilters = z.object({
   studioExclude: uuids.optional(),
   performerExclude: uuids.optional(),
   tagsExclude: uuids.optional(),
-  // Whether a scene needs all of the performers or tags, or any
-  performerMode: filterMode,
-  tagMode: filterMode,
-  // Comma-separated sexual preferences to show; the user's defaults if unset
-  orientation: z.string().optional(),
   // Single tag, kept for older links
   tag: z.string().uuid().optional(),
-  // stash-box takes one date bound
-  released: z.enum(['after', 'before']).optional(),
-  releaseDate: isoDate.optional(),
-  upcoming: z
-    .enum(['true', 'false'])
-    .transform((value) => value === 'true')
-    .optional(),
+  ...sharedFilters,
 });
 
 type SceneFilters = z.infer<typeof sceneFilters>;
 
-const discoverQuery = sceneFilters.extend({
-  page: z.coerce.number().int().positive().default(1),
-  sort: z.enum(sortValues).default('trending'),
-});
+// The picked tags, with the single tag of older links
+const pickedTags = (filters: SceneFilters): string[] => [
+  ...(filters.tags ?? []),
+  ...(filters.tag ? [filters.tag] : []),
+];
 
-const searchQuery = z.object({
-  query: z.string().trim().min(1),
-  page: z.coerce.number().int().positive().default(1),
+const discoverQuery = sceneFilters.extend({
+  page: pageParam,
+  sort: z.enum(sortValues).default('trending'),
 });
 
 const sceneId = z.string().uuid();
@@ -134,25 +140,8 @@ const stashDbOrigin = () => new URL(getSettings().stashdb.endpoint).origin;
 const whisparrClient = () => {
   const server = getWhisparrServer(false);
 
-  return server
-    ? {
-        server,
-        api: new WhisparrAPI({
-          apiKey: server.apiKey,
-          url: WhisparrAPI.buildUrl(server, '/api/v3'),
-        }),
-      }
-    : undefined;
+  return server ? { server, api: WhisparrAPI.forServer(server) } : undefined;
 };
-
-const creditUrl = (
-  server: NonNullable<ReturnType<typeof getWhisparrServer>>,
-  type: WhisparrCreditType,
-  foreignId: string
-) =>
-  server.externalUrl
-    ? `${server.externalUrl.replace(/\/+$/, '')}/${type}/${foreignId}`
-    : WhisparrAPI.buildUrl(server, `/${type}/${foreignId}`);
 
 // Monitoring is a request manager tool; a Whisparr outage only hides it
 const getMonitorStatus = async (
@@ -170,7 +159,7 @@ const getMonitorStatus = async (
     const credit = await whisparr.api.getCredit(type, foreignId);
     return {
       monitored: !!credit?.monitored,
-      serviceUrl: creditUrl(whisparr.server, type, foreignId),
+      serviceUrl: whisparrServiceUrl(whisparr.server, `/${type}/${foreignId}`),
     };
   } catch (e) {
     logger.debug('Unable to retrieve Whisparr monitoring status', {
@@ -188,23 +177,32 @@ interface SceneListFilter {
   exclude?: StashDbSceneQuery['exclude'];
 }
 
-// What lists need besides the picked filters, looked up once per request
-interface SceneContext {
-  tagIds: StashDbOrientationTagIds;
-}
-
 // Names that find StashDB's group and point of view tags
 const GROUP_TAG_SEARCHES = ['some (', 'Gangbang (', 'Orgy (', 'POV'];
 
+// Tags are rarely renamed, so their ids are kept for hours per client, which
+// is one per endpoint and key
+const ORIENTATION_TAG_TTL = 6 * 60 * 60 * 1000;
+const keptTagIds = new WeakMap<
+  StashDbAPI,
+  { ids: StashDbOrientationTagIds; expires: number }
+>();
+
 // Orientation tag ids for this stash-box instance; without them the cast
 // alone decides
-const orientationTagIds = async (
+const orientationIds = async (
   api: StashDbAPI
 ): Promise<StashDbOrientationTagIds> => {
+  const kept = keptTagIds.get(api);
+  if (kept && kept.expires > Date.now()) {
+    return kept.ids;
+  }
+
   try {
     const names = Object.values(STASHDB_ORIENTATION_TAGS).filter(
       (name): name is string => !!name
     );
+    let complete = true;
     const [ids, groupTags] = await Promise.all([
       api.getTagIds([
         ...names,
@@ -213,10 +211,13 @@ const orientationTagIds = async (
       // Group tags, like "Threesome (BGG)" or "Orgy (Lesbian)"
       Promise.all(GROUP_TAG_SEARCHES.map((name) => api.queryTags(name)))
         .then((lists) => lists.flat())
-        // The cast still decides without them
-        .catch(() => []),
+        // The cast still decides without them, until they are looked up again
+        .catch(() => {
+          complete = false;
+          return [];
+        }),
     ]);
-    return {
+    const tagIds: StashDbOrientationTagIds = {
       groups: Object.fromEntries(
         groupTags.flatMap((tag) => {
           const hint = tagHint(tag.name);
@@ -236,6 +237,14 @@ const orientationTagIds = async (
         )
       ),
     };
+
+    if (complete) {
+      keptTagIds.set(api, {
+        ids: tagIds,
+        expires: Date.now() + ORIENTATION_TAG_TTL,
+      });
+    }
+    return tagIds;
   } catch (e) {
     logger.debug('Unable to look up StashDB orientation tags', {
       label: 'API',
@@ -243,10 +252,6 @@ const orientationTagIds = async (
     });
     return { orientations: {}, missing: {} };
   }
-};
-
-const sceneContext = async (api: StashDbAPI): Promise<SceneContext> => {
-  return { tagIds: await orientationTagIds(api) };
 };
 
 // Lists read this many scenes a page when most may be filtered out here
@@ -267,52 +272,35 @@ interface ScenePlan {
 
 // The stash-box query for the picked filters, and what is left to filter
 // here
-// Narrowed to the orientations needed without straight, those shown beside
-// it, or none
-type Narrow = 'needed' | 'beside' | 'none';
-
 const planScenes = (
   user: User | undefined,
   filters: SceneFilters,
-  { tagIds: orientationIds }: SceneContext,
+  orientationTags: StashDbOrientationTagIds,
   narrow: Narrow = 'needed'
 ): ScenePlan => {
-  const hidden = hiddenOrientations(user, filters.orientation);
-  const idsOf = (keys: Orientation[]) =>
-    keys.flatMap((key) => {
-      const id = orientationIds.orientations[key];
-      return id ? [id] : [];
-    });
-  const picked = [
-    ...(filters.tags ?? []),
-    ...(filters.tag ? [filters.tag] : []),
-  ];
-  const anyTag = filters.tagMode === 'or';
-  const needed = idsOf(
-    narrow === 'beside' ? tagsBeside(hidden) : tagsNeeded(hidden)
+  const { hidden, tagIds, anyTag, narrowed } = planOrientationTags(
+    user,
+    {
+      orientation: filters.orientation,
+      picked: pickedTags(filters),
+      tagMode: filters.tagMode,
+    },
+    orientationTags.orientations,
+    narrow
   );
-  // Without straight, scenes tagged with a shown orientation are asked for:
-  // any of them without picked tags, or the one shown next to all of those
-  const narrowed =
-    narrow !== 'none' &&
-    needed.length > 0 &&
-    (!picked.length || (needed.length === 1 && !anyTag));
-  const tagIds = !narrowed
-    ? picked
-    : picked.length
-      ? [...picked, ...needed]
-      : needed;
   // Tags of hidden features go along when no tag is included; a hidden
   // audience tag cannot, as the scene may suit a shown one too
   const featureTags = tagIds.length
     ? []
-    : idsOf(FEATURE_ORIENTATIONS.filter((key) => hidden.has(key)));
+    : orientationTagIds(
+        orientationTags.orientations,
+        FEATURE_ORIENTATIONS.filter((key) => hidden.has(key))
+      );
   const exclude = {
     studioIds: filters.studioExclude ?? [],
     performerIds: filters.performerExclude ?? [],
     tagIds: filters.tagsExclude ?? [],
   };
-  const today = new Date().toISOString().slice(0, 10);
 
   return {
     query: {
@@ -321,11 +309,11 @@ const planScenes = (
       tagIds,
       any: {
         performers: filters.performerMode === 'or',
-        tags: narrowed && !picked.length ? true : anyTag,
+        tags: anyTag,
       },
       exclude: { ...exclude, tagIds: [...exclude.tagIds, ...featureTags] },
       date: filters.upcoming
-        ? { value: today, modifier: 'GREATER_THAN' }
+        ? { value: today(), modifier: 'GREATER_THAN' }
         : filters.releaseDate
           ? {
               value: filters.releaseDate,
@@ -341,6 +329,12 @@ const planScenes = (
   };
 };
 
+// A scene with the sexual preferences it suits, classified once
+interface ClassifiedScene {
+  scene: StashDbSceneSummary;
+  orientations: Orientation[];
+}
+
 // Leaves out what stash-box could not: exclusions next to inclusions on the
 // same field, and hidden sexual preferences
 const filterScenes = async (
@@ -348,7 +342,7 @@ const filterScenes = async (
   scenes: StashDbSceneSummary[],
   { hidden, exclude }: SceneListFilter,
   tagIds: StashDbOrientationTagIds
-): Promise<StashDbSceneSummary[]> => {
+): Promise<ClassifiedScene[]> => {
   const studios = new Set(
     exclude?.studioIds?.length
       ? await api.withChildStudios(exclude.studioIds)
@@ -357,63 +351,61 @@ const filterScenes = async (
   const performers = new Set(exclude?.performerIds);
   const tags = new Set(exclude?.tagIds);
 
-  return scenes.filter(
-    (scene) =>
-      !(scene.studio && studios.has(scene.studio.id)) &&
-      !(scene.studio?.parent && studios.has(scene.studio.parent.id)) &&
-      !scene.performers.some(({ performer }) => performers.has(performer.id)) &&
-      !scene.tags?.some((tag) => tags.has(tag.id)) &&
-      !(hidden.size && isHidden(classifyScene(scene, tagIds), hidden))
-  );
+  return scenes
+    .filter(
+      (scene) =>
+        !(scene.studio && studios.has(scene.studio.id)) &&
+        !(scene.studio?.parent && studios.has(scene.studio.parent.id)) &&
+        !scene.performers.some(({ performer }) =>
+          performers.has(performer.id)
+        ) &&
+        !scene.tags?.some((tag) => tags.has(tag.id))
+    )
+    .map((scene) => ({ scene, orientations: classifyScene(scene, tagIds) }))
+    .filter(
+      ({ orientations }) => !(hidden.size && isHidden(orientations, hidden))
+    );
 };
 
 // A list for the viewer: filtered, with media info and sexual preferences.
 // Without a filter, the viewer's defaults apply
 const mapSceneList = async (
+  api: StashDbAPI,
   list: StashDbSceneList,
   page: number,
   user?: User,
   options: {
     filter?: SceneListFilter;
     perPage?: number;
-    context?: SceneContext;
+    tagIds?: StashDbOrientationTagIds;
   } = {}
 ): Promise<SceneListResponse> => {
-  const api = StashDbAPI.fromSettings();
-  const context = options.context ?? (await sceneContext(api));
-  const filter = options.filter ?? planScenes(user, {}, context).filter;
-  const scenes = await filterScenes(api, list.scenes, filter, context.tagIds);
-  const media = await Media.getRelatedScenes(
-    scenes.map((s) => s.id),
-    user
-  );
-
-  return {
+  const totals = {
     page,
     totalPages: Math.ceil(list.count / (options.perPage ?? PAGE_SIZE)),
     totalResults: list.count,
-    results: scenes.map((scene) => ({
-      ...mapSceneResult(
-        scene,
-        media.find((m) => m.stashId === scene.id)
-      ),
-      orientations: classifyScene(scene, context.tagIds),
-    })),
   };
-};
 
-const handleError = (
-  e: Error,
-  next: NextFunction,
-  message: string,
-  meta: Record<string, unknown>
-) => {
-  if (e instanceof StashDbNotConfiguredError) {
-    return next({ status: 503, message: 'StashDB is not configured.' });
+  if (list.scenes.length === 0) {
+    return { ...totals, results: [] };
   }
 
-  logger.debug(message, { label: 'API', errorMessage: e.message, ...meta });
-  return next({ status: 500, message });
+  const tagIds = options.tagIds ?? (await orientationIds(api));
+  const filter = options.filter ?? planScenes(user, {}, tagIds).filter;
+  const scenes = await filterScenes(api, list.scenes, filter, tagIds);
+  const media = await Media.getRelatedScenes(
+    scenes.map(({ scene }) => scene.id),
+    user
+  );
+  const byId = new Map(media.map((m) => [m.stashId, m]));
+
+  return {
+    ...totals,
+    results: scenes.map(({ scene, orientations }) => ({
+      ...mapSceneResult(scene, byId.get(scene.id)),
+      orientations,
+    })),
+  };
 };
 
 sceneRoutes.get('/discover', async (req, res, next) => {
@@ -427,54 +419,42 @@ sceneRoutes.get('/discover', async (req, res, next) => {
 
   try {
     const api = StashDbAPI.fromSettings();
-    const context = await sceneContext(api);
-    const plan = planScenes(req.user, filters, context);
+    const tagIds = await orientationIds(api);
+    const plan = planScenes(req.user, filters, tagIds);
     const perPage = plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE;
     // Upcoming rows want the soonest first
     const [order, direction] = filters.upcoming
       ? (['DATE', 'ASC'] as const)
       : sceneSorts[sort];
     const query = { page, sort: order, direction, timeout: LIST_TIMEOUT };
-    // Unidentified scenes carry no orientation tag, so when they show next
-    // to tagged ones they are read apart and joined in; so are tagged ones
-    // next to straight, which would be few among the rest
-    const unidentified =
-      plan.narrowed && !plan.filter.hidden.has('unidentified')
-        ? planScenes(req.user, filters, context, 'none')
-        : undefined;
-    const beside = plan.narrowed
-      ? undefined
-      : planScenes(req.user, filters, context, 'beside');
-    const extraPlan = unidentified ?? (beside?.narrowed ? beside : undefined);
+    const joined = joinedPlan(plan, (narrow) =>
+      planScenes(req.user, filters, tagIds, narrow)
+    );
+    // Tagged ones keep pace with the rest
+    const joinedPerPage = joined?.unidentified ? DENSE_PAGE_SIZE : perPage;
     const [list, extra] = await Promise.all([
       api.queryScenes({ ...plan.query, ...query, perPage }),
-      extraPlan
+      joined
         ? api.queryScenes({
-            ...extraPlan.query,
+            ...joined.plan.query,
             ...query,
-            // Tagged ones keep pace with the rest
-            perPage: unidentified ? DENSE_PAGE_SIZE : perPage,
+            perPage: joinedPerPage,
           })
         : undefined,
     ]);
     const [main, rest] = await Promise.all([
-      mapSceneList(list, page, req.user, {
+      mapSceneList(api, list, page, req.user, {
         filter: plan.filter,
         perPage,
-        context,
+        tagIds,
       }),
-      extraPlan && extra
-        ? mapSceneList(extra, page, req.user, {
-            filter: unidentified
-              ? {
-                  ...unidentified.filter,
-                  hidden: new Set(
-                    ORIENTATIONS.filter((key) => key !== 'unidentified')
-                  ),
-                }
-              : extraPlan.filter,
-            perPage: unidentified ? DENSE_PAGE_SIZE : perPage,
-            context,
+      joined && extra
+        ? mapSceneList(api, extra, page, req.user, {
+            filter: joined.unidentified
+              ? onlyUnidentified(joined.plan.filter)
+              : joined.plan.filter,
+            perPage: joinedPerPage,
+            tagIds,
           })
         : undefined,
     ]);
@@ -483,25 +463,15 @@ sceneRoutes.get('/discover', async (req, res, next) => {
       return res.status(200).json(main);
     }
 
-    // Joined lists keep a release date order
-    const results = [
-      ...main.results,
-      ...rest.results.filter(
-        ({ id }) => !main.results.some((scene) => scene.id === id)
-      ),
-    ];
-    if (order === 'DATE') {
-      const sign = direction === 'DESC' ? -1 : 1;
-      results.sort(
-        (a, b) =>
-          sign * (a.releaseDate ?? '').localeCompare(b.releaseDate ?? '')
-      );
-    }
-
     return res.status(200).json({
       ...main,
       totalPages: Math.max(main.totalPages, rest.totalPages),
-      results,
+      results: mergeByDate(
+        main.results,
+        withoutSeen(rest.results, main.results),
+        (scene) => scene.releaseDate,
+        order === 'DATE' ? direction : undefined
+      ),
     });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {
@@ -520,13 +490,10 @@ sceneRoutes.get('/search', async (req, res, next) => {
   const { query, page } = parsed.data;
 
   try {
-    const list = await StashDbAPI.fromSettings().searchScenes({
-      query,
-      page,
-      perPage: PAGE_SIZE,
-    });
+    const api = StashDbAPI.fromSettings();
+    const list = await api.searchScenes({ query, page, perPage: PAGE_SIZE });
 
-    return res.status(200).json(await mapSceneList(list, page, req.user));
+    return res.status(200).json(await mapSceneList(api, list, page, req.user));
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene search results.', {
       query,
@@ -576,69 +543,41 @@ const lookupQuery = sceneFilters.extend({
   query: z.string().trim().min(1),
 });
 
-type LookupType = 'studios' | 'performers' | 'tags';
-
-const lookupTypes: LookupType[] = ['studios', 'performers', 'tags'];
-
-// The picked filters with a suggestion added to its field: alone where the
-// field takes any of its values, next to the others where it needs all
-const withSuggestion = (
-  filters: SceneFilters,
-  type: LookupType,
-  id: string
-): SceneFilters =>
-  type === 'studios'
-    ? { ...filters, studio: [id] }
-    : type === 'performers'
-      ? {
-          ...filters,
-          performer:
-            filters.performerMode === 'or'
-              ? [id]
-              : [...(filters.performer ?? []), id],
-        }
-      : {
-          ...filters,
-          tag: undefined,
-          tags:
-            filters.tagMode === 'or'
-              ? [id]
-              : [
-                  ...(filters.tags ?? []),
-                  ...(filters.tag ? [filters.tag] : []),
-                  id,
-                ],
-        };
+// Lookup paths and the field each fills
+const lookupTypes = new Map<string, SuggestionType>([
+  ['studios', 'studio'],
+  ['performers', 'performer'],
+  ['tags', 'tag'],
+]);
 
 // Drops suggestions that would find no scene next to everything else picked
 const withMatches = async <T extends { id: string }>(
   api: StashDbAPI,
   user: User | undefined,
-  type: LookupType,
+  type: SuggestionType,
   results: T[],
   filters: SceneFilters
 ): Promise<T[]> => {
-  const context = await sceneContext(api);
-  const picked = Object.entries(filters).some(
-    ([key, value]) =>
-      !['performerMode', 'tagMode', 'released'].includes(key) &&
-      value !== undefined
-  );
-
   // With nothing picked or hidden, every suggestion has scenes
   if (
     results.length === 0 ||
-    (!picked && hiddenOrientations(user).size === 0)
+    (!hasPickedFilters(filters) && hiddenOrientations(user).size === 0)
   ) {
     return results;
   }
 
   try {
+    const tagIds = await orientationIds(api);
+    // The single tag of older links joins the picked tags
+    const picked = { ...filters, tag: undefined, tags: pickedTags(filters) };
     const counts = await api.countScenes(
       results.map(
         (result) =>
-          planScenes(user, withSuggestion(filters, type, result.id), context)
-            .query
+          planScenes(
+            user,
+            withSuggestion(picked, type, result.id, { studio: [result.id] }),
+            tagIds
+          ).query
       )
     );
     return results.filter((_, i) => counts[i] > 0);
@@ -654,7 +593,7 @@ const withMatches = async <T extends { id: string }>(
 // Autocomplete for the scene filters
 const studioListQuery = z.object({
   type: z.enum(['studios', 'networks']).default('studios'),
-  page: z.coerce.number().int().positive().default(1),
+  page: pageParam,
   sort: z.enum(['name', 'newest', 'trending', 'popular']).default('name'),
   query: z.string().trim().optional(),
 });
@@ -662,7 +601,8 @@ const studioListQuery = z.object({
 // Networks are top-level studios with studios under them; StashDB cannot
 // filter on that, so each page reads this many top-level studios
 const NETWORK_PAGE_READS = 3;
-const RANKED_PAGE_SIZE = 40;
+const NETWORK_READ_SIZE = 100;
+const STUDIO_PAGE_SIZE = 40;
 
 // The full lists behind the Studios and Networks rows
 sceneRoutes.get('/studios', async (req, res, next) => {
@@ -689,11 +629,11 @@ sceneRoutes.get('/studios', async (req, res, next) => {
 
       return res.status(200).json({
         page,
-        totalPages: Math.ceil(ranked.length / RANKED_PAGE_SIZE),
+        totalPages: Math.ceil(ranked.length / STUDIO_PAGE_SIZE),
         totalResults: ranked.length,
         results: ranked.slice(
-          (page - 1) * RANKED_PAGE_SIZE,
-          page * RANKED_PAGE_SIZE
+          (page - 1) * STUDIO_PAGE_SIZE,
+          page * STUDIO_PAGE_SIZE
         ),
       });
     }
@@ -701,11 +641,11 @@ sceneRoutes.get('/studios', async (req, res, next) => {
     // ThePornDB sites StashDB has no studio for join the studios by name
     if (type === 'studios' && sort === 'name' && TpdbAPI.isConfigured()) {
       const list = mergedStudioList(api, TpdbAPI.fromSettings(), query);
-      const results = await list.page(page, RANKED_PAGE_SIZE);
+      const results = await list.page(page, STUDIO_PAGE_SIZE);
 
       return res.status(200).json({
         page,
-        totalPages: Math.ceil(list.total / RANKED_PAGE_SIZE),
+        totalPages: Math.ceil(list.total / STUDIO_PAGE_SIZE),
         totalResults: list.total,
         results,
       });
@@ -722,7 +662,7 @@ sceneRoutes.get('/studios', async (req, res, next) => {
       reads.map((read) =>
         api.queryStudios({
           page: read,
-          perPage: type === 'networks' ? 100 : 40,
+          perPage: type === 'networks' ? NETWORK_READ_SIZE : STUDIO_PAGE_SIZE,
           sort: sort === 'newest' ? 'CREATED_AT' : 'NAME',
           name: query,
           topLevel: type === 'networks',
@@ -730,7 +670,10 @@ sceneRoutes.get('/studios', async (req, res, next) => {
       )
     );
     const count = lists[0]?.count ?? 0;
-    const perPage = type === 'networks' ? 100 * NETWORK_PAGE_READS : 40;
+    const perPage =
+      type === 'networks'
+        ? NETWORK_READ_SIZE * NETWORK_PAGE_READS
+        : STUDIO_PAGE_SIZE;
 
     return res.status(200).json({
       page,
@@ -761,9 +704,9 @@ sceneRoutes.get('/studios', async (req, res, next) => {
 
 sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
   const parsed = lookupQuery.safeParse(req.query);
-  const type = req.params.type as LookupType;
+  const type = lookupTypes.get(req.params.type);
 
-  if (!lookupTypes.includes(type)) {
+  if (!type) {
     return next({ status: 404, message: 'Not found.' });
   }
 
@@ -775,9 +718,9 @@ sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
     const { query, ...filters } = parsed.data;
     const stashDb = StashDbAPI.fromSettings();
     const results =
-      type === 'studios'
+      type === 'studio'
         ? await stashDb.searchStudios(query)
-        : type === 'performers'
+        : type === 'performer'
           ? await stashDb.searchPerformers(query)
           : await stashDb.searchTags(query);
 
@@ -786,14 +729,10 @@ sceneRoutes.get<{ type: string }>('/lookup/:type', async (req, res, next) => {
       .json(await withMatches(stashDb, req.user, type, results, filters));
   } catch (e) {
     return handleError(e, next, 'Unable to search StashDB.', {
-      type,
+      type: req.params.type,
       query: req.query.query,
     });
   }
-});
-
-const pageQuery = z.object({
-  page: z.coerce.number().int().positive().default(1),
 });
 
 // Similar scenes are ranked from this many popular candidates
@@ -831,11 +770,12 @@ sceneRoutes.get<{ sceneId: string }>(
             performerIds,
             any: { performers: true },
           })
-        : { count: 0, scenes: [] };
+        : emptyList;
       const others = list.scenes.filter((s) => s.id !== scene.id);
 
       return res.status(200).json(
         await mapSceneList(
+          stashDb,
           {
             count: Math.max(list.count - 1, 0),
             scenes: others,
@@ -882,7 +822,7 @@ sceneRoutes.get<{ sceneId: string }>(
             // has many tags, which takes 10-20s
             timeout: SIMILAR_TIMEOUT,
           })
-        : { count: 0, scenes: [] };
+        : emptyList;
       const shared = (candidate: { tags?: { id: string }[] }) =>
         (candidate.tags ?? []).filter((tag) => tagIds.has(tag.id)).length;
       // Array.sort is stable, so popularity breaks ties
@@ -894,6 +834,7 @@ sceneRoutes.get<{ sceneId: string }>(
 
       return res.status(200).json(
         await mapSceneList(
+          stashDb,
           {
             count: ranked.length,
             scenes: ranked.slice(start, start + PAGE_SIZE),
@@ -924,12 +865,14 @@ sceneRoutes.get<{ movieId: string }>(
     try {
       const movie = await TpdbAPI.fromSettings().getMovie(movieId.data);
       const parts = movie?.scenes ?? [];
+      const api = StashDbAPI.fromSettings();
 
       if (parts.length === 0) {
-        return res.status(200).json(await mapSceneList(emptyList, 1, req.user));
+        return res
+          .status(200)
+          .json(await mapSceneList(api, emptyList, 1, req.user));
       }
 
-      const api = StashDbAPI.fromSettings();
       const byFingerprint = await api.findScenesByFingerprints(
         parts.map((part) =>
           (part.hashes ?? []).flatMap(({ hash, type }) =>
@@ -945,20 +888,22 @@ sceneRoutes.get<{ movieId: string }>(
       const byUrl = await api.findScenesByUrls(
         unmatched.map((part) => part.url as string)
       );
-      const scenes = parts.flatMap((part, i) => {
-        const found =
-          byFingerprint[i]?.[0] ?? byUrl[unmatched.indexOf(part)] ?? undefined;
-        return found ? [found] : [];
+      const urlScenes = new Map(unmatched.map((part, i) => [part, byUrl[i]]));
+      // Parts of one scene count once
+      const unique = new Map<string, StashDbSceneSummary>();
+      parts.forEach((part, i) => {
+        const found = byFingerprint[i]?.[0] ?? urlScenes.get(part);
+        if (found && !unique.has(found.id)) {
+          unique.set(found.id, found);
+        }
       });
-      const unique = scenes.filter(
-        (scene, i) => scenes.findIndex((other) => other.id === scene.id) === i
-      );
 
       return res
         .status(200)
         .json(
           await mapSceneList(
-            { count: unique.length, scenes: unique },
+            api,
+            { count: unique.size, scenes: [...unique.values()] },
             1,
             req.user
           )
@@ -992,16 +937,22 @@ sceneRoutes.get<{ type: string; id: string }>(
         | null;
 
       if (req.params.type === 'studio') {
-        const studio = await stashDb.getStudio(parsed.data);
+        const [studio, whisparr] = await Promise.all([
+          stashDb.getStudio(parsed.data),
+          getMonitorStatus(req, 'studio', parsed.data),
+        ]);
         details = studio && {
           ...mapStudioDetails(studio, stashDbOrigin()),
-          whisparr: await getMonitorStatus(req, 'studio', studio.id),
+          whisparr,
         };
       } else if (req.params.type === 'performer') {
-        const performer = await stashDb.getPerformer(parsed.data);
+        const [performer, whisparr] = await Promise.all([
+          stashDb.getPerformer(parsed.data),
+          getMonitorStatus(req, 'performer', parsed.data),
+        ]);
         details = performer && {
           ...mapPerformerDetails(performer, stashDbOrigin()),
-          whisparr: await getMonitorStatus(req, 'performer', performer.id),
+          whisparr,
         };
       } else {
         const tag = await stashDb.getTag(parsed.data);
@@ -1067,7 +1018,7 @@ sceneRoutes.post<{ type: string; id: string }>(
 
       return res.status(200).json({
         monitored: !!credit?.monitored,
-        serviceUrl: creditUrl(server, type, parsedId.data),
+        serviceUrl: whisparrServiceUrl(server, `/${type}/${parsedId.data}`),
       } satisfies WhisparrMonitorStatus);
     } catch (e) {
       logger.error('Unable to update Whisparr monitoring', {
@@ -1096,12 +1047,16 @@ sceneRoutes.get('/:sceneId', async (req, res, next) => {
       return next({ status: 404, message: 'Scene not found.' });
     }
 
-    const media = await Media.getMediaByStashId(scene.id);
+    const [media, tagIds, onUserWatchlist] = await Promise.all([
+      Media.getAdultMedia(MediaType.SCENE, scene.id),
+      orientationIds(api),
+      isOnWatchlist(MediaType.SCENE, scene.id, req.user),
+    ]);
 
     return res.status(200).json({
       ...mapSceneDetails(scene, stashDbOrigin(), media?.filter(req.user)),
-      orientations: classifyScene(scene, await orientationTagIds(api)),
-      onUserWatchlist: await isOnWatchlist(MediaType.SCENE, scene.id, req.user),
+      orientations: classifyScene(scene, tagIds),
+      onUserWatchlist,
     });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scene.', {
