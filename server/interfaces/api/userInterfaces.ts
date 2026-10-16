@@ -23,6 +23,7 @@ export interface QuotaResponse {
   movie: QuotaStatus;
   tv: QuotaStatus;
   scene: QuotaStatus;
+  adultMovie: QuotaStatus;
 }
 
 export interface UserWatchDataResponse {

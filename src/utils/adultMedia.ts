@@ -24,12 +24,11 @@ export const mediaTypeMessage = (type?: string | null): MessageDescriptor => {
   }
 };
 
-// The *arr a title goes to; adult TMDB movies go to Whisparr too
+// The *arr a title goes to
 export const arrName = (media: {
   mediaType?: string | null;
-  isAdult?: boolean;
 }): 'Radarr' | 'Sonarr' | 'Whisparr' =>
-  isAdultMediaType(media.mediaType) || media.isAdult
+  isAdultMediaType(media.mediaType)
     ? 'Whisparr'
     : media.mediaType === 'movie'
       ? 'Radarr'

@@ -57,7 +57,6 @@ const available = (init: Partial<Media>) =>
 describe('GET /media', () => {
   it('keeps unrequested adult titles out of Recently Added', async () => {
     await available({ mediaType: MediaType.MOVIE, tmdbId: 1 });
-    await available({ mediaType: MediaType.MOVIE, tmdbId: 2, isAdult: true });
     await available({
       mediaType: MediaType.SCENE,
       stashId: '01a0de25-5c7e-75b7-b319-ee76dd9a4879',
@@ -85,7 +84,7 @@ describe('GET /media', () => {
       '/media?filter=allavailable&sort=mediaAdded&adultRequested=true'
     );
 
-    assert.strictEqual(all.body.results.length, 4);
+    assert.strictEqual(all.body.results.length, 3);
     assert.deepStrictEqual(
       recent.body.results.map((m: Media) => m.tmdbId ?? m.stashId).sort(),
       [1, '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'].sort()

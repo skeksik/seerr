@@ -20,7 +20,6 @@ import Season from '@server/entity/Season';
 import SeasonRequest from '@server/entity/SeasonRequest';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { getSettings } from '@server/lib/settings';
-import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import { sendToWhisparr } from '@server/lib/whisparrRequest';
 import logger from '@server/logger';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -105,7 +104,10 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
       where: { id: entity.media.id },
     });
 
-    if (latestMedia?.status === MediaStatus.AVAILABLE) {
+    if (
+      latestMedia?.[entity.is4k ? 'status4k' : 'status'] ===
+      MediaStatus.AVAILABLE
+    ) {
       await MediaRequest.sendNotification(
         entity,
         latestMedia,
@@ -199,8 +201,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
   ): Promise<void> {
     if (
       entity.status === MediaRequestStatus.APPROVED &&
-      entity.type === MediaType.MOVIE &&
-      !isWhisparrMedia(entity.media)
+      entity.type === MediaType.MOVIE
     ) {
       try {
         const mediaRepository = manager.getRepository(Media);
@@ -877,7 +878,8 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     }
 
     if (
-      media.mediaType === MediaType.MOVIE &&
+      (media.mediaType === MediaType.MOVIE ||
+        isAdultMediaType(media.mediaType)) &&
       entity.status === MediaRequestStatus.DECLINED &&
       media[statusKey] !== MediaStatus.DELETED
     ) {

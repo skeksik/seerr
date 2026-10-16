@@ -13,6 +13,7 @@ import { adultArtwork } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { QuotaResponse } from '@server/interfaces/api/userInterfaces';
+import { mediaPermissions } from '@server/lib/permissions';
 import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
 import axios from 'axios';
@@ -22,13 +23,16 @@ import useSWR, { mutate } from 'swr';
 
 const messages = defineMessages('components.RequestModal.AdultRequestModal', {
   requestscenetitle: 'Request Scene',
+  requestscene4ktitle: 'Request Scene in 4K',
   requestadultmovietitle: 'Request Adult Movie',
+  requestadultmovie4ktitle: 'Request Adult Movie in 4K',
 });
 
 interface AdultRequestModalProps {
   type: AdultMediaType;
   // StashDB scene or ThePornDB movie UUID
   id: string;
+  is4k?: boolean;
   onCancel?: () => void;
   onComplete?: (newStatus: MediaStatus) => void;
   onUpdating?: (isUpdating: boolean) => void;
@@ -38,6 +42,7 @@ interface AdultRequestModalProps {
 const AdultRequestModal = ({
   type,
   id,
+  is4k = false,
   onCancel,
   onComplete,
   onUpdating,
@@ -55,12 +60,14 @@ const AdultRequestModal = ({
       ? `/api/v1/user/${overrides?.user?.id ?? user.id}/quota`
       : null
   );
-  // Adult movies share the movie quota
-  const itemQuota = type === 'scene' ? quota?.scene : quota?.movie;
+  const itemQuota = type === 'scene' ? quota?.scene : quota?.adultMovie;
   const artwork = data && adultArtwork(data);
 
   const hasAutoApprove = hasPermission(
-    [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
+    [
+      ...mediaPermissions(is4k ? 'autoApprove4k' : 'autoApprove', type),
+      Permission.MANAGE_REQUESTS,
+    ],
     { type: 'or' }
   );
 
@@ -77,6 +84,7 @@ const AdultRequestModal = ({
       await axios.post<MediaRequest>('/api/v1/request', {
         mediaType: type,
         [type === 'scene' ? 'stashId' : 'tpdbId']: id,
+        is4k,
         serverId: overrides?.server,
         profileId: overrides?.profile,
         rootFolder: overrides?.folder,
@@ -122,8 +130,12 @@ const AdultRequestModal = ({
       }
       title={intl.formatMessage(
         type === 'scene'
-          ? messages.requestscenetitle
-          : messages.requestadultmovietitle
+          ? is4k
+            ? messages.requestscene4ktitle
+            : messages.requestscenetitle
+          : is4k
+            ? messages.requestadultmovie4ktitle
+            : messages.requestadultmovietitle
       )}
       subTitle={data?.title}
       okText={
@@ -145,7 +157,7 @@ const AdultRequestModal = ({
       )}
       {(itemQuota?.limit ?? 0) > 0 && (
         <QuotaDisplay
-          mediaType={type === 'scene' ? 'scene' : 'movie'}
+          mediaType={type}
           quota={itemQuota}
           userOverride={
             overrides?.user && overrides.user.id !== user?.id
@@ -160,8 +172,8 @@ const AdultRequestModal = ({
       ) && (
         <AdvancedRequester
           type="movie"
-          service="whisparr"
-          is4k={false}
+          adultType={type}
+          is4k={is4k}
           // Adult media goes through the movie form with its own quota
           quota={itemQuota && quota && { movie: itemQuota, tv: quota.tv }}
           onChange={setOverrides}

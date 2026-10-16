@@ -1,13 +1,16 @@
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
-import { MediaRequestStatus, MediaStatus } from '@server/constants/media';
+import {
+  isAdultMediaType,
+  MediaRequestStatus,
+  MediaStatus,
+} from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import { Notification } from '@server/lib/notifications';
 import {
   getWhisparrServer,
-  isWhisparrMedia,
   lookupWhisparrItem,
 } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
@@ -46,7 +49,7 @@ export const sendToWhisparr = async (
 ): Promise<void> => {
   if (
     entity.status !== MediaRequestStatus.APPROVED ||
-    !isWhisparrMedia(entity.media)
+    !isAdultMediaType(entity.media.mediaType)
   ) {
     return;
   }

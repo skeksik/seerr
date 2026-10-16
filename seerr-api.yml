@@ -214,6 +214,16 @@ components:
           nullable: true
           description: 'Time period in days for scene quota'
           example: 7
+        adultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Maximum number of adult movie requests allowed'
+          example: 5
+        adultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Time period in days for adult movie quota'
+          example: 7
         globalMovieQuotaDays:
           type: number
           nullable: true
@@ -243,6 +253,16 @@ components:
           type: number
           nullable: true
           description: 'Global scene quota days setting'
+          example: 7
+        globalAdultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota limit setting'
+          example: 5
+        globalAdultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota days setting'
           example: 7
         watchlistSyncMovies:
           type: boolean
@@ -1418,10 +1438,6 @@ components:
           readOnly: true
           nullable: true
           description: ThePornDB movie UUID, set for adult movies only
-        isAdult:
-          type: boolean
-          readOnly: true
-          description: Adult movie handled by Whisparr instead of Radarr
         status:
           type: number
           example: 0
@@ -5507,6 +5523,24 @@ paths:
                       restricted:
                         type: boolean
                         example: false
+                  adultMovie:
+                    type: object
+                    properties:
+                      days:
+                        type: number
+                        example: 7
+                      limit:
+                        type: number
+                        example: 10
+                      used:
+                        type: number
+                        example: 6
+                      remaining:
+                        type: number
+                        example: 4
+                      restricted:
+                        type: boolean
+                        example: false
   /blocklist:
     get:
       summary: Returns blocklisted items
@@ -5818,6 +5852,8 @@ paths:
   /watchlist:
     post:
       summary: Add media to watchlist
+      description: |
+        Adds a title to the user's watchlist. Scenes and adult movies are also requested (non-4K, on the default Whisparr server) for users with the `AUTO_REQUEST`, `AUTO_REQUEST_SCENE` or `AUTO_REQUEST_ADULT_MOVIE` permission, unless the title is already requested or available. A failed request does not fail the watchlist add.
       tags:
         - watchlist
       requestBody:
@@ -7852,17 +7888,7 @@ paths:
           name: sort
           schema:
             type: string
-            enum:
-              [
-                released,
-                oldest,
-                added,
-                added_asc,
-                duration,
-                duration_asc,
-                popularity,
-                title,
-              ]
+            enum: [released, oldest, added, added_asc, duration, duration_asc]
             default: released
         - in: query
           name: studio
@@ -7934,29 +7960,6 @@ paths:
           schema:
             type: string
             enum: ['true', 'false']
-      responses:
-        '200':
-          description: Adult movies
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdultMovieList'
-  /adultmovie/search:
-    get:
-      summary: Search ThePornDB movies
-      tags:
-        - adultmovies
-      parameters:
-        - in: query
-          name: query
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: page
-          schema:
-            type: number
-            default: 1
       responses:
         '200':
           description: Adult movies
@@ -8036,10 +8039,6 @@ paths:
           name: year
           schema:
             type: number
-        - in: query
-          name: tag
-          schema:
-            type: string
       responses:
         '200':
           description: Matches
@@ -8119,10 +8118,6 @@ paths:
           name: year
           schema:
             type: number
-        - in: query
-          name: tag
-          schema:
-            type: string
       responses:
         '200':
           description: Matches
@@ -8202,10 +8197,6 @@ paths:
           name: year
           schema:
             type: number
-        - in: query
-          name: tag
-          schema:
-            type: string
       responses:
         '200':
           description: Matches
@@ -8484,12 +8475,6 @@ paths:
           schema:
             type: string
         - in: query
-          name: tag
-          description: Single tag, kept for older links
-          schema:
-            type: string
-            format: uuid
-        - in: query
           name: tags
           description: Comma-separated StashDB tag ids (all must match, unless tagMode is or)
           schema:
@@ -8668,10 +8653,6 @@ paths:
           schema:
             type: string
             enum: ['true', 'false']
-        - in: query
-          name: tag
-          schema:
-            type: string
       responses:
         '200':
           description: Matches
@@ -10248,10 +10229,6 @@ paths:
                   type: number
                   description: Required for movies and series
                   example: 1
-                service:
-                  type: string
-                  enum: [whisparr]
-                  description: Evaluate Whisparr rules (scenes and adult movies)
                 is4k:
                   type: boolean
                   example: false

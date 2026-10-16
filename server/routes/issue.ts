@@ -84,13 +84,9 @@ issueRoutes.get<Record<string, string>, IssueResultsResponse>(
     }
 
     if (!canViewAdult(req.user)) {
-      query = query.andWhere(
-        'media.mediaType NOT IN (:...adultTypes) AND media.isAdult = :notAdult',
-        {
-          adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
-          notAdult: false,
-        }
-      );
+      query = query.andWhere('media.mediaType NOT IN (:...adultTypes)', {
+        adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
+      });
     }
 
     const [issues, issueCount] = await query

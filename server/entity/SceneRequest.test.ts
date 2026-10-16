@@ -21,7 +21,7 @@ import {
 } from '@server/entity/MediaRequest';
 import OverrideRule from '@server/entity/OverrideRule';
 import { User } from '@server/entity/User';
-import { Permission } from '@server/lib/permissions';
+import { Permission, addPermissions } from '@server/lib/permissions';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
@@ -178,6 +178,87 @@ describe('Scene requests', () => {
     assert.strictEqual(media?.externalServiceSlug, STASH_ID);
   });
 
+  it('sends 4K scene requests to the default 4K Whisparr', async () => {
+    getSettings().whisparr = [
+      whisparrServer,
+      { ...whisparrServer, id: 1, is4k: true, activeDirectory: '/data/4k' },
+    ];
+    mock.method(WhisparrAPI.prototype, 'lookupScene', async () => lookupItem);
+    const addItem = mock.method(WhisparrAPI.prototype, 'addItem', async () => ({
+      ...lookupItem,
+      id: 43,
+      monitored: true,
+    }));
+    const user = await createUser(
+      'auto4k@seerr.dev',
+      Permission.REQUEST_4K | Permission.AUTO_APPROVE_4K | Permission.ADULT
+    );
+
+    const request = await MediaRequest.request(
+      { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+      user
+    );
+    await settle();
+
+    assert.strictEqual(request.is4k, true);
+    assert.strictEqual(request.status, MediaRequestStatus.APPROVED);
+    assert.strictEqual(
+      addItem.mock.calls[0].arguments[1]?.rootFolderPath,
+      '/data/4k'
+    );
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
+    assert.strictEqual(media?.status, MediaStatus.UNKNOWN);
+    assert.strictEqual(media?.status4k, MediaStatus.PROCESSING);
+    assert.strictEqual(media?.serviceId4k, 1);
+    assert.strictEqual(media?.externalServiceId4k, 43);
+    assert.strictEqual(media?.serviceId, null);
+  });
+
+  it('takes a 4K request next to a non-4K one', async () => {
+    const user = await createUser(
+      'both@seerr.dev',
+      addPermissions(
+        Permission.REQUEST | Permission.ADULT,
+        Permission.REQUEST_4K_SCENE
+      )
+    );
+
+    await requestScene(user);
+    const request4k = await MediaRequest.request(
+      { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+      user
+    );
+
+    assert.strictEqual(request4k.status, MediaRequestStatus.PENDING);
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
+    assert.strictEqual(media?.status, MediaStatus.PENDING);
+    assert.strictEqual(media?.status4k, MediaStatus.PENDING);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+          user
+        ),
+      DuplicateMediaRequestError
+    );
+  });
+
+  it('requires a 4K request permission for 4K scenes', async () => {
+    const user = await createUser(
+      'no4k@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+          user
+        ),
+      RequestPermissionError
+    );
+  });
+
   it('marks the request failed when Whisparr rejects the add', async () => {
     getSettings().whisparr = [whisparrServer];
     mock.method(WhisparrAPI.prototype, 'lookupScene', async () => lookupItem);
@@ -196,6 +277,75 @@ describe('Scene requests', () => {
       where: { id: request.id },
     });
     assert.strictEqual(saved.status, MediaRequestStatus.FAILED);
+  });
+});
+
+describe('Adult request permissions', () => {
+  const TPDB_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
+
+  beforeEach(() => {
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: 'key' };
+    mock.method(TpdbAPI.prototype, 'getMovie', async (id: string) => ({
+      id,
+      _id: 1,
+      title: '2 of a Kind',
+      type: 'Movie',
+    }));
+  });
+
+  afterEach(() => {
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
+  });
+
+  it('keeps permissions past 32 bits when saved', async () => {
+    const permissions = addPermissions(
+      Permission.ADULT,
+      Permission.AUTO_APPROVE_4K_ADULT_MOVIE
+    );
+    const user = await createUser('bits@seerr.dev', permissions);
+
+    const loaded = await getRepository(User).findOneByOrFail({ id: user.id });
+
+    assert.strictEqual(loaded.permissions, permissions);
+    assert.ok(loaded.hasPermission(Permission.AUTO_APPROVE_4K_ADULT_MOVIE));
+  });
+
+  it('lets Request Scenes request scenes but not adult movies', async () => {
+    const user = await createUser(
+      'scenesonly@seerr.dev',
+      addPermissions(Permission.ADULT, Permission.REQUEST_SCENE)
+    );
+
+    const request = await requestScene(user);
+
+    assert.strictEqual(request.status, MediaRequestStatus.PENDING);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.ADULT_MOVIE, tpdbId: TPDB_ID },
+          user
+        ),
+      RequestPermissionError
+    );
+  });
+
+  it('auto-approves only the media type Auto-Approve covers', async () => {
+    const user = await createUser(
+      'autoapprove@seerr.dev',
+      addPermissions(
+        Permission.REQUEST | Permission.ADULT,
+        Permission.AUTO_APPROVE_ADULT_MOVIE
+      )
+    );
+
+    const scene = await requestScene(user);
+    const movie = await MediaRequest.request(
+      { mediaType: MediaType.ADULT_MOVIE, tpdbId: TPDB_ID },
+      user
+    );
+
+    assert.strictEqual(scene.status, MediaRequestStatus.PENDING);
+    assert.strictEqual(movie.status, MediaRequestStatus.APPROVED);
   });
 });
 
@@ -341,8 +491,9 @@ describe('Whisparr override rules', () => {
   });
 });
 
-describe('Adult movie requests', () => {
-  const stubTmdbMovie = (adult: boolean) =>
+describe('Adult TMDB movies', () => {
+  it('are requested like any other movie', async () => {
+    getSettings().whisparr = [whisparrServer];
     mock.method(
       ExternalAPI.prototype as unknown as {
         get: (endpoint: string) => Promise<unknown>;
@@ -350,66 +501,29 @@ describe('Adult movie requests', () => {
       'get',
       async (endpoint: string) => ({
         id: Number(endpoint.replace(/^\/movie\//, '')),
-        adult,
+        adult: true,
         external_ids: {},
         videos: { results: [{ type: 'Trailer', key: 'trailer' }] },
       })
     );
-
-  it('flags adult movies for Whisparr when one is configured', async () => {
-    getSettings().whisparr = [whisparrServer];
-    stubTmdbMovie(true);
-    mock.method(WhisparrAPI.prototype, 'lookupMovie', async () => ({
-      ...lookupItem,
-      itemType: 'movie',
-      tmdbId: 777,
-    }));
-    mock.method(WhisparrAPI.prototype, 'addItem', async () => ({
-      ...lookupItem,
-      id: 5,
-    }));
-    const user = await createUser(
-      'adultmovie@seerr.dev',
-      Permission.REQUEST | Permission.ADULT
+    const lookup = mock.method(
+      WhisparrAPI.prototype,
+      'lookupTpdbMovie',
+      async () => lookupItem
     );
+    const user = await createUser('tmdbadult@seerr.dev', Permission.REQUEST);
 
-    await MediaRequest.request(
+    const request = await MediaRequest.request(
       { mediaType: MediaType.MOVIE, mediaId: 777 },
       user
     );
 
-    const media = await Media.getMedia(777, MediaType.MOVIE);
-    assert.strictEqual(media?.isAdult, true);
-  });
-
-  it('keeps adult movies on Radarr without a Whisparr server', async () => {
-    stubTmdbMovie(true);
-    const user = await createUser(
-      'radarradult@seerr.dev',
-      Permission.REQUEST | Permission.ADULT
+    assert.strictEqual(request.type, MediaType.MOVIE);
+    assert.strictEqual(
+      (await Media.getMedia(777, MediaType.MOVIE))?.mediaType,
+      MediaType.MOVIE
     );
-
-    await MediaRequest.request(
-      { mediaType: MediaType.MOVIE, mediaId: 778 },
-      user
-    );
-
-    const media = await Media.getMedia(778, MediaType.MOVIE);
-    assert.strictEqual(media?.isAdult, false);
-  });
-
-  it('refuses adult movies to users without adult access', async () => {
-    stubTmdbMovie(true);
-    const user = await createUser('kid@seerr.dev', Permission.REQUEST);
-
-    await assert.rejects(
-      () =>
-        MediaRequest.request(
-          { mediaType: MediaType.MOVIE, mediaId: 779 },
-          user
-        ),
-      RequestPermissionError
-    );
+    assert.strictEqual(lookup.mock.callCount(), 0);
   });
 });
 
@@ -445,7 +559,6 @@ describe('Adult movie requests', () => {
 
     assert.strictEqual(request.type, MediaType.ADULT_MOVIE);
     const media = await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID);
-    assert.strictEqual(media?.isAdult, true);
     assert.strictEqual(media?.tmdbId, null);
     assert.strictEqual(media?.status, MediaStatus.PENDING);
   });
@@ -456,18 +569,22 @@ describe('Adult movie requests', () => {
     await assert.rejects(() => requestAdultMovie(user), RequestPermissionError);
   });
 
-  it('counts adult movies against the movie quota', async () => {
+  it('counts adult movies against the adult movie quota', async () => {
     const user = await createUser(
       'xxxquota@seerr.dev',
       Permission.REQUEST | Permission.ADULT
     );
+    user.adultMovieQuotaLimit = 1;
     user.movieQuotaLimit = 1;
     await getRepository(User).save(user);
 
     await requestAdultMovie(user);
 
     const quota = await user.getQuota();
-    assert.strictEqual(quota.movie.used, 1);
+    assert.strictEqual(quota.adultMovie.used, 1);
+    assert.strictEqual(quota.adultMovie.restricted, true);
+    assert.strictEqual(quota.movie.used, 0);
+    assert.strictEqual(quota.movie.restricted, false);
     assert.strictEqual(quota.scene.used, 0);
     await assert.rejects(
       () =>
@@ -480,5 +597,27 @@ describe('Adult movie requests', () => {
         ),
       QuotaRestrictedError
     );
+  });
+
+  it('applies the default adult movie quota', async () => {
+    getSettings().main.defaultQuotas.adultMovie = {
+      quotaLimit: 1,
+      quotaDays: 7,
+    };
+    const user = await createUser(
+      'xxxdefault@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    try {
+      await requestAdultMovie(user);
+
+      const quota = await user.getQuota();
+      assert.strictEqual(quota.adultMovie.limit, 1);
+      assert.strictEqual(quota.adultMovie.days, 7);
+      assert.strictEqual(quota.adultMovie.restricted, true);
+    } finally {
+      getSettings().main.defaultQuotas.adultMovie = {};
+    }
   });
 });

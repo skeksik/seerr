@@ -357,10 +357,7 @@ const AdultFilterSlideover = ({
   const performerExclude = param(router.query.performerExclude);
   const performerMode =
     param(router.query.performerMode) === 'or' ? 'or' : 'and';
-  const tags = [
-    ...(param(router.query.tags)?.split(',') ?? []),
-    ...(param(router.query.tag) ? [param(router.query.tag) as string] : []),
-  ];
+  const tags = param(router.query.tags)?.split(',') ?? [];
   const tagsExclude = param(router.query.tagsExclude);
   const tagMode = param(router.query.tagMode) === 'or' ? 'or' : 'and';
   const tagNames = param(router.query.tagNames)?.split('|');
@@ -555,7 +552,6 @@ const AdultFilterSlideover = ({
           knownNames={isScene ? undefined : tagNames}
           onChange={(options) =>
             batchUpdate({
-              tag: undefined,
               tags: joined(options),
               tagNames: isScene
                 ? undefined

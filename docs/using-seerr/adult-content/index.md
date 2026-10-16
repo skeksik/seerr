@@ -13,14 +13,14 @@ These integrations work together:
 | Integration                     | Role              | What it does                                                                        |
 | ------------------------------- | ----------------- | ----------------------------------------------------------------------------------- |
 | [StashDB](./stashdb)            | Metadata provider | Supplies scenes, performers, studios and tags. Scenes are identified by StashDB id. |
-| [ThePornDB](./adult-movies)       | Metadata provider | Supplies adult movies (the default source; TMDB studios can be used instead).         |
+| [ThePornDB](./adult-movies)       | Metadata provider | Supplies adult movies, performers and studios.         |
 | [Whisparr](./whisparr)          | Service           | Downloads requested scenes and adult movies (Whisparr v3 only).                       |
 | [Stash](./stash) (optional)     | Companion library | Marks scenes available once Stash has them, and links to them for playback.         |
 
 ## Enabling Adult Content
 
 1. In **Settings &rarr; General**, turn on **Enable Adult Content**.
-2. Give the **Adult Content** permission to each user who should see it (**Users &rarr; Edit &rarr; Permissions**). Admins have access automatically.
+2. Give the **Adult Content** permission to each user who should see it (**Users &rarr; Edit &rarr; Permissions**), along with the request permissions they should have (see [Requesting Scenes and Adult Movies](#requesting-scenes-and-adult-movies)). Admins have access automatically.
 3. Set up [StashDB](./stashdb) and [ThePornDB](./adult-movies), then [Whisparr](./whisparr), and optionally [Stash](./stash).
 
 Users without the permission never see adult titles: scene pages show "not found", and adult movies, scenes and their requests are left out of search, discover, request lists and media lists.
@@ -40,7 +40,7 @@ Both also leave out studios, performers and tags picked under **Exclude**, and *
 
 Each user picks which sexual preferences are on by default in their **General** settings. Admins can take some away from a user under **Allowed Sexual Preferences**, the same way they set request limits; those never show for that user, not even in search or recommendations.
 
-Search shows matching scenes in a row above the regular results. Adult movies and performers join the regular results: StashDB's first, then ThePornDB's. A ThePornDB performer linked to a StashDB one is left out when that StashDB performer is already among the results, and otherwise opens the StashDB page, with ThePornDB's picture. The others are marked ThePornDB and open their ThePornDB page. Adult TMDB movies carry an **Adult** badge instead of the movie one.
+Search shows matching scenes in a row above the regular results. Adult movies and performers join the regular results: StashDB's first, then ThePornDB's. A ThePornDB performer linked to a StashDB one is left out when that StashDB performer is already among the results, and otherwise opens the StashDB page, with ThePornDB's picture. The others are marked ThePornDB and open their ThePornDB page.
 
 Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
@@ -90,25 +90,43 @@ Scene and adult movie pages are laid out like movie pages:
 - Adult movie pages add a **Scenes** row: the StashDB scenes the movie is cut into, found by the file fingerprints and studio pages ThePornDB keeps for its scenes.
 - Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and adult movies work like movie issues, and only users with adult access see them.
 
-### Requesting Scenes
+### Requesting Scenes and Adult Movies
 
-Scene requests use the normal **Request** permission and go through the normal approval flow: users with **Auto-Approve** or **Manage Requests** are approved immediately, everyone else waits for approval. Scenes have no 4K tier.
+Scene and adult movie requests go through the normal approval flow, and need the **Adult Content** permission next to a request permission. While adult content is enabled (and safe mode is off), the request permissions get **Scenes** and **Adult Movies** options next to **Movies** and **Series**:
+
+| Permission           | Scenes                     | Adult Movies                     |
+| -------------------- | -------------------------- | -------------------------------- |
+| **Request**          | **Request Scenes**         | **Request Adult Movies**         |
+| **Auto-Approve**     | **Auto-Approve Scenes**    | **Auto-Approve Adult Movies**    |
+| **Auto-Request**     | **Auto-Request Scenes**    | **Auto-Request Adult Movies**    |
+| **Request 4K**       | **Request 4K Scenes**      | **Request 4K Adult Movies**      |
+| **Auto-Approve 4K**  | **Auto-Approve 4K Scenes** | **Auto-Approve 4K Adult Movies** |
+
+Like for movies and series, the parent permission covers every media type and the option only its own: a user with **Request Scenes** but not **Request** can request scenes but not adult movies. Users with **Manage Requests** are always approved immediately.
 
 Request managers and users with **Advanced Requests** can pick the Whisparr server, quality profile, root folder and tags in the request window.
 
-### Scene Quotas
+#### 4K
 
-Scenes have their own request limit, next to the movie and series limits. Set the default under **Settings &rarr; Users &rarr; Global Scene Request Limit**, or override it for a user in their **General** settings. Request managers can bypass it per request.
+Once a [Whisparr](./whisparr) server marked **4K** is the default 4K server, scene and adult movie pages get a **Request in 4K** option and a 4K status badge, like movie pages. 4K requests have their own status, go to the default 4K Whisparr server and need **Request 4K** or its Scenes or Adult Movies option. Without a default 4K Whisparr server, the 4K scene and adult movie permissions can't be granted.
+
+#### Auto-Request
+
+Scenes and adult movies live on Seerr's own watchlist rather than on Plex's. Adding one to the watchlist requests it (not in 4K, on the default Whisparr server) for users with **Auto-Request**, **Auto-Request Scenes** or **Auto-Request Adult Movies**, like the Plex watchlist sync does for movies and series. Titles that are already requested or available are left alone. If the request can't be made, for example because the user is over their quota, the title is still added to the watchlist.
+
+### Quotas
+
+Scenes and adult movies each have their own request limit, next to the movie and series limits; adult movie requests don't count against the movie limit. Set the defaults under **Settings &rarr; Users &rarr; Global Scene Request Limit** and **Global Adult Movie Request Limit**, or override them for a user in their **General** settings. Like the others, 4K requests count too, and request managers can bypass the limits per request. Users see what is left on their profile and in the request window.
 
 ## Adult Movies
 
-Adult movies come from ThePornDB. See [Adult Movies](./adult-movies). Requests for them go to Whisparr and count against the movie quota.
+Adult movies come from ThePornDB. See [Adult Movies](./adult-movies). Requests for them go to Whisparr and count against the adult movie quota.
 
-Adult movies from TMDB also show up in the regular search for users with the **Adult Content** permission. When a default Whisparr server is set up, requests for them are sent to Whisparr instead of Radarr, unless Radarr already manages the movie.
+Only ThePornDB movies and StashDB scenes are adult content in Seerr. Movies TMDB flags as adult are ordinary movies: they are shown, requested through Radarr, scanned and counted like any other movie, exactly as without adult content.
 
 ## Safe Mode and Blurred Artwork
 
 Users with adult access get two switches in their user menu:
 
-- **Safe Mode** hides all adult content at once, for example while sharing a screen. Seerr treats the user as having no adult access until it is turned off again; the permission itself is kept. For admins it also hides the adult settings: **Enable Adult Content**, the Stash tab, the Whisparr servers, the StashDB and ThePornDB providers, the Adult Content permission, scene request limits and sexual preferences.
-- **Blur Adult Artwork** blurs scene stills, adult movie covers and adult TMDB posters until the pointer is over them.
+- **Safe Mode** hides all adult content at once, for example while sharing a screen. Seerr treats the user as having no adult access until it is turned off again; the permission itself is kept. For admins it also hides the adult settings: **Enable Adult Content**, the Stash tab, the Whisparr servers, the StashDB and ThePornDB providers, the Adult Content permission, the scene and adult movie permissions and request limits, and sexual preferences.
+- **Blur Adult Artwork** blurs scene stills and adult movie covers until the pointer is over them.

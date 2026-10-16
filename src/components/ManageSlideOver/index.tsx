@@ -142,11 +142,7 @@ const ManageSlideOver = ({
       : null
   );
   const isAdultType = isAdultMediaType(mediaType);
-  // Adult TMDB movies are sent to Whisparr too
-  const arrName = mediaArrName({
-    mediaType,
-    isAdult: data.mediaInfo?.isAdult,
-  });
+  const arrName = mediaArrName({ mediaType });
   const usesWhisparr = arrName === 'Whisparr';
   const mediaTypeName = intl.formatMessage(
     messages[mediaType === 'tv' ? 'tvshow' : mediaType]
@@ -742,7 +738,9 @@ const ManageSlideOver = ({
                   </Button>
                 )}
                 {data?.mediaInfo.status4k !== MediaStatus.AVAILABLE &&
-                  settings.currentSettings.series4kEnabled && (
+                  (isAdultType
+                    ? settings.currentSettings.adult4kEnabled
+                    : settings.currentSettings.series4kEnabled) && (
                     <Button
                       onClick={() => markAvailable(true)}
                       className="w-full"

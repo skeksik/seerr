@@ -4,7 +4,8 @@ import ServarrBase from './base';
 
 // Whisparr v3 ("Eros") is a Radarr fork where scenes and movies share the
 // movie resource. Scenes are keyed by their stash-box UUID (stashId) and
-// movies by their TMDB id. Whisparr v2 (a Sonarr fork) is not supported.
+// adult movies by their ThePornDB UUID (tpdbId). Whisparr v2 (a Sonarr fork)
+// is not supported.
 
 export type WhisparrItemType = 'scene' | 'movie';
 
@@ -73,6 +74,9 @@ interface WhisparrPage {
 
 const SCAN_PAGE_SIZE = 1000;
 
+// A lookup Whisparr answered without results, unlike a failed one
+export class WhisparrItemNotFoundError extends Error {}
+
 class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   constructor({ url, apiKey }: { url: string; apiKey: string }) {
     super({ url, apiKey, cacheName: 'whisparr', apiName: 'Whisparr' });
@@ -135,10 +139,6 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     return this.lookup(`stash:${stashId}`, 'scene');
   }
 
-  public lookupMovie(tmdbId: number): Promise<WhisparrItem> {
-    return this.lookup(`tmdb:${tmdbId}`, 'movie');
-  }
-
   public lookupTpdbMovie(tpdbId: string): Promise<WhisparrItem> {
     return this.lookup(`tpdb:${tpdbId}`, 'movie');
   }
@@ -164,7 +164,9 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
 
     if (!items[0]) {
-      throw new Error(`Item not found in Whisparr: ${term}`);
+      throw new WhisparrItemNotFoundError(
+        `Item not found in Whisparr: ${term}`
+      );
     }
 
     return items[0];

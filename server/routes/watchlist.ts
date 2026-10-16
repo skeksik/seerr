@@ -1,3 +1,5 @@
+import { getRepository } from '@server/datasource';
+import Media from '@server/entity/Media';
 import {
   DuplicateWatchlistRequestError,
   NotFoundError,
@@ -14,6 +16,7 @@ import {
   watchlistCreate,
 } from '@server/interfaces/api/watchlistCreate';
 import { canViewAdult } from '@server/lib/adult';
+import { autoRequestWatchlistItem } from '@server/lib/adultAutoRequest';
 
 const watchlistRoutes = Router();
 
@@ -33,13 +36,19 @@ watchlistRoutes.post<never, Watchlist, Watchlist>(
         }
 
         const values = adultWatchlistCreate.parse(req.body);
+        const watchlist = await Watchlist.createAdultWatchlist({
+          ...values,
+          user: req.user,
+        });
+        // The title's status shows the request, when one was made
+        if (await autoRequestWatchlistItem(watchlist, req.user)) {
+          watchlist.media =
+            (await getRepository(Media).findOneBy({
+              id: watchlist.media.id,
+            })) ?? watchlist.media;
+        }
 
-        return res.status(201).json(
-          await Watchlist.createAdultWatchlist({
-            ...values,
-            user: req.user,
-          })
-        );
+        return res.status(201).json(watchlist);
       }
 
       const values = watchlistCreate.parse(req.body);

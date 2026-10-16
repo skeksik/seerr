@@ -713,8 +713,14 @@ class BaseScanner<T> {
       await requestRepository.save(request);
       this.log(
         `Declined orphaned ${
-          media.mediaType === MediaType.MOVIE ? 'movie' : 'series'
-        } request ${request.id} for ${media.tmdbId} ${reason}.`,
+          media.mediaType === MediaType.MOVIE
+            ? 'movie'
+            : media.mediaType === MediaType.TV
+              ? 'series'
+              : media.mediaType
+        } request ${request.id} for ${
+          media.tmdbId ?? media.stashId ?? media.tpdbId
+        } ${reason}.`,
         'info'
       );
     }

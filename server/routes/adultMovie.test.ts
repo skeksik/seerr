@@ -119,7 +119,6 @@ describe('GET /adultmovie/discover', () => {
         mediaType: MediaType.ADULT_MOVIE,
         tpdbId: MOVIE_ID,
         tmdbId: null,
-        isAdult: true,
         status: MediaStatus.AVAILABLE,
       })
     );
@@ -146,6 +145,22 @@ describe('GET /adultmovie/discover', () => {
     assert.strictEqual(query?.sort, 'recently_created');
     assert.strictEqual(query?.siteId, 37335);
     assert.strictEqual(query?.date?.operation, '<=');
+  });
+
+  it('falls back to the release order for unknown sorts', async () => {
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/adultmovie/discover?sort=popularity');
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(
+      getMovies.mock.calls[0].arguments[0]?.sort,
+      'recently_released'
+    );
   });
 
   it('leaves out excluded and hidden movies, which ThePornDB cannot', async () => {

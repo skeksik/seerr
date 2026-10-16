@@ -6,9 +6,9 @@ import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
 import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
-import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import useBlocklistToggle from '@app/hooks/useBlocklistToggle';
 import { useIsTouch } from '@app/hooks/useIsTouch';
 import { Permission, UserType, useUser } from '@app/hooks/useUser';
@@ -28,6 +28,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { Orientation } from '@server/lib/orientation';
+import { mediaPermissions } from '@server/lib/permissions';
 import type { MediaType } from '@server/models/Search';
 import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useState } from 'react';
@@ -44,8 +45,6 @@ interface TitleCardProps {
   title: string;
   userScore?: number;
   mediaType: MediaType | AdultMediaType;
-  // Adult TMDB movies get an Adult badge instead of the movie one
-  isAdult?: boolean;
   status?: MediaStatus;
   canExpand?: boolean;
   inProgress?: boolean;
@@ -83,7 +82,6 @@ const TitleCard = ({
   title,
   status,
   mediaType,
-  isAdult = false,
   isAddedToWatchlist = false,
   inProgress = false,
   canExpand = false,
@@ -115,6 +113,12 @@ const TitleCard = ({
       error: messages.watchlistError,
     },
     onRemoved: mutateParent,
+    // Users with Auto-Request get scenes and adult movies requested
+    onAdded: (entry) => {
+      if (entry.media?.status) {
+        setCurrentStatus(entry.media.status);
+      }
+    },
   });
   const blocklist = useBlocklistToggle({
     id,
@@ -161,9 +165,8 @@ const TitleCard = ({
 
   const closeModal = useCallback(() => setShowRequestModal(false), []);
 
-  // Adult titles have no type-specific request permission
   const showRequestButton = adultType
-    ? hasPermission(Permission.REQUEST)
+    ? hasPermission(mediaPermissions('request', adultType), { type: 'or' })
     : hasPermission(
         [
           Permission.REQUEST,
@@ -277,7 +280,6 @@ const TitleCard = ({
           ) : (
             <CachedImage
               type="tmdb"
-              adult={isAdult}
               className="absolute inset-0 h-full w-full"
               alt=""
               src={
@@ -293,7 +295,7 @@ const TitleCard = ({
             <div className="pointer-events-none z-40 flex flex-col items-start gap-1 self-start">
               <div
                 className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                  adultType || (isAdult && mediaType === 'movie')
+                  adultType
                     ? 'border-pink-500 bg-pink-600/80'
                     : mediaType === 'movie' || mediaType === 'collection'
                       ? 'border-blue-500 bg-blue-600/80'
@@ -303,7 +305,7 @@ const TitleCard = ({
                 <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
                   {isScene
                     ? intl.formatMessage(globalMessages.scene)
-                    : adultType || (isAdult && mediaType === 'movie')
+                    : adultType
                       ? intl.formatMessage(globalMessages.adult)
                       : mediaType === 'movie'
                         ? intl.formatMessage(globalMessages.movie)

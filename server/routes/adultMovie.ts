@@ -18,7 +18,6 @@ import {
   mergeByDate,
   pageParam,
   pageQuery,
-  searchQuery,
   sharedFilters,
   tpdbDateOperations,
   withSuggestion,
@@ -65,9 +64,6 @@ const adultMovieSorts = [
   'added_asc',
   'duration',
   'duration_asc',
-  // ThePornDB has no popularity or title order; kept for older links
-  'popularity',
-  'title',
 ] as const;
 
 const ids = z
@@ -93,7 +89,7 @@ type MovieFilters = z.infer<typeof movieFilters>;
 
 const discoverQuery = movieFilters.extend({
   page: pageParam,
-  sort: z.enum(adultMovieSorts).default('released'),
+  sort: z.enum(adultMovieSorts).catch('released'),
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
@@ -254,8 +250,6 @@ const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   added_asc: 'former_created',
   duration: 'duration_desc',
   duration_asc: 'duration_asc',
-  popularity: 'recently_released',
-  title: 'recently_released',
 };
 
 // Release date orders, which joined lists keep
@@ -355,38 +349,6 @@ const mapMovieList = async (
     filterMovies(movies, planMovies(user, {}).filter),
     user
   ),
-});
-
-adultMovieRoutes.get('/search', async (req, res, next) => {
-  const parsed = searchQuery.safeParse(req.query);
-
-  if (!parsed.success) {
-    return next({ status: 400, message: 'Invalid search parameters.' });
-  }
-
-  const { query, page } = parsed.data;
-
-  try {
-    const list = await TpdbAPI.fromSettings().getMovies({
-      query,
-      page,
-      perPage: PAGE_SIZE,
-    });
-
-    return res
-      .status(200)
-      .json(
-        await mapMovieList(
-          list.data,
-          page,
-          list.meta.last_page,
-          list.meta.total,
-          req.user
-        )
-      );
-  } catch (e) {
-    return handleError(e, next, 'Unable to search adult movies.', { query });
-  }
 });
 
 // Lookups for the ThePornDB filters, by path

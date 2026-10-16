@@ -28,7 +28,6 @@ import type {
 import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -202,10 +201,9 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
       }
 
       if (!canViewAdult(req.user)) {
-        query = query.andWhere(
-          'request.type != :sceneType AND media.isAdult = :notAdult',
-          { sceneType: MediaType.SCENE, notAdult: false }
-        );
+        query = query.andWhere('request.type NOT IN (:...adultTypes)', {
+          adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
+        });
       }
 
       const [requests, requestCount] = await query
@@ -249,7 +247,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
 
       // Whisparr profiles only matter to pages with scenes or adult movies
       const whisparrServers = await Promise.all(
-        (requests.some((r) => isWhisparrMedia(r.media))
+        (requests.some((r) => isAdultMediaType(r.media.mediaType))
           ? settings.whisparr
           : []
         ).map(async (whisparrSetting) => {
@@ -264,7 +262,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
 
       // add profile names to the media requests, with undefined if not found
       let mappedRequests = requests.map((r) => {
-        if (isWhisparrMedia(r.media)) {
+        if (isAdultMediaType(r.media.mediaType)) {
           return {
             ...r,
             profileName: whisparrServers
@@ -299,7 +297,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
       // add canRemove prop if user has permission
       if (req.user?.hasPermission(Permission.MANAGE_REQUESTS)) {
         mappedRequests = mappedRequests.map((r) => {
-          if (isWhisparrMedia(r.media)) {
+          if (isAdultMediaType(r.media.mediaType)) {
             return {
               ...r,
               canRemove: whisparrServers.some(
@@ -620,12 +618,17 @@ requestRoutes.put<{ requestId: string }>(
           ) {
             if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();
-              const isScene = req.body.mediaType === MediaType.SCENE;
+              const [quota, label] =
+                req.body.mediaType === MediaType.SCENE
+                  ? [quotas.scene, 'Scene']
+                  : req.body.mediaType === MediaType.ADULT_MOVIE
+                    ? [quotas.adultMovie, 'Adult Movie']
+                    : [quotas.movie, 'Movie'];
 
-              if ((isScene ? quotas.scene : quotas.movie).restricted) {
+              if (quota.restricted) {
                 return next({
                   status: 403,
-                  message: `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`,
+                  message: `${label} Quota exceeded.`,
                 });
               }
             }

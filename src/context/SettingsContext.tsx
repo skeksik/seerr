@@ -20,6 +20,7 @@ const defaultSettings: PublicSettingsResponse = {
   mediaServerLogin: true,
   movie4kEnabled: false,
   series4kEnabled: false,
+  adult4kEnabled: false,
   discoverRegion: '',
   streamingRegion: '',
   originalLanguage: '',

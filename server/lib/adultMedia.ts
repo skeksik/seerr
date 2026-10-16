@@ -73,7 +73,6 @@ export const findOrCreateAdultMedia = async (
       mediaType,
       [idField]: externalId,
       tmdbId: null,
-      isAdult: mediaType === MediaType.ADULT_MOVIE,
     })
   );
 };

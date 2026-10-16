@@ -1,7 +1,11 @@
 import useSettings from '@app/hooks/useSettings';
 import type { User } from '@app/hooks/useUser';
 import { Permission } from '@app/hooks/useUser';
-import { hasPermission } from '@server/lib/permissions';
+import {
+  addPermissions,
+  hasPermission,
+  removePermissions,
+} from '@server/lib/permissions';
 
 export interface PermissionItem {
   id: string;
@@ -43,6 +47,10 @@ const PermissionOption = ({
     Permission.AUTO_APPROVE_4K,
     Permission.AUTO_APPROVE_4K_MOVIE,
     Permission.AUTO_APPROVE_4K_TV,
+    Permission.AUTO_APPROVE_SCENE,
+    Permission.AUTO_APPROVE_ADULT_MOVIE,
+    Permission.AUTO_APPROVE_4K_SCENE,
+    Permission.AUTO_APPROVE_4K_ADULT_MOVIE,
   ];
 
   let disabled = false;
@@ -93,7 +101,15 @@ const PermissionOption = ({
     // Request 4K Series and Auto-Approve 4K Series require 4K series requests to be enabled
     ((option.permission === Permission.REQUEST_4K_TV ||
       option.permission === Permission.AUTO_APPROVE_4K_TV) &&
-      !settings.currentSettings.series4kEnabled)
+      !settings.currentSettings.series4kEnabled) ||
+    // 4K scene and adult movie permissions require a default 4K Whisparr server
+    ([
+      Permission.REQUEST_4K_SCENE,
+      Permission.REQUEST_4K_ADULT_MOVIE,
+      Permission.AUTO_APPROVE_4K_SCENE,
+      Permission.AUTO_APPROVE_4K_ADULT_MOVIE,
+    ].includes(option.permission) &&
+      !settings.currentSettings.adult4kEnabled)
   ) {
     disabled = true;
     checked = false;
@@ -113,10 +129,11 @@ const PermissionOption = ({
             type="checkbox"
             disabled={disabled}
             onChange={() => {
+              // Permissions go past 32 bits, so no plain bitwise operators
               onUpdate(
                 hasPermission(option.permission, currentPermission)
-                  ? currentPermission - option.permission
-                  : currentPermission + option.permission
+                  ? removePermissions(currentPermission, option.permission)
+                  : addPermissions(currentPermission, option.permission)
               );
             }}
             checked={checked}

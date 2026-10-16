@@ -13,12 +13,16 @@ export interface UserSettingsGeneralResponse {
   tvQuotaDays?: number;
   sceneQuotaLimit?: number;
   sceneQuotaDays?: number;
+  adultMovieQuotaLimit?: number;
+  adultMovieQuotaDays?: number;
   globalMovieQuotaDays?: number;
   globalMovieQuotaLimit?: number;
   globalTvQuotaLimit?: number;
   globalTvQuotaDays?: number;
   globalSceneQuotaLimit?: number;
   globalSceneQuotaDays?: number;
+  globalAdultMovieQuotaLimit?: number;
+  globalAdultMovieQuotaDays?: number;
   watchlistSyncMovies?: boolean;
   watchlistSyncTv?: boolean;
   // Sexual preferences; admins set the disabled ones

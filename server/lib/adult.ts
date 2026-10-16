@@ -13,9 +13,8 @@ export const canViewAdult = (user?: User | null): boolean =>
   !!user?.hasPermission(Permission.ADULT) &&
   !user.settings?.adultSafeMode;
 
-export const isAdultMedia = (
-  media: Pick<Media, 'mediaType' | 'isAdult'>
-): boolean => isAdultMediaType(media.mediaType) || media.isAdult;
+export const isAdultMedia = (media: Pick<Media, 'mediaType'>): boolean =>
+  isAdultMediaType(media.mediaType);
 
 // Watchlist rows for a viewer: scenes and adult movies only for viewers who
 // may see them

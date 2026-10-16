@@ -18,9 +18,8 @@ import {
 } from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
-import { Permission } from '@server/lib/permissions';
+import { mediaPermissions, Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -86,7 +85,7 @@ export class MediaRequest {
 
       return requestLock.dispatch(userKey(adultLockUserId), () =>
         mediaLock.dispatch(mediaKey(adultBody.mediaType, externalId), () =>
-          MediaRequest.createAdultRequest(adultBody, user)
+          MediaRequest.createAdultRequest(adultBody, user, options)
         )
       );
     }
@@ -113,9 +112,12 @@ export class MediaRequest {
   // Scenes and adult movies: keyed by an external id, always sent to Whisparr
   private static async createAdultRequest(
     requestBody: AdultRequestBody,
-    user: User
+    user: User,
+    options: MediaRequestOptions
   ): Promise<MediaRequest> {
     const isScene = requestBody.mediaType === MediaType.SCENE;
+    const is4k = !!requestBody.is4k;
+    const statusKey = is4k ? 'status4k' : 'status';
     const mediaRepository = getRepository(Media);
     const requestRepository = getRepository(MediaRequest);
 
@@ -134,19 +136,24 @@ export class MediaRequest {
       });
     }
 
-    // Adult media has no type-specific request permissions; REQUEST covers it
+    // Request grants every media type, Request Scenes and Request Adult
+    // Movies only theirs; the same goes for 4K
     if (
       !canViewAdult(requestUser) ||
-      !requestUser.hasPermission(Permission.REQUEST)
+      !requestUser.hasPermission(
+        mediaPermissions(is4k ? 'request4k' : 'request', requestBody.mediaType),
+        { type: 'or' }
+      )
     ) {
       throw new RequestPermissionError(
-        `You do not have permission to make ${isScene ? 'scene' : 'Adult movie'} requests.`
+        `You do not have permission to make ${is4k ? '4K ' : ''}${
+          isScene ? 'scene' : 'adult movie'
+        } requests.`
       );
     }
 
-    // Adult movies share the movie quota
     const quotas = await requestUser.getQuota();
-    const quota = isScene ? quotas.scene : quotas.movie;
+    const quota = isScene ? quotas.scene : quotas.adultMovie;
     const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
     const ignoreQuota =
       requestBody.ignoreQuota === true &&
@@ -159,7 +166,7 @@ export class MediaRequest {
       );
     } else if (!ignoreQuota && quota.restricted) {
       throw new QuotaRestrictedError(
-        `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`
+        `${isScene ? 'Scene' : 'Adult Movie'} Quota exceeded.`
       );
     }
 
@@ -183,7 +190,8 @@ export class MediaRequest {
     );
 
     if (!media.id) {
-      media.status = MediaStatus.PENDING;
+      media.status = is4k ? MediaStatus.UNKNOWN : MediaStatus.PENDING;
+      media.status4k = is4k ? MediaStatus.PENDING : MediaStatus.UNKNOWN;
     } else {
       if (media.status === MediaStatus.BLOCKLISTED) {
         throw new BlocklistedMediaError('This media is blocklisted.');
@@ -192,6 +200,7 @@ export class MediaRequest {
       const active = await requestRepository.exist({
         where: {
           media: { id: media.id },
+          is4k,
           status: Not(
             In([MediaRequestStatus.DECLINED, MediaRequestStatus.COMPLETED])
           ),
@@ -202,6 +211,7 @@ export class MediaRequest {
         logger.warn('Duplicate adult request blocked', {
           mediaType: requestBody.mediaType,
           externalId: found.id,
+          is4k,
           label: 'Media Request',
         });
         throw new DuplicateMediaRequestError(
@@ -210,10 +220,10 @@ export class MediaRequest {
       }
 
       if (
-        media.status === MediaStatus.UNKNOWN ||
-        media.status === MediaStatus.DELETED
+        media[statusKey] === MediaStatus.UNKNOWN ||
+        media[statusKey] === MediaStatus.DELETED
       ) {
-        media.status = MediaStatus.PENDING;
+        media[statusKey] = MediaStatus.PENDING;
       }
     }
 
@@ -222,7 +232,7 @@ export class MediaRequest {
     // Same precedence as movies: advanced users keep what they picked
     const ruleResult = await overrideRules({
       mediaType: requestBody.mediaType,
-      is4k: false,
+      is4k,
       requestUser,
       tags: requestBody.tags,
     });
@@ -242,7 +252,13 @@ export class MediaRequest {
       (isAdvanced && requestBody.tags) || ruleResult.tags || requestBody.tags;
 
     const autoApprove = user.hasPermission(
-      [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
+      [
+        ...mediaPermissions(
+          is4k ? 'autoApprove4k' : 'autoApprove',
+          requestBody.mediaType
+        ),
+        Permission.MANAGE_REQUESTS,
+      ],
       { type: 'or' }
     );
 
@@ -254,12 +270,12 @@ export class MediaRequest {
         ? MediaRequestStatus.APPROVED
         : MediaRequestStatus.PENDING,
       modifiedBy: autoApprove ? user : undefined,
-      is4k: false,
+      is4k,
       serverId: requestBody.serverId,
       profileId: profileId || undefined,
       rootFolder: rootFolder || undefined,
       tags: tags ?? undefined,
-      isAutoRequest: false,
+      isAutoRequest: options.isAutoRequest ?? false,
       ignoreQuota,
     });
 
@@ -367,12 +383,6 @@ export class MediaRequest {
         ? await tmdb.getMovie({ movieId: requestBody.mediaId })
         : await tmdb.getTvShow({ tvId: requestBody.mediaId });
 
-    if ('adult' in tmdbMedia && tmdbMedia.adult && !canViewAdult(requestUser)) {
-      throw new RequestPermissionError(
-        'You do not have permission to request adult movies.'
-      );
-    }
-
     let media = await mediaRepository.findOne({
       where: {
         tmdbId: requestBody.mediaId,
@@ -468,26 +478,12 @@ export class MediaRequest {
     let profileId = requestBody.profileId;
     let tags = requestBody.tags;
 
-    // Adult movies go to Whisparr when one is configured, unless Radarr
-    // already handles this title
-    if (
-      requestBody.mediaType === MediaType.MOVIE &&
-      'adult' in tmdbMedia &&
-      tmdbMedia.adult &&
-      getWhisparrServer(!!requestBody.is4k, requestBody.serverId) &&
-      media.serviceId == null &&
-      media.serviceId4k == null
-    ) {
-      media.isAdult = true;
-    }
-
     const ruleResult = await overrideRules({
       mediaType: requestBody.mediaType,
       is4k: requestBody.is4k || false,
       tmdbMedia,
       requestUser,
       tags,
-      service: isWhisparrMedia(media) ? 'whisparr' : undefined,
     });
     const isAdvanced = user.hasPermission(
       [Permission.MANAGE_REQUESTS, Permission.REQUEST_ADVANCED],

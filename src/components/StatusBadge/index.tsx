@@ -14,6 +14,7 @@ import defineMessages from '@app/utils/defineMessages';
 import { MediaStatus, type MediaType } from '@server/constants/media';
 import { MediaServerType } from '@server/constants/server';
 import type { DownloadingItem } from '@server/lib/downloadtracker';
+import { mediaPermissions } from '@server/lib/permissions';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.StatusBadge', {
@@ -33,8 +34,6 @@ interface StatusBadgeProps {
   inProgress?: boolean;
   plexUrl?: string;
   serviceUrl?: string;
-  // Defaults to Radarr or Sonarr by media type
-  serviceName?: string;
   tmdbId?: number | null;
   // StashDB scene or ThePornDB movie UUID, for their manage links
   externalId?: string | null;
@@ -50,7 +49,6 @@ const StatusBadge = ({
   inProgress = false,
   plexUrl,
   serviceUrl,
-  serviceName,
   tmdbId,
   externalId,
   mediaType,
@@ -72,27 +70,31 @@ const StatusBadge = ({
     mediaType &&
     plexUrl &&
     hasPermission(
-      is4k
-        ? [
-            Permission.REQUEST_4K,
-            mediaType === 'movie'
-              ? Permission.REQUEST_4K_MOVIE
-              : Permission.REQUEST_4K_TV,
-          ]
-        : [
-            Permission.REQUEST,
-            mediaType === 'movie'
-              ? Permission.REQUEST_MOVIE
-              : Permission.REQUEST_TV,
-          ],
+      isAdultMediaType(mediaType)
+        ? mediaPermissions(is4k ? 'request4k' : 'request', mediaType)
+        : is4k
+          ? [
+              Permission.REQUEST_4K,
+              mediaType === 'movie'
+                ? Permission.REQUEST_4K_MOVIE
+                : Permission.REQUEST_4K_TV,
+            ]
+          : [
+              Permission.REQUEST,
+              mediaType === 'movie'
+                ? Permission.REQUEST_MOVIE
+                : Permission.REQUEST_TV,
+            ],
       {
         type: 'or',
       }
     ) &&
     (!is4k ||
-      (mediaType === 'movie'
-        ? settings.currentSettings.movie4kEnabled
-        : settings.currentSettings.series4kEnabled))
+      (isAdultMediaType(mediaType)
+        ? settings.currentSettings.adult4kEnabled
+        : mediaType === 'movie'
+          ? settings.currentSettings.movie4kEnabled
+          : settings.currentSettings.series4kEnabled))
   ) {
     mediaLink = plexUrl;
     mediaLinkDescription = intl.formatMessage(messages.playonplex, {
@@ -116,7 +118,7 @@ const StatusBadge = ({
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
       mediaLink = serviceUrl;
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
-        arr: serviceName ?? arrName({ mediaType }),
+        arr: arrName({ mediaType }),
       });
     }
   }
