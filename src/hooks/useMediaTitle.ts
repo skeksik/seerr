@@ -20,7 +20,7 @@ export type MediaTitleDetails =
   | AdultMovieDetails;
 
 // What names a title: a media item, request media or blocklist entry
-export interface MediaTitleRef {
+interface MediaTitleRef {
   mediaType: string;
   tmdbId?: number | null;
   stashId?: string | null;
@@ -55,9 +55,7 @@ const isTvDetails = (data: MediaTitleDetails): data is TvDetails =>
   (data as TvDetails).name !== undefined;
 
 // The id a title is fetched and linked by
-export const mediaTitleId = (
-  media: MediaTitleRef
-): number | string | undefined =>
+const mediaTitleId = (media: MediaTitleRef): number | string | undefined =>
   isAdultMediaType(media.mediaType)
     ? adultMediaId(media)
     : (media.tmdbId ?? undefined);

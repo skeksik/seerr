@@ -9,7 +9,7 @@ export const stashImageUrl = (
   size: StashImageSize
 ): string | undefined => (url ? `${url}?size=${size}` : undefined);
 
-export interface AdultArtwork {
+interface AdultArtwork {
   poster?: string;
   // Wide artwork for page, row and modal backgrounds
   backdrop?: string;

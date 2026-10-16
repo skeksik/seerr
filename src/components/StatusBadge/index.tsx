@@ -5,6 +5,11 @@ import DownloadBlock from '@app/components/DownloadBlock';
 import useSettings from '@app/hooks/useSettings';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
+import {
+  arrName,
+  isAdultMediaType,
+  mediaTypeMessage,
+} from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { MediaStatus, type MediaType } from '@server/constants/media';
 import { MediaServerType } from '@server/constants/server';
@@ -101,32 +106,17 @@ const StatusBadge = ({
               : 'Jellyfin',
     });
   } else if (hasPermission(Permission.MANAGE_REQUESTS)) {
-    const manageId =
-      mediaType === 'scene' || mediaType === 'adultmovie' ? externalId : tmdbId;
+    const manageId = isAdultMediaType(mediaType) ? externalId : tmdbId;
 
     if (mediaType && manageId) {
       mediaLink = `/${mediaType}/${manageId}?manage=1`;
       mediaLinkDescription = intl.formatMessage(messages.managemedia, {
-        mediaType: intl.formatMessage(
-          mediaType === 'movie'
-            ? globalMessages.movie
-            : mediaType === 'tv'
-              ? globalMessages.tvshow
-              : mediaType === 'scene'
-                ? globalMessages.scene
-                : globalMessages.adultMovie
-        ),
+        mediaType: intl.formatMessage(mediaTypeMessage(mediaType)),
       });
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
       mediaLink = serviceUrl;
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
-        arr:
-          serviceName ??
-          (mediaType === 'scene' || mediaType === 'adultmovie'
-            ? 'Whisparr'
-            : mediaType === 'movie'
-              ? 'Radarr'
-              : 'Sonarr'),
+        arr: serviceName ?? arrName({ mediaType }),
       });
     }
   }

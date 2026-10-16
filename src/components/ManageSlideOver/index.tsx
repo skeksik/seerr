@@ -149,13 +149,7 @@ const ManageSlideOver = ({
   });
   const usesWhisparr = arrName === 'Whisparr';
   const mediaTypeName = intl.formatMessage(
-    mediaType === 'movie'
-      ? messages.movie
-      : mediaType === 'tv'
-        ? messages.tvshow
-        : mediaType === 'scene'
-          ? messages.scene
-          : messages.adultmovie
+    messages[mediaType === 'tv' ? 'tvshow' : mediaType]
   );
   const { data: radarrData } = useSWR<RadarrSettings[]>(
     hasPermission(Permission.ADMIN) ? '/api/v1/settings/radarr' : null
