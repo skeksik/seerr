@@ -1,8 +1,9 @@
+import withAdultGate from '@app/components/Common/AdultGate';
 import Header from '@app/components/Common/Header';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import CompanyCard from '@app/components/CompanyCard';
-import useAdult from '@app/hooks/useAdult';
+import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
@@ -26,7 +27,7 @@ interface NetworkStudioListProps {
   source: 'stashdb' | 'tpdb';
 }
 
-const NetworkStudioListContent = ({ source }: NetworkStudioListProps) => {
+const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
   const intl = useIntl();
   const router = useRouter();
   const id = router.query.id as string;
@@ -102,19 +103,13 @@ const NetworkStudioListContent = ({ source }: NetworkStudioListProps) => {
           </li>
         ))}
       </ul>
+      {studios.length === 0 && (
+        <div className="mt-64 w-full text-center text-2xl text-gray-400">
+          {intl.formatMessage(globalMessages.noresults)}
+        </div>
+      )}
     </>
   );
 };
 
-// Hooks above fetch unconditionally, so gate before mounting them
-const NetworkStudioList = (props: NetworkStudioListProps) => {
-  const canViewAdult = useAdult();
-
-  if (!canViewAdult) {
-    return <ErrorPage statusCode={404} />;
-  }
-
-  return <NetworkStudioListContent {...props} />;
-};
-
-export default NetworkStudioList;
+export default withAdultGate(NetworkStudioList);

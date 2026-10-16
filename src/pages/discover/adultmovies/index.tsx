@@ -1,8 +1,8 @@
-import AdultMovies from '@app/components/AdultMovies';
+import AdultBrowse from '@app/components/Scenes/AdultBrowse';
 import type { NextPage } from 'next';
 
 const AdultMoviesPage: NextPage = () => {
-  return <AdultMovies />;
+  return <AdultBrowse kind="adultmovie" />;
 };
 
 export default AdultMoviesPage;

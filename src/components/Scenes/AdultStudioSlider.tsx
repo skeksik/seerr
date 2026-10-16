@@ -1,10 +1,5 @@
-import CompanyCard from '@app/components/CompanyCard';
-import SeeAllStudiosCard from '@app/components/Scenes/SeeAllStudiosCard';
-import Slider from '@app/components/Slider';
-import { stashImageUrl } from '@app/utils/stashImage';
-import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
+import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
 import type { SceneFilterDetails } from '@server/models/Scene';
-import Link from 'next/link';
 import useSWR from 'swr';
 
 interface AdultStudioSliderProps {
@@ -24,38 +19,14 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
   }
 
   return (
-    <>
-      <div className="slider-header">
-        {/* Every studio or network, beyond the trending ones */}
-        <Link
-          href={`/discover/scenes/${type}`}
-          className="slider-title min-w-0 pr-16"
-        >
-          <span className="truncate">{title}</span>
-          <ArrowRightCircleIcon />
-        </Link>
-      </div>
-      <Slider
-        sliderKey={`adult-${type}`}
-        isLoading={!data}
-        isEmpty={false}
-        items={[
-          ...(data ?? []).map((studio) => (
-            <CompanyCard
-              key={`adult-${type}-${studio.id}`}
-              name={studio.name}
-              image={stashImageUrl(studio.imageUrl, 300)}
-              imageType="stashdb"
-              url={`/discover/scenes/studio/${studio.id}`}
-            />
-          )),
-          <SeeAllStudiosCard
-            key={`adult-${type}-all`}
-            url={`/discover/scenes/${type}`}
-          />,
-        ]}
-      />
-    </>
+    <AdultStudioRow
+      sliderKey={`adult-${type}`}
+      title={title}
+      // Every studio or network, beyond the trending ones
+      linkUrl={`/discover/scenes/${type}`}
+      mediaType="scene"
+      studios={data}
+    />
   );
 };
 

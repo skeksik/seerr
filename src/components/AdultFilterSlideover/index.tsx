@@ -3,6 +3,7 @@ import SlideOver from '@app/components/Common/SlideOver';
 import OrientationSelector from '@app/components/OrientationSelector';
 import { useBatchUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import { useUser } from '@app/hooks/useUser';
+import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { XCircleIcon } from '@heroicons/react/24/outline';
 import Datepicker from '@seerr-team/react-tailwindcss-datepicker';
@@ -14,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import type { MultiValue, SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
+import { useSWRConfig } from 'swr';
 
 const messages = defineMessages('components.AdultFilterSlideover', {
   filters: 'Filters',
@@ -36,48 +38,50 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   modeOrTip: 'Titles with any of them',
   search: 'Search…',
   startTyping: 'Start typing to search.',
-  noResults: 'No results.',
   clearfilters: 'Clear Active Filters',
 });
 
-// Scenes filter on StashDB; adult movies on ThePornDB
-export type AdultFilterKind = 'scene' | 'tpdb';
+// Also the browse pages' Filters button
+export const activeFiltersMessage = messages.activefilters;
 
-// Query params the filters own; everything else (like sort) is kept
-const filterKeys = [
-  'released',
+// Scenes filter on StashDB; adult movies on ThePornDB
+export type AdultFilterKind = 'scene' | 'adultmovie';
+
+// Filters that count as active; the others only qualify them
+const countedParams = [
   'releaseDate',
   'orientation',
   'studio',
   'studioExclude',
   'performer',
   'performerExclude',
-  'performerMode',
   'tags',
-  'tagNames',
   'tagsExclude',
-  'tagsExcludeNames',
-  'tagMode',
   'tag',
 ] as const;
 
 // The filter params the browse APIs take
 export const adultFilterParams = [
+  ...countedParams,
   'released',
-  'releaseDate',
-  'orientation',
-  'studio',
-  'studioExclude',
-  'performer',
-  'performerExclude',
   'performerMode',
-  'tags',
-  'tagsExclude',
   'tagMode',
-  'tag',
+] as const;
+
+// Query params the filters own; everything else (like sort) is kept.
+// ThePornDB's tag names only ride along for the panel
+const filterKeys = [
+  ...adultFilterParams,
+  'tagNames',
+  'tagsExcludeNames',
 ] as const;
 
 type Option = { value: string; label: string };
+
+// Each field and its Exclude twin
+const studioParams = ['studio', 'studioExclude'];
+const performerParams = ['performer', 'performerExclude'];
+const tagParams = ['tags', 'tag', 'tagsExclude'];
 
 // The date picker drops leading zeros (2026-10-7); the API wants YYYY-MM-DD
 const toIsoDate = (value: Date | string) =>
@@ -97,18 +101,7 @@ const param = (value: string | string[] | undefined) =>
 
 export const countAdultFilters = (
   query: Record<string, string | string[] | undefined>
-): number =>
-  [
-    'releaseDate',
-    'orientation',
-    'studio',
-    'studioExclude',
-    'performer',
-    'performerExclude',
-    'tags',
-    'tagsExclude',
-    'tag',
-  ].filter((key) => param(query[key])).length;
+): number => countedParams.filter((key) => param(query[key])).length;
 
 interface LookupSelectProps {
   inputId: string;
@@ -118,30 +111,59 @@ interface LookupSelectProps {
   searchUrl: string;
   // The other filters, so suggestions that find nothing are left out
   context?: Record<string, string | undefined>;
-  // Names already-selected ids, e.g. after a page reload
-  resolveName?: (id: string) => Promise<string>;
+  // The params this field and its Exclude twin set, whose picks should not
+  // remount it
+  ownParams: string[];
+  // Where already-selected ids are named, e.g. after a page reload
+  nameUrl?: (id: string) => string;
   knownNames?: string[];
   onChange: (options: Option[]) => void;
 }
+
+const toQuery = (context: Record<string, string | undefined>) =>
+  new URLSearchParams(
+    Object.entries(context).flatMap(([name, value]) =>
+      value ? [[name, value]] : []
+    )
+  ).toString();
 
 const LookupSelect = ({
   inputId,
   isMulti,
   ids,
   searchUrl,
-  context,
-  resolveName,
+  context = {},
+  ownParams,
+  nameUrl,
   knownNames,
   onChange,
 }: LookupSelectProps) => {
   const intl = useIntl();
+  const { cache, mutate } = useSWRConfig();
   const [selected, setSelected] = useState<Option[]>([]);
   const key = ids.join(',');
-  const contextKey = new URLSearchParams(
-    Object.entries(context ?? {}).flatMap(([name, value]) =>
-      value ? [[name, value]] : []
+  const contextKey = toQuery(context);
+  // Suggestions depend on the other fields' picks
+  const otherKey = toQuery(
+    Object.fromEntries(
+      Object.entries(context).filter(([name]) => !ownParams.includes(name))
     )
-  ).toString();
+  );
+
+  // Names come from the performer and studio pages' own requests, so a page
+  // seen before needs none, and one opened later finds it cached
+  const resolveName = async (url: string): Promise<string | undefined> => {
+    const cached = cache.get(url)?.data as { name: string } | undefined;
+    if (cached) {
+      return cached.name;
+    }
+    const data = await mutate<{ name: string }>(
+      url,
+      axios.get<{ name: string }>(url).then((response) => response.data),
+      { revalidate: false }
+    );
+    return data?.name;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +177,10 @@ const LookupSelect = ({
           return { value: id, label: known };
         }
         try {
-          return { value: id, label: (await resolveName?.(id)) ?? id };
+          return {
+            value: id,
+            label: (nameUrl && (await resolveName(nameUrl(id)))) || id,
+          };
         } catch {
           return { value: id, label: id };
         }
@@ -200,8 +225,7 @@ const LookupSelect = ({
 
   return (
     <AsyncSelect<Option, boolean>
-      // Suggestions depend on the other filters
-      key={contextKey}
+      key={otherKey}
       inputId={inputId}
       className="react-select-container"
       classNamePrefix="react-select"
@@ -213,7 +237,7 @@ const LookupSelect = ({
       placeholder={intl.formatMessage(messages.search)}
       noOptionsMessage={({ inputValue }) =>
         intl.formatMessage(
-          inputValue ? messages.noResults : messages.startTyping
+          inputValue ? globalMessages.noresults : messages.startTyping
         )
       }
       onChange={(value: MultiValue<Option> | SingleValue<Option>) => {
@@ -278,7 +302,7 @@ const SectionTitle = ({
 );
 
 // The user's sexual preferences: those picked by default, and those offered
-export const useOrientationDefaults = () => {
+const useOrientationDefaults = () => {
   const { user } = useUser();
   const disabled = (user?.settings?.disabledOrientations ?? []).filter(
     isOrientation
@@ -333,13 +357,8 @@ const AdultFilterSlideover = ({
   const tagsExcludeNames = param(router.query.tagsExcludeNames)?.split('|');
   const isScene = kind === 'scene';
   const lookupBase = isScene ? '/api/v1/scene/lookup' : '/api/v1/adultmovie';
-  const nameUrl = (type: 'studio' | 'performer' | 'tag', id: string) =>
-    isScene
-      ? `/api/v1/scene/${type}/${id}`
-      : `/api/v1/adultmovie/${type}/${id}`;
-  const resolveName =
-    (type: 'studio' | 'performer' | 'tag') => async (id: string) =>
-      (await axios.get<{ name: string }>(nameUrl(type, id))).data.name;
+  const nameUrl = (type: 'studio' | 'performer' | 'tag') => (id: string) =>
+    `/api/v1/${kind}/${type}/${id}`;
   const activeFilters = countAdultFilters(router.query);
 
   // Every field's suggestions are checked against all the picked filters,
@@ -436,7 +455,8 @@ const AdultFilterSlideover = ({
           ids={ids(studio)}
           searchUrl={`${lookupBase}/studios`}
           context={context}
-          resolveName={resolveName('studio')}
+          ownParams={studioParams}
+          nameUrl={nameUrl('studio')}
           onChange={(options) => batchUpdate({ studio: joined(options) })}
         />
         <SectionTitle>
@@ -448,7 +468,8 @@ const AdultFilterSlideover = ({
           context={context}
           ids={ids(studioExclude)}
           searchUrl={`${lookupBase}/studios`}
-          resolveName={resolveName('studio')}
+          ownParams={studioParams}
+          nameUrl={nameUrl('studio')}
           onChange={(options) =>
             batchUpdate({ studioExclude: joined(options) })
           }
@@ -473,7 +494,8 @@ const AdultFilterSlideover = ({
           ids={ids(performer)}
           searchUrl={`${lookupBase}/performers`}
           context={context}
-          resolveName={resolveName('performer')}
+          ownParams={performerParams}
+          nameUrl={nameUrl('performer')}
           onChange={(options) => batchUpdate({ performer: joined(options) })}
         />
         <SectionTitle>
@@ -485,7 +507,8 @@ const AdultFilterSlideover = ({
           context={context}
           ids={ids(performerExclude)}
           searchUrl={`${lookupBase}/performers`}
-          resolveName={resolveName('performer')}
+          ownParams={performerParams}
+          nameUrl={nameUrl('performer')}
           onChange={(options) =>
             batchUpdate({ performerExclude: joined(options) })
           }
@@ -508,8 +531,9 @@ const AdultFilterSlideover = ({
           ids={tags}
           searchUrl={`${lookupBase}/tags`}
           context={context}
+          ownParams={tagParams}
           // ThePornDB cannot look tags up by id, so their names ride along
-          resolveName={isScene ? resolveName('tag') : undefined}
+          nameUrl={isScene ? nameUrl('tag') : undefined}
           knownNames={isScene ? undefined : tagNames}
           onChange={(options) =>
             batchUpdate({
@@ -528,7 +552,8 @@ const AdultFilterSlideover = ({
           context={context}
           ids={ids(tagsExclude)}
           searchUrl={`${lookupBase}/tags`}
-          resolveName={isScene ? resolveName('tag') : undefined}
+          ownParams={tagParams}
+          nameUrl={isScene ? nameUrl('tag') : undefined}
           knownNames={isScene ? undefined : tagsExcludeNames}
           onChange={(options) =>
             batchUpdate({

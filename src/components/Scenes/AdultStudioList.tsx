@@ -1,10 +1,13 @@
+import withAdultGate from '@app/components/Common/AdultGate';
 import Header from '@app/components/Common/Header';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
+import { creditHref } from '@app/components/Common/adultRoutes';
 import CompanyCard from '@app/components/CompanyCard';
-import useAdult from '@app/hooks/useAdult';
 import useDebouncedState from '@app/hooks/useDebouncedState';
+import { useBatchUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
+import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
@@ -13,7 +16,8 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/solid';
 import type { MergedStudio } from '@server/lib/mergedStudios';
-import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import useSWRInfinite from 'swr/infinite';
 
@@ -25,7 +29,6 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
   sortNewest: 'Newest on StashDB',
   sortTrending: 'Trending',
   sortPopular: 'Popularity',
-  noResults: 'No Results',
 });
 
 interface StudioPage {
@@ -51,19 +54,38 @@ type StudioSort = (typeof sortOptions)[number][0];
 // start out like the rows. Trending and popularity rank those of the most
 // trending or popular scenes. By name, studios take in ThePornDB's sites
 // StashDB has no studio for
-const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
+const AdultStudioList = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
-  const [search, debouncedSearch, setSearch] = useDebouncedState('');
-  const [sort, setSort] = useState<StudioSort>('trending');
+  const router = useRouter();
+  const batchUpdate = useBatchUpdateQueryParams(router.query);
+  // Search and sort live in the URL, so going back keeps them
+  const query =
+    typeof router.query.query === 'string' ? router.query.query : '';
+  const sort: StudioSort =
+    sortOptions.find(([value]) => value === router.query.sort)?.[0] ??
+    'trending';
+  const [search, debouncedSearch, setSearch] = useDebouncedState(query);
+  // The URL keeps its values as given, so both go in encoded
+  const setParams = (params: { query: string; sort: StudioSort }) =>
+    batchUpdate({
+      query: params.query ? encodeURIComponent(params.query) : undefined,
+      sort: params.sort === 'trending' ? undefined : params.sort,
+    });
+
+  useEffect(() => {
+    if (debouncedSearch !== query) {
+      setParams({ query: debouncedSearch, sort });
+    }
+    // Only once typing settles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
   const { data, error, size, setSize, isValidating } =
     useSWRInfinite<StudioPage>(
       (index: number, previous: StudioPage | null) =>
         previous && index + 1 > previous.totalPages
           ? null
           : `/api/v1/scene/studios?type=${type}&sort=${sort}&page=${index + 1}${
-              debouncedSearch
-                ? `&query=${encodeURIComponent(debouncedSearch)}`
-                : ''
+              query ? `&query=${encodeURIComponent(query)}` : ''
             }`,
       { revalidateFirstPage: false }
     );
@@ -105,7 +127,9 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
               name="sortBy"
               className="rounded-r-only"
               value={sort}
-              onChange={(e) => setSort(e.target.value as StudioSort)}
+              onChange={(e) =>
+                setParams({ query, sort: e.target.value as StudioSort })
+              }
             >
               {sortOptions.map(([value, message]) => (
                 <option key={value} value={value}>
@@ -131,7 +155,7 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
                     name={studio.name}
                     image={studio.imageUrl}
                     imageType="tpdb"
-                    url={`/discover/adultmovies/studio/${studio.id}`}
+                    url={creditHref('adultmovie', 'studio', studio.id)}
                   />
                 ) : (
                   <CompanyCard
@@ -139,7 +163,7 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
                     name={studio.name}
                     image={stashImageUrl(studio.imageUrl, 300)}
                     imageType="stashdb"
-                    url={`/discover/scenes/studio/${studio.id}`}
+                    url={creditHref('scene', 'studio', studio.id)}
                   />
                 )}
               </li>
@@ -148,7 +172,7 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
           {isLoading && <LoadingSpinner />}
           {!isLoading && studios.length === 0 && (
             <div className="mt-64 w-full text-center text-2xl text-gray-400">
-              {intl.formatMessage(messages.noResults)}
+              {intl.formatMessage(globalMessages.noresults)}
             </div>
           )}
         </>
@@ -157,15 +181,4 @@ const AdultStudioListContent = ({ type }: AdultStudioListProps) => {
   );
 };
 
-// Hooks above fetch unconditionally, so gate before mounting them
-const AdultStudioList = (props: AdultStudioListProps) => {
-  const canViewAdult = useAdult();
-
-  if (!canViewAdult) {
-    return <ErrorPage statusCode={404} />;
-  }
-
-  return <AdultStudioListContent {...props} />;
-};
-
-export default AdultStudioList;
+export default withAdultGate(AdultStudioList);

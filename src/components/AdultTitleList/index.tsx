@@ -1,9 +1,7 @@
+import withAdultGate from '@app/components/Common/AdultGate';
 import Header from '@app/components/Common/Header';
 import ListView from '@app/components/Common/ListView';
-import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
-import SceneList from '@app/components/Scenes/SceneList';
-import useAdult from '@app/hooks/useAdult';
 import useDiscover from '@app/hooks/useDiscover';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -27,7 +25,8 @@ interface AdultTitleListProps {
   list: 'recommendations' | 'similar';
 }
 
-const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
+// The movie Recommendations and Similar pages, for scenes and adult movies
+const AdultTitleList = ({ mediaType, list }: AdultTitleListProps) => {
   const router = useRouter();
   const intl = useIntl();
   const id = router.query[mediaType === 'scene' ? 'sceneId' : 'adultMovieId'];
@@ -52,61 +51,42 @@ const AdultTitleListContent = ({ mediaType, list }: AdultTitleListProps) => {
     return <ErrorPage statusCode={500} />;
   }
 
-  if (!title) {
-    return <LoadingSpinner />;
-  }
-
   const heading = intl.formatMessage(messages[list]);
-  const isLoading =
-    isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0);
 
   return (
     <>
-      <PageTitle title={[heading, title.title]} />
+      <PageTitle title={[heading, title?.title]} />
       <div className="mb-5 mt-1">
         <Header
           subtext={
-            <Link
-              href={`/${mediaType}/${title.id}`}
-              className="hover:underline"
-            >
-              {title.title}
-            </Link>
+            title ? (
+              <Link
+                href={`/${mediaType}/${title.id}`}
+                className="hover:underline"
+              >
+                {title.title}
+              </Link>
+            ) : (
+              // The list does not wait for the title's name
+              <span className="inline-block h-5 w-48 animate-pulse rounded bg-gray-700 align-middle" />
+            )
           }
         >
           {heading}
         </Header>
       </div>
-      {mediaType === 'scene' ? (
-        <SceneList
-          scenes={(titles ?? []) as SceneResult[]}
-          isEmpty={isEmpty}
-          isLoading={isLoading}
-          isReachingEnd={isReachingEnd}
-          onScrollBottom={fetchMore}
-        />
-      ) : (
-        <ListView
-          items={titles as AdultMovieResult[]}
-          isEmpty={isEmpty}
-          isLoading={isLoading}
-          isReachingEnd={isReachingEnd}
-          onScrollBottom={fetchMore}
-        />
-      )}
+      <ListView
+        items={titles}
+        landscape={mediaType === 'scene'}
+        isEmpty={isEmpty}
+        isLoading={
+          isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
+        }
+        isReachingEnd={isReachingEnd}
+        onScrollBottom={fetchMore}
+      />
     </>
   );
 };
 
-// The movie Recommendations and Similar pages, for scenes and adult movies
-const AdultTitleList = (props: AdultTitleListProps) => {
-  const canViewAdult = useAdult();
-
-  if (!canViewAdult) {
-    return <ErrorPage statusCode={404} />;
-  }
-
-  return <AdultTitleListContent {...props} />;
-};
-
-export default AdultTitleList;
+export default withAdultGate(AdultTitleList);
