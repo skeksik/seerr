@@ -1,5 +1,5 @@
-import { adultSubtitle } from '@app/components/AdultMovieCard';
 import TitleCard from '@app/components/TitleCard';
+import { adultSubtitle } from '@app/utils/adultMedia';
 import { stashImageUrl } from '@app/utils/stashImage';
 import { withProperties } from '@app/utils/typeHelpers';
 import type { SceneResult } from '@server/models/Scene';
@@ -37,13 +37,7 @@ const SceneCard = ({
 );
 
 const Placeholder = ({ canExpand = false }: { canExpand?: boolean }) => (
-  <div
-    className={`relative animate-pulse rounded-xl bg-gray-700 ${
-      canExpand ? 'w-full' : 'w-64 sm:w-72'
-    }`}
-  >
-    <div className="w-full" style={{ paddingBottom: '56.25%' }} />
-  </div>
+  <TitleCard.Placeholder canExpand={canExpand} landscape />
 );
 
 export default withProperties(SceneCard, { Placeholder });

@@ -1,5 +1,5 @@
 import TitleCard from '@app/components/TitleCard';
-import { withProperties } from '@app/utils/typeHelpers';
+import { adultSubtitle } from '@app/utils/adultMedia';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
 
 interface AdultMovieCardProps {
@@ -8,12 +8,6 @@ interface AdultMovieCardProps {
   isAddedToWatchlist?: boolean;
   mutateParent?: () => void;
 }
-
-export const adultSubtitle = (
-  studio?: { name: string },
-  releaseDate?: string
-): string =>
-  [studio?.name, releaseDate?.slice(0, 4)].filter(Boolean).join(' · ');
 
 // ThePornDB movies have portrait covers, so they share TitleCard's shape
 const AdultMovieCard = ({
@@ -27,8 +21,7 @@ const AdultMovieCard = ({
     mediaType="adultmovie"
     image={movie.posterUrl}
     title={movie.title}
-    year={movie.releaseDate}
-    subtitle={movie.studio?.name}
+    subtitle={adultSubtitle(movie.studio, movie.releaseDate)}
     summary={movie.overview}
     status={movie.mediaInfo?.status}
     inProgress={(movie.mediaInfo?.downloadStatus ?? []).length > 0}
@@ -41,14 +34,4 @@ const AdultMovieCard = ({
   />
 );
 
-const Placeholder = ({ canExpand = false }: { canExpand?: boolean }) => (
-  <div
-    className={`relative animate-pulse rounded-xl bg-gray-700 ${
-      canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'
-    }`}
-  >
-    <div className="w-full" style={{ paddingBottom: '150%' }} />
-  </div>
-);
-
-export default withProperties(AdultMovieCard, { Placeholder });
+export default AdultMovieCard;

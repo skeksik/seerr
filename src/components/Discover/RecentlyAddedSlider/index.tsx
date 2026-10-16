@@ -1,7 +1,8 @@
 import Slider from '@app/components/Slider';
-import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
+import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import useAdult from '@app/hooks/useAdult';
 import { Permission, useUser } from '@app/hooks/useUser';
+import { adultMediaId } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import type Media from '@server/entity/Media';
 import type { MediaResultsResponse } from '@server/interfaces/api/mediaInterfaces';
@@ -42,13 +43,13 @@ const RecentRow = ({ sliderKey, title, url }: RecentRowProps) => {
         sliderKey={sliderKey}
         isLoading={!media}
         items={(media?.results ?? []).map((item: Media) => (
-          <MediaTitleCard
+          <TmdbTitleCard
             key={`media-slider-item-${item.id}`}
             id={item.id}
-            mediaType={item.mediaType}
             tmdbId={item.tmdbId}
             tvdbId={item.tvdbId}
-            externalId={item.stashId ?? item.tpdbId}
+            externalId={adultMediaId(item)}
+            type={item.mediaType}
           />
         ))}
       />

@@ -8,7 +8,8 @@ import { MediaStatus } from '@server/constants/media';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
-const messages = defineMessages('components.AdultMediaActions', {
+// The movie page's text, under its id
+const messages = defineMessages('components.MovieDetails', {
   reportissue: 'Report an Issue',
 });
 

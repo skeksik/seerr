@@ -4,7 +4,6 @@ import PageTitle from '@app/components/Common/PageTitle';
 import ProgressCircle from '@app/components/Common/ProgressCircle';
 import RequestCard from '@app/components/RequestCard';
 import Slider from '@app/components/Slider';
-import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import ProfileHeader from '@app/components/UserProfile/ProfileHeader';
 import useAdult from '@app/hooks/useAdult';
@@ -12,7 +11,6 @@ import { Permission, UserType, useUser } from '@app/hooks/useUser';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
-import { isTmdbMedia } from '@server/constants/media';
 import type { WatchlistResponse } from '@server/interfaces/api/discoverInterfaces';
 import type {
   QuotaResponse,
@@ -433,12 +431,12 @@ const UserProfile = () => {
                 ),
               })}
               items={watchlistItems?.results.map((item) => (
-                <MediaTitleCard
+                <TmdbTitleCard
                   id={item.tmdbId ?? item.id}
                   key={`watchlist-slider-item-${item.mediaType}-${item.id}-${item.ratingKey}`}
                   tmdbId={item.tmdbId}
                   externalId={item.externalId}
-                  mediaType={item.mediaType}
+                  type={item.mediaType}
                 />
               ))}
             />
@@ -458,17 +456,15 @@ const UserProfile = () => {
             <Slider
               sliderKey="media"
               isLoading={!watchData}
-              items={watchData?.recentlyWatched
-                ?.filter(isTmdbMedia)
-                .map((item) => (
-                  <TmdbTitleCard
-                    key={`media-slider-item-${item.id}`}
-                    id={item.id}
-                    tmdbId={item.tmdbId}
-                    tvdbId={item.tvdbId}
-                    type={item.mediaType}
-                  />
-                ))}
+              items={watchData?.recentlyWatched?.map((item) => (
+                <TmdbTitleCard
+                  key={`media-slider-item-${item.id}`}
+                  id={item.id}
+                  tmdbId={item.tmdbId}
+                  tvdbId={item.tvdbId}
+                  type={item.mediaType}
+                />
+              ))}
             />
           </>
         )}

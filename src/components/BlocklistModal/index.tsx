@@ -1,6 +1,8 @@
 import Modal from '@app/components/Common/Modal';
 import globalMessages from '@app/i18n/globalMessages';
+import { isAdultMediaType, mediaTypeMessage } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
+import { adultArtwork } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
 
 import type { AdultMovieDetails } from '@server/models/AdultMovie';
@@ -8,13 +10,14 @@ import type { Collection } from '@server/models/Collection';
 import type { MovieDetails } from '@server/models/Movie';
 import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 interface BlocklistModalProps {
   // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
-  tmdbId: number | string;
+  id?: number | string;
+  // Old name of id, still used by MovieDetails and CollectionDetails
+  tmdbId?: number;
   type: 'movie' | 'tv' | 'collection' | 'scene' | 'adultmovie';
   show: boolean;
   onComplete?: () => void;
@@ -33,47 +36,8 @@ type BlocklistTitle =
   | SceneDetails
   | AdultMovieDetails;
 
-const isCollection = (data: BlocklistTitle | null): data is Collection => {
-  return (
-    data !== null &&
-    data !== undefined &&
-    (data as Collection).parts !== undefined
-  );
-};
-
-const isMovie = (movie: BlocklistTitle | null): movie is MovieDetails => {
-  if (!movie) return false;
-  return (movie as MovieDetails).title !== undefined;
-};
-
-const backdropProps = (
-  type: BlocklistModalProps['type'],
-  data: BlocklistTitle | null
-): { backdrop?: string; backdropType?: 'tmdb' | 'stashdb' | 'tpdb' } => {
-  if (type === 'scene') {
-    const imageUrl = (data as SceneDetails | null)?.imageUrl;
-    return {
-      backdrop: imageUrl ? `${imageUrl}?size=1280` : undefined,
-      backdropType: 'stashdb',
-    };
-  }
-
-  if (type === 'adultmovie') {
-    const movie = data as AdultMovieDetails | null;
-    return {
-      backdrop: movie?.backdropUrl ?? movie?.posterUrl,
-      backdropType: 'tpdb',
-    };
-  }
-
-  return {
-    backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
-      (data as MovieDetails | null)?.backdropPath
-    }`,
-  };
-};
-
 const BlocklistModal = ({
+  id,
   tmdbId,
   type,
   show,
@@ -82,21 +46,14 @@ const BlocklistModal = ({
   isUpdating,
 }: BlocklistModalProps) => {
   const intl = useIntl();
-  const [data, setData] = useState<BlocklistTitle | null>(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      if (!show) return;
-      try {
-        setError(null);
-        const response = await axios.get(`/api/v1/${type}/${tmdbId}`);
-        setData(response.data);
-      } catch (err) {
-        setError(err);
-      }
-    })();
-  }, [show, tmdbId, type]);
+  const itemId = id ?? tmdbId;
+  const { data, error } = useSWR<BlocklistTitle>(
+    show && itemId !== undefined ? `/api/v1/${type}/${itemId}` : null
+  );
+  const artwork =
+    data && isAdultMediaType(type)
+      ? adultArtwork(data as SceneDetails | AdultMovieDetails)
+      : undefined;
 
   return (
     <Transition
@@ -112,24 +69,10 @@ const BlocklistModal = ({
       <Modal
         loading={!data && !error}
         backgroundClickable
-        title={`${intl.formatMessage(globalMessages.blocklist)} ${
-          type === 'collection'
-            ? intl.formatMessage(globalMessages.collection)
-            : type === 'scene'
-              ? intl.formatMessage(globalMessages.scene)
-              : type === 'adultmovie'
-                ? intl.formatMessage(globalMessages.adultMovie)
-                : isMovie(data)
-                  ? intl.formatMessage(globalMessages.movie)
-                  : intl.formatMessage(globalMessages.tvshow)
-        }`}
-        subTitle={`${
-          isCollection(data)
-            ? data.name
-            : data && 'title' in data
-              ? data.title
-              : (data as TvDetails | null)?.name
-        }`}
+        title={`${intl.formatMessage(
+          globalMessages.blocklist
+        )} ${intl.formatMessage(mediaTypeMessage(type))}`}
+        subTitle={`${data && 'title' in data ? data.title : data?.name}`}
         onCancel={onCancel}
         onOk={onComplete}
         okText={
@@ -139,7 +82,13 @@ const BlocklistModal = ({
         }
         okButtonType="danger"
         okDisabled={isUpdating}
-        {...backdropProps(type, data)}
+        {...(artwork
+          ? { backdrop: artwork.backdrop, backdropType: artwork.imageType }
+          : {
+              backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
+                (data as MovieDetails | undefined)?.backdropPath
+              }`,
+            })}
       />
     </Transition>
   );

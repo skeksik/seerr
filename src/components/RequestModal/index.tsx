@@ -1,3 +1,4 @@
+import AdultRequestModal from '@app/components/RequestModal/AdultRequestModal';
 import CollectionRequestModal from '@app/components/RequestModal/CollectionRequestModal';
 import MovieRequestModal from '@app/components/RequestModal/MovieRequestModal';
 import TvRequestModal from '@app/components/RequestModal/TvRequestModal';
@@ -6,10 +7,8 @@ import type { MediaStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties } from '@server/interfaces/api/common';
 
-interface RequestModalProps {
+interface RequestModalBaseProps {
   show: boolean;
-  type: 'movie' | 'tv' | 'collection';
-  tmdbId: number;
   is4k?: boolean;
   editRequest?: NonFunctionProperties<MediaRequest>;
   onComplete?: (newStatus: MediaStatus) => void;
@@ -17,16 +16,16 @@ interface RequestModalProps {
   onUpdating?: (isUpdating: boolean) => void;
 }
 
-const RequestModal = ({
-  type,
-  show,
-  tmdbId,
-  is4k,
-  editRequest,
-  onComplete,
-  onUpdating,
-  onCancel,
-}: RequestModalProps) => {
+// Scenes and adult movies are named by their StashDB or ThePornDB UUID
+type RequestModalProps = RequestModalBaseProps &
+  (
+    | { type: 'movie' | 'tv' | 'collection'; tmdbId: number }
+    | { type: 'scene' | 'adultmovie'; externalId: string }
+  );
+
+const RequestModal = (props: RequestModalProps) => {
+  const { show, is4k, editRequest, onComplete, onUpdating, onCancel } = props;
+
   return (
     <Transition
       as="div"
@@ -38,20 +37,28 @@ const RequestModal = ({
       leaveTo="opacity-0"
       show={show}
     >
-      {type === 'movie' ? (
+      {'externalId' in props ? (
+        <AdultRequestModal
+          onComplete={onComplete}
+          onCancel={onCancel}
+          type={props.type}
+          id={props.externalId}
+          onUpdating={onUpdating}
+        />
+      ) : props.type === 'movie' ? (
         <MovieRequestModal
           onComplete={onComplete}
           onCancel={onCancel}
-          tmdbId={tmdbId}
+          tmdbId={props.tmdbId}
           onUpdating={onUpdating}
           is4k={is4k}
           editRequest={editRequest}
         />
-      ) : type === 'tv' ? (
+      ) : props.type === 'tv' ? (
         <TvRequestModal
           onComplete={onComplete}
           onCancel={onCancel}
-          tmdbId={tmdbId}
+          tmdbId={props.tmdbId}
           onUpdating={onUpdating}
           is4k={is4k}
           editRequest={editRequest}
@@ -60,7 +67,7 @@ const RequestModal = ({
         <CollectionRequestModal
           onComplete={onComplete}
           onCancel={onCancel}
-          tmdbId={tmdbId}
+          tmdbId={props.tmdbId}
           onUpdating={onUpdating}
           is4k={is4k}
         />

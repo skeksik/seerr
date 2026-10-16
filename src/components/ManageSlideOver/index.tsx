@@ -11,6 +11,12 @@ import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
+import {
+  adultMediaId,
+  isAdultMediaType,
+  arrName as mediaArrName,
+  mediaTypeMessage,
+} from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { Bars4Icon, ServerIcon } from '@heroicons/react/24/outline';
 import {
@@ -55,7 +61,7 @@ const filterDuplicateDownloads = (
   });
 };
 
-const messages = defineMessages('components.ManageSlideOver', {
+export const messages = defineMessages('components.ManageSlideOver', {
   manageModalTitle: 'Manage {mediaType}',
   manageModalIssues: 'Open Issues',
   manageModalRequests: 'Requests',
@@ -88,7 +94,7 @@ const messages = defineMessages('components.ManageSlideOver', {
   movie: 'movie',
   tvshow: 'series',
   scene: 'scene',
-  adultmovie: 'Adult movie',
+  adultmovie: 'adult movie',
 });
 
 interface ManageSlideOverProps {
@@ -135,14 +141,13 @@ const ManageSlideOver = ({
       ? `/api/v1/media/${data.mediaInfo.id}/watch_data`
       : null
   );
-  const isAdultType = mediaType === 'scene' || mediaType === 'adultmovie';
+  const isAdultType = isAdultMediaType(mediaType);
   // Adult TMDB movies are sent to Whisparr too
-  const usesWhisparr = isAdultType || !!data.mediaInfo?.isAdult;
-  const arrName = usesWhisparr
-    ? 'Whisparr'
-    : mediaType === 'movie'
-      ? 'Radarr'
-      : 'Sonarr';
+  const arrName = mediaArrName({
+    mediaType,
+    isAdult: data.mediaInfo?.isAdult,
+  });
+  const usesWhisparr = arrName === 'Whisparr';
   const mediaTypeName = intl.formatMessage(
     mediaType === 'movie'
       ? messages.movie
@@ -301,15 +306,7 @@ const ManageSlideOver = ({
     <SlideOver
       show={show}
       title={intl.formatMessage(messages.manageModalTitle, {
-        mediaType: intl.formatMessage(
-          mediaType === 'movie'
-            ? globalMessages.movie
-            : mediaType === 'tv'
-              ? globalMessages.tvshow
-              : mediaType === 'scene'
-                ? globalMessages.scene
-                : globalMessages.adultMovie
-        ),
+        mediaType: intl.formatMessage(mediaTypeMessage(mediaType)),
       })}
       onClose={() => onClose()}
       subText={'title' in data ? data.title : data.name}
@@ -403,11 +400,8 @@ const ManageSlideOver = ({
               </h3>
               <div className="overflow-hidden rounded-md border border-gray-700 shadow">
                 <BlocklistBlock
-                  tmdbId={
-                    data.mediaInfo.tmdbId ??
-                    data.mediaInfo.stashId ??
-                    data.mediaInfo.tpdbId ??
-                    ''
+                  id={
+                    data.mediaInfo.tmdbId ?? adultMediaId(data.mediaInfo) ?? ''
                   }
                   mediaType={data.mediaInfo.mediaType}
                   onUpdate={() => revalidate()}

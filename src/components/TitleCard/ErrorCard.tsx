@@ -1,6 +1,8 @@
 import Button from '@app/components/Common/Button';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
+import { isAdultMediaType, mediaTypeMessage } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { CheckIcon, TrashIcon } from '@heroicons/react/24/solid';
 import axios from 'axios';
@@ -9,9 +11,11 @@ import { mutate } from 'swr';
 
 interface ErrorCardProps {
   id: number;
-  tmdbId: number;
+  tmdbId?: number | null;
   tvdbId?: number;
-  type: 'movie' | 'tv';
+  // StashDB scene or ThePornDB movie UUID of a scene or adult movie
+  externalId?: string | null;
+  type: 'movie' | 'tv' | 'scene' | 'adultmovie';
   canExpand?: boolean;
 }
 
@@ -19,16 +23,30 @@ const messages = defineMessages('components.TitleCard', {
   mediaerror: '{mediaType} Not Found',
   tmdbid: 'TMDB ID',
   tvdbid: 'TheTVDB ID',
+  stashdbid: 'StashDB ID',
+  tpdbid: 'ThePornDB ID',
   cleardata: 'Clear Data',
 });
 
-const ErrorCard = ({ id, tmdbId, tvdbId, type, canExpand }: ErrorCardProps) => {
+const ErrorCard = ({
+  id,
+  tmdbId,
+  tvdbId,
+  externalId,
+  type,
+  canExpand,
+}: ErrorCardProps) => {
   const intl = useIntl();
   const { addToast } = useToasts();
+  const isAdult = isAdultMediaType(type);
+  // Scene cards are landscape, like the cards next to them
+  const isScene = type === 'scene';
 
   const deleteMedia = async () => {
     try {
-      await axios.delete(`/api/v1/watchlist/${tmdbId}?mediaType=${type}`);
+      await axios.delete(
+        `/api/v1/watchlist/${isAdult ? externalId : tmdbId}?mediaType=${type}`
+      );
     } catch (e) {
       if (!axios.isAxiosError(e) || e.response?.status !== 404) {
         addToast(intl.formatMessage(globalMessages.error), {
@@ -52,26 +70,34 @@ const ErrorCard = ({ id, tmdbId, tvdbId, type, canExpand }: ErrorCardProps) => {
 
   return (
     <div
-      className={canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}
+      className={
+        canExpand
+          ? 'w-full'
+          : isScene
+            ? LANDSCAPE_CARD_WIDTH
+            : 'w-36 sm:w-36 md:w-44'
+      }
       data-testid="title-card"
     >
       <div
         className="relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover shadow outline-none ring-1 ring-gray-700 transition duration-300"
         style={{
-          paddingBottom: '150%',
+          paddingBottom: isScene ? '56.25%' : '150%',
         }}
       >
         <div className="absolute inset-0 h-full w-full overflow-hidden">
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
             <div
               className={`pointer-events-none z-40 rounded-full shadow ${
-                type === 'movie' ? 'bg-blue-500' : 'bg-purple-600'
+                isAdult
+                  ? 'bg-pink-600'
+                  : type === 'movie'
+                    ? 'bg-blue-500'
+                    : 'bg-purple-600'
               }`}
             >
               <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                {type === 'movie'
-                  ? intl.formatMessage(globalMessages.movie)
-                  : intl.formatMessage(globalMessages.tvshow)}
+                {intl.formatMessage(mediaTypeMessage(type))}
               </div>
             </div>
             <div className="pointer-events-none z-40">
@@ -95,11 +121,7 @@ const ErrorCard = ({ id, tmdbId, tvdbId, type, canExpand }: ErrorCardProps) => {
                 data-testid="title-card-title"
               >
                 {intl.formatMessage(messages.mediaerror, {
-                  mediaType: intl.formatMessage(
-                    type === 'movie'
-                      ? globalMessages.movie
-                      : globalMessages.tvshow
-                  ),
+                  mediaType: intl.formatMessage(mediaTypeMessage(type)),
                 })}
               </h1>
               <div
@@ -114,9 +136,17 @@ const ErrorCard = ({ id, tmdbId, tvdbId, type, canExpand }: ErrorCardProps) => {
               >
                 <div className="flex items-center">
                   <span className="mr-2 font-bold text-gray-400">
-                    {intl.formatMessage(messages.tmdbid)}
+                    {intl.formatMessage(
+                      type === 'scene'
+                        ? messages.stashdbid
+                        : type === 'adultmovie'
+                          ? messages.tpdbid
+                          : messages.tmdbid
+                    )}
                   </span>
-                  {tmdbId}
+                  <span className="truncate">
+                    {isAdult ? externalId : tmdbId}
+                  </span>
                 </div>
                 {!!tvdbId && (
                   <div className="mt-2 flex items-center sm:mt-1">

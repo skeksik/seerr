@@ -23,14 +23,14 @@ const messages = defineMessages('component.BlocklistBlock', {
 
 interface BlocklistBlockProps {
   // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
-  tmdbId: number | string;
+  id: number | string;
   mediaType: MediaType;
   onUpdate?: () => void;
   onDelete?: () => void;
 }
 
 const BlocklistBlock = ({
-  tmdbId,
+  id,
   mediaType,
   onUpdate,
   onDelete,
@@ -40,14 +40,14 @@ const BlocklistBlock = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const { addToast } = useToasts();
   const { data } = useSWR<Blocklist>(
-    `/api/v1/blocklist/${tmdbId}?mediaType=${mediaType}`
+    `/api/v1/blocklist/${id}?mediaType=${mediaType}`
   );
 
   const removeFromBlocklist = async (title?: string) => {
     setIsUpdating(true);
 
     try {
-      await axios.delete(`/api/v1/blocklist/${tmdbId}?mediaType=${mediaType}`);
+      await axios.delete(`/api/v1/blocklist/${id}?mediaType=${mediaType}`);
 
       addToast(
         <span>
