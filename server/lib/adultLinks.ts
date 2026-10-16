@@ -75,11 +75,13 @@ const siteUrls = (site: TpdbSiteRef): string[] => [
 export interface TpdbPerformerRef {
   id: string;
   _id: number;
+  name?: string;
   slug?: string | null;
   extras?: TpdbPerformerExtras | null;
 }
 
-export type TpdbSiteRef = Pick<TpdbSiteSummary, 'id' | 'uuid' | 'short_name'>;
+export type TpdbSiteRef = Pick<TpdbSiteSummary, 'id' | 'uuid' | 'short_name'> &
+  Partial<Pick<TpdbSiteSummary, 'name'>>;
 
 const cache = () => cacheManager.getCache('tpdb').data;
 
@@ -89,7 +91,7 @@ const rememberKey = (stashDbId: string) => `link:tpdb-performer:${stashDbId}`;
 
 // The StashDB performers or studios holding each item's ThePornDB address;
 // lists go on without links when StashDB fails
-const findByTpdbUrls = async <T>(
+const findByTpdbUrls = async <T extends { name?: string }>(
   type: 'performer' | 'studio',
   items: T[],
   urls: (item: T) => string[],
@@ -104,7 +106,8 @@ const findByTpdbUrls = async <T>(
   try {
     const ids = await (stashDb ?? StashDbAPI.fromSettings()).findIdsByUrls(
       type,
-      lists.flat()
+      lists.flat(),
+      lists.flatMap((list, i) => list.map(() => items[i].name))
     );
     let next = 0;
     return lists.map((list) => {

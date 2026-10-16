@@ -192,6 +192,30 @@ describe('StashDbAPI', () => {
     });
   });
 
+  it('prefers the holder named like the linked item', async () => {
+    const api = new TestStashDbAPI([
+      {
+        data: {
+          u0: {
+            studios: [
+              { id: 'adult-time', name: 'Adult Time x Blacked' },
+              { id: 'blacked', name: 'Blacked' },
+            ],
+          },
+          u1: { studios: [{ id: 'other', name: 'Tushy Raw' }] },
+        },
+      },
+    ]);
+
+    const ids = await api.findIdsByUrls(
+      'studio',
+      ['https://theporndb.net/sites/blacked', 'https://theporndb.net/sites/x'],
+      ['Blacked', 'Tushy']
+    );
+
+    assert.deepStrictEqual(ids, ['blacked', 'other']);
+  });
+
   it('keeps one client per endpoint and key', () => {
     const settings = getSettings();
     const previous = settings.stashdb;

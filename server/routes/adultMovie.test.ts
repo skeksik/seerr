@@ -501,6 +501,8 @@ describe('linking StashDB and ThePornDB', () => {
           `https://theporndb.net/performers/${DRAGON_TPDB.id}`,
           'https://theporndb.net/performers/sasha-paige',
         ],
+        // The names pick between StashDB performers sharing a link
+        [DRAGON_TPDB.name, DRAGON_TPDB.name],
       ]);
     });
 

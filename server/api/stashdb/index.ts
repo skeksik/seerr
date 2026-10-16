@@ -376,9 +376,12 @@ class StashDbAPI extends ExternalAPI {
   // The performer or studio holding each address among its links. StashDB
   // only finds exact addresses, so callers ask for every form they know,
   // many at once
+  // Several may list the same link, like "Blacked" and "Adult Time x
+  // Blacked"; the one named like the linked item wins, else the first
   public async findIdsByUrls(
     type: 'performer' | 'studio',
-    urls: string[]
+    urls: string[],
+    names: (string | undefined)[] = []
   ): Promise<(string | undefined)[]> {
     const field = type === 'performer' ? 'queryPerformers' : 'queryStudios';
     const items = type === 'performer' ? 'performers' : 'studios';
@@ -387,20 +390,30 @@ class StashDbAPI extends ExternalAPI {
     for (let start = 0; start < urls.length; start += URL_BATCH) {
       const batch = urls.slice(start, start + URL_BATCH);
       const data = await this.query<
-        Record<string, Record<string, { id: string }[]>>
+        Record<string, Record<string, { id: string; name: string }[]>>
       >(
         `query (${batch.map((_, i) => `$u${i}: String!`).join(', ')}) {
           ${batch
             .map(
               (_, i) =>
-                `u${i}: ${field}(input: { url: $u${i}, per_page: 1 }) { ${items} { id } }`
+                `u${i}: ${field}(input: { url: $u${i}, per_page: 10 }) { ${items} { id name } }`
             )
             .join('\n')}
         }`,
         Object.fromEntries(batch.map((url, i) => [`u${i}`, url])),
         DETAILS_TTL
       );
-      found.push(...batch.map((_, i) => data[`u${i}`]?.[items]?.[0]?.id));
+      found.push(
+        ...batch.map((_, i) => {
+          const candidates = data[`u${i}`]?.[items] ?? [];
+          const name = names[start + i]?.toLowerCase();
+          return (
+            candidates.find(
+              (candidate) => name && candidate.name.toLowerCase() === name
+            ) ?? candidates[0]
+          )?.id;
+        })
+      );
     }
 
     return found;
