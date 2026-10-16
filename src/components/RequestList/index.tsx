@@ -4,7 +4,6 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import Tooltip from '@app/components/Common/Tooltip';
 import RequestItem from '@app/components/RequestList/RequestItem';
-import SceneRequestItem from '@app/components/RequestList/SceneRequestItem';
 import useAdult from '@app/hooks/useAdult';
 import { useUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -328,17 +327,10 @@ const RequestList = () => {
       {data.results.map((request) => {
         return (
           <div className="py-2" key={`request-list-${request.id}`}>
-            {request.type === 'scene' || request.type === 'adultmovie' ? (
-              <SceneRequestItem
-                request={request}
-                revalidateList={() => revalidate()}
-              />
-            ) : (
-              <RequestItem
-                request={request}
-                revalidateList={() => revalidate()}
-              />
-            )}
+            <RequestItem
+              request={request}
+              revalidateList={() => revalidate()}
+            />
           </div>
         );
       })}

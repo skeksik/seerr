@@ -7,13 +7,14 @@ import Header from '@app/components/Common/Header';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import useDebouncedState from '@app/hooks/useDebouncedState';
+import useMediaTitle from '@app/hooks/useMediaTitle';
 import useToasts from '@app/hooks/useToasts';
 import { useUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
+import { isAdultMediaType } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
-import { stashImageUrl } from '@app/utils/stashImage';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -25,10 +26,6 @@ import type {
   BlocklistItem,
   BlocklistResultsResponse,
 } from '@server/interfaces/api/blocklistInterfaces';
-import type { AdultMovieDetails } from '@server/models/AdultMovie';
-import type { MovieDetails } from '@server/models/Movie';
-import type { SceneDetails } from '@server/models/Scene';
-import type { TvDetails } from '@server/models/Tv';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -269,45 +266,6 @@ interface BlocklistedItemProps {
   revalidateList: () => void;
 }
 
-// Poster and backdrop of a TMDB title, scene or adult movie
-const blocklistImages = (
-  title?: MovieDetails | TvDetails | SceneDetails | AdultMovieDetails
-): {
-  poster?: string;
-  backdrop?: string;
-  type: 'tmdb' | 'stashdb' | 'tpdb';
-} => {
-  if (!title) {
-    return { type: 'tmdb' };
-  }
-
-  if ('stashDbUrl' in title) {
-    return {
-      poster: stashImageUrl(title.imageUrl, 300),
-      backdrop: stashImageUrl(title.imageUrl, 1280),
-      type: 'stashdb',
-    };
-  }
-
-  if ('tpdbUrl' in title) {
-    return {
-      poster: title.posterUrl,
-      backdrop: title.backdropUrl ?? title.posterUrl,
-      type: 'tpdb',
-    };
-  }
-
-  return {
-    poster: title.posterPath
-      ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${title.posterPath}`
-      : undefined,
-    backdrop: title.backdropPath
-      ? `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${title.backdropPath}`
-      : undefined,
-    type: 'tmdb',
-  };
-};
-
 const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const { addToast } = useToasts();
@@ -318,26 +276,21 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
   const { hasPermission } = useUser();
 
   // Scenes and adult movies are keyed by their StashDB or ThePornDB UUID
-  const isAdultItem =
-    item.mediaType === 'scene' || item.mediaType === 'adultmovie';
-  const itemId = (isAdultItem ? item.externalId : item.tmdbId) ?? '';
-  const href = `/${item.mediaType}/${itemId}`;
-  const { data: title, error } = useSWR<
-    MovieDetails | TvDetails | SceneDetails | AdultMovieDetails
-  >(inView ? `/api/v1/${item.mediaType}/${itemId}` : null);
-  const titleName = !title
-    ? undefined
-    : 'title' in title
-      ? title.title
-      : title.name;
-  const year = !title
-    ? undefined
-    : 'firstAirDate' in title
-      ? title.firstAirDate
-      : (title as MovieDetails | SceneDetails | AdultMovieDetails).releaseDate;
-  const images = blocklistImages(title);
+  const isAdultItem = isAdultMediaType(item.mediaType);
+  const title = useMediaTitle(
+    {
+      mediaType: item.mediaType,
+      tmdbId: item.tmdbId,
+      stashId: item.externalId,
+      tpdbId: item.externalId,
+    },
+    inView,
+    300
+  );
+  const itemId = title.id ?? '';
+  const titleName = title.title;
 
-  if (!title && !error) {
+  if (!inView || title.loading) {
     return (
       <div
         className="h-64 w-full animate-pulse rounded-xl bg-gray-800 xl:h-28"
@@ -374,11 +327,11 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
 
   return (
     <div className="relative flex w-full flex-col justify-between overflow-hidden rounded-xl bg-gray-800 py-4 text-gray-400 shadow-md ring-1 ring-gray-700 xl:h-28 xl:flex-row">
-      {images.backdrop && (
+      {title.backdropUrl && (
         <div className="absolute inset-0 z-0 w-full bg-cover bg-center xl:w-2/3">
           <CachedImage
-            type={images.type}
-            src={images.backdrop}
+            type={title.imageType}
+            src={title.backdropUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
@@ -395,26 +348,26 @@ const BlocklistedItem = ({ item, revalidateList }: BlocklistedItemProps) => {
       <div className="relative flex w-full flex-col justify-between overflow-hidden sm:flex-row">
         <div className="relative z-10 flex w-full items-center overflow-hidden pl-4 pr-4 sm:pr-0 xl:w-7/12 2xl:w-2/3">
           <Link
-            href={href}
+            href={title.href}
             className={`relative h-auto flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105 ${
-              item.mediaType === 'scene' ? 'w-32' : 'w-12'
+              title.portrait ? 'w-12' : 'w-32'
             }`}
           >
             <CachedImage
-              type={images.poster ? images.type : 'tmdb'}
-              src={images.poster ?? '/images/seerr_poster_not_found.png'}
+              type={title.posterUrl ? title.imageType : 'tmdb'}
+              src={title.posterUrl ?? '/images/seerr_poster_not_found.png'}
               alt=""
               sizes="100vw"
               style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-              width={600}
-              height={item.mediaType === 'scene' ? 338 : 900}
+              width={title.portrait ? 600 : 640}
+              height={title.portrait ? 900 : 360}
             />
           </Link>
           <div className="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
             <div className="pt-0.5 text-xs font-medium text-white sm:pt-1">
-              {year?.slice(0, 4)}
+              {title.year}
             </div>
-            <Link href={href}>
+            <Link href={title.href}>
               <span className="mr-2 min-w-0 truncate text-lg font-bold text-white hover:underline xl:text-xl">
                 {titleName}
               </span>

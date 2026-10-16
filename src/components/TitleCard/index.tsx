@@ -6,13 +6,16 @@ import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
 import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
-import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
+import useBlocklistToggle from '@app/hooks/useBlocklistToggle';
 import { useIsTouch } from '@app/hooks/useIsTouch';
-import useToasts from '@app/hooks/useToasts';
 import { Permission, UserType, useUser } from '@app/hooks/useUser';
+import useWatchlistToggle from '@app/hooks/useWatchlistToggle';
 import globalMessages from '@app/i18n/globalMessages';
+import type { AdultMediaType } from '@app/utils/adultMedia';
+import { isAdultMediaType } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { withProperties } from '@app/utils/typeHelpers';
 import { Transition } from '@headlessui/react';
@@ -24,17 +27,11 @@ import {
   StarIcon,
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
-import type { Watchlist } from '@server/entity/Watchlist';
 import type { Orientation } from '@server/lib/orientation';
 import type { MediaType } from '@server/models/Search';
-import axios from 'axios';
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { mutate } from 'swr';
-
-// Scenes and adult movies are keyed by StashDB and ThePornDB UUIDs
-type AdultCardType = 'scene' | 'adultmovie';
 
 interface TitleCardProps {
   id: number | string;
@@ -42,11 +39,11 @@ interface TitleCardProps {
   image?: string;
   summary?: string;
   year?: string;
-  // Replaces the year line, e.g. studio and year for adult titles
+  // Line under the year, e.g. studio and year of adult titles
   subtitle?: string;
   title: string;
   userScore?: number;
-  mediaType: MediaType | AdultCardType;
+  mediaType: MediaType | AdultMediaType;
   // Adult TMDB movies get an Adult badge instead of the movie one
   isAdult?: boolean;
   status?: MediaStatus;
@@ -67,6 +64,15 @@ const messages = defineMessages('components.TitleCard', {
   watchlistCancel: 'watchlist for <strong>{title}</strong> canceled.',
   watchlistError: 'Something went wrong. Please try again.',
 });
+
+// Lines of title and summary; summaryCompact applies without a request
+// button. Wide scene cards are short, adult movie cards leave room for the
+// studio line
+const lineClamps = {
+  scene: { title: 1, summary: 1, summaryCompact: 2 },
+  adultmovie: { title: 2, summary: 2, summaryCompact: 2 },
+  default: { title: 3, summary: 3, summaryCompact: 5 },
+};
 
 const TitleCard = ({
   id,
@@ -91,19 +97,38 @@ const TitleCard = ({
   const [currentStatus, setCurrentStatus] = useState(status);
   const [showDetail, setShowDetail] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const { addToast } = useToasts();
-  const [toggleWatchlist, setToggleWatchlist] =
-    useState<boolean>(!isAddedToWatchlist);
   const [showBlocklistModal, setShowBlocklistModal] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const adultType: AdultCardType | undefined =
-    mediaType === 'scene' || mediaType === 'adultmovie' ? mediaType : undefined;
+  const adultType = isAdultMediaType(mediaType) ? mediaType : undefined;
   // Scene stills are landscape; everything else has portrait posters
   const isScene = mediaType === 'scene';
   const hasImage = !!image && !imageFailed;
-  // Watchlist and blocklist items name adult titles by their external id
-  const itemKey = adultType ? { externalId: id } : { tmdbId: id };
+  const clamps = lineClamps[adultType ?? 'default'];
+  const watchlist = useWatchlistToggle({
+    id,
+    mediaType,
+    title,
+    onWatchlist: !!isAddedToWatchlist,
+    messages: {
+      added: messages.watchlistSuccess,
+      removed: messages.watchlistDeleted,
+      error: messages.watchlistError,
+    },
+    onRemoved: mutateParent,
+  });
+  const blocklist = useBlocklistToggle({
+    id,
+    mediaType,
+    title,
+    onChange: (newStatus) => {
+      setCurrentStatus(newStatus);
+      if (mutateParent) {
+        mutateParent();
+      }
+    },
+  });
+  const showUpdating =
+    isUpdating || watchlist.isUpdating || blocklist.isUpdating;
 
   // Just to get the year from the date
   if (year) {
@@ -129,197 +154,9 @@ const TitleCard = ({
     []
   );
 
-  const onClickWatchlistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    try {
-      const response = await axios.post<Watchlist>('/api/v1/watchlist', {
-        ...itemKey,
-        mediaType,
-        ...(adultType ? {} : { title }),
-      });
-      mutate('/api/v1/discover/watchlist');
-      if (response.data) {
-        addToast(
-          <span>
-            {intl.formatMessage(messages.watchlistSuccess, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'success', autoDismiss: true }
-        );
-      }
-    } catch {
-      addToast(intl.formatMessage(messages.watchlistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    } finally {
-      setIsUpdating(false);
-      setToggleWatchlist((prevState) => !prevState);
-    }
-  };
-
-  const onClickDeleteWatchlistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    try {
-      const response = await axios.delete<Watchlist>(
-        `/api/v1/watchlist/${id}?mediaType=${mediaType}`
-      );
-
-      if (response.status === 204) {
-        addToast(
-          <span>
-            {intl.formatMessage(messages.watchlistDeleted, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'info', autoDismiss: true }
-        );
-      }
-    } catch {
-      addToast(intl.formatMessage(messages.watchlistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    } finally {
-      setIsUpdating(false);
-      mutate('/api/v1/discover/watchlist');
-      if (mutateParent) {
-        mutateParent();
-      }
-      setToggleWatchlist((prevState) => !prevState);
-    }
-  };
-
   const onClickHideItemBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    const topNode = cardRef.current;
-
-    if (topNode) {
-      try {
-        if (mediaType === 'collection') {
-          await axios.post(`/api/v1/blocklist/collection/${id}`);
-        } else {
-          await axios.post(
-            '/api/v1/blocklist',
-            adultType
-              ? { ...itemKey, mediaType }
-              : { tmdbId: id, mediaType, title, user: user?.id }
-          );
-        }
-        addToast(
-          <span>
-            {intl.formatMessage(globalMessages.blocklistSuccess, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'success', autoDismiss: true }
-        );
-        setCurrentStatus(MediaStatus.BLOCKLISTED);
-        if (mutateParent) {
-          mutateParent();
-        }
-      } catch (e) {
-        if (e?.response?.status === 412) {
-          addToast(
-            <span>
-              {intl.formatMessage(globalMessages.blocklistDuplicateError, {
-                title,
-                strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-              })}
-            </span>,
-            { appearance: 'info', autoDismiss: true }
-          );
-        } else {
-          addToast(intl.formatMessage(globalMessages.blocklistError), {
-            appearance: 'error',
-            autoDismiss: true,
-          });
-        }
-      }
-
-      setIsUpdating(false);
-      closeBlocklistModal();
-    } else {
-      addToast(intl.formatMessage(globalMessages.blocklistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    }
-  };
-
-  const onClickShowBlocklistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    const topNode = cardRef.current;
-
-    if (topNode) {
-      try {
-        if (mediaType === 'collection') {
-          const res = await axios.delete(`/api/v1/blocklist/collection/${id}`);
-
-          if (res.status === 204) {
-            addToast(
-              <span>
-                {intl.formatMessage(globalMessages.removeFromBlocklistSuccess, {
-                  title,
-                  strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-                })}
-              </span>,
-              { appearance: 'success', autoDismiss: true }
-            );
-            setCurrentStatus(MediaStatus.UNKNOWN);
-            if (mutateParent) {
-              mutateParent();
-            }
-          } else {
-            addToast(intl.formatMessage(globalMessages.blocklistError), {
-              appearance: 'error',
-              autoDismiss: true,
-            });
-          }
-        } else {
-          const res = await axios.delete(
-            `/api/v1/blocklist/${id}?mediaType=${mediaType}`
-          );
-
-          if (res.status === 204) {
-            addToast(
-              <span>
-                {intl.formatMessage(globalMessages.removeFromBlocklistSuccess, {
-                  title,
-                  strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-                })}
-              </span>,
-              { appearance: 'success', autoDismiss: true }
-            );
-            setCurrentStatus(MediaStatus.UNKNOWN);
-            if (mutateParent) {
-              mutateParent();
-            }
-          } else {
-            addToast(intl.formatMessage(globalMessages.blocklistError), {
-              appearance: 'error',
-              autoDismiss: true,
-            });
-          }
-        }
-      } catch {
-        addToast(intl.formatMessage(globalMessages.blocklistError), {
-          appearance: 'error',
-          autoDismiss: true,
-        });
-      }
-    } else {
-      addToast(intl.formatMessage(globalMessages.blocklistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    }
-
-    setIsUpdating(false);
+    await blocklist.blocklist();
+    closeBlocklistModal();
   };
 
   const closeModal = useCallback(() => setShowRequestModal(false), []);
@@ -357,51 +194,30 @@ const TitleCard = ({
   return (
     <div
       className={
-        canExpand ? 'w-full' : isScene ? 'w-64 sm:w-72' : 'w-36 sm:w-36 md:w-44'
+        canExpand
+          ? 'w-full'
+          : isScene
+            ? LANDSCAPE_CARD_WIDTH
+            : 'w-36 sm:w-36 md:w-44'
       }
       data-testid="title-card"
-      ref={cardRef}
     >
-      {adultType ? (
-        <Transition
-          as="div"
-          show={showRequestModal}
-          enter="transition-opacity duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition-opacity duration-300"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <SceneRequestModal
-            item={{
-              mediaType: adultType,
-              id: String(id),
-              title,
-              backdrop: image,
-              backdropType: isScene ? 'stashdb' : 'tpdb',
-            }}
-            onComplete={requestComplete}
-            onCancel={closeModal}
-          />
-        </Transition>
-      ) : (
-        <RequestModal
-          tmdbId={id as number}
-          show={showRequestModal}
-          type={tmdbType}
-          onComplete={requestComplete}
-          onUpdating={requestUpdating}
-          onCancel={closeModal}
-        />
-      )}
+      <RequestModal
+        {...(adultType
+          ? { type: adultType, externalId: String(id) }
+          : { type: tmdbType, tmdbId: id as number })}
+        show={showRequestModal}
+        onComplete={requestComplete}
+        onUpdating={requestUpdating}
+        onCancel={closeModal}
+      />
       <BlocklistModal
-        tmdbId={id}
+        id={id}
         type={adultType ?? tmdbType}
         show={showBlocklistModal}
         onCancel={closeBlocklistModal}
         onComplete={onClickHideItemBtn}
-        isUpdating={isUpdating}
+        isUpdating={showUpdating}
       />
       <div
         className={`group relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover outline-none ring-1 transition duration-300 ${
@@ -535,12 +351,12 @@ const TitleCard = ({
                 }`}
               >
                 {user?.userType !== UserType.PLEX &&
-                  (toggleWatchlist ? (
+                  (!watchlist.onWatchlist ? (
                     <Button
                       buttonType={'ghost'}
                       className="z-40"
                       buttonSize={'sm'}
-                      onClick={onClickWatchlistBtn}
+                      onClick={watchlist.add}
                     >
                       <StarIcon className={'h-3 text-amber-300'} />
                     </Button>
@@ -548,7 +364,7 @@ const TitleCard = ({
                     <Button
                       className="z-40"
                       buttonSize={'sm'}
-                      onClick={onClickDeleteWatchlistBtn}
+                      onClick={watchlist.remove}
                     >
                       <MinusCircleIcon className={'h-3'} />
                     </Button>
@@ -581,7 +397,7 @@ const TitleCard = ({
                     buttonType={'ghost'}
                     className="z-40"
                     buttonSize={'sm'}
-                    onClick={() => onClickShowBlocklistBtn()}
+                    onClick={() => blocklist.unblocklist()}
                   >
                     <EyeIcon className={'h-3'} />
                   </Button>
@@ -601,7 +417,7 @@ const TitleCard = ({
           </div>
           <Transition
             as={Fragment}
-            show={isUpdating}
+            show={showUpdating}
             enter="transition-opacity ease-in-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -644,31 +460,24 @@ const TitleCard = ({
                         : 'pb-11'
                     }`}
                   >
-                    {/* Scenes keep studio and year on one line for room */}
-                    {(isScene ? [subtitle || year] : [year, subtitle])
-                      .filter(Boolean)
-                      .map((line) => (
-                        <div
-                          key={line}
-                          // Long studio names end in an ellipsis; all of it
-                          // shows on hover
-                          title={line}
-                          className="truncate text-sm font-medium"
-                        >
-                          {line}
-                        </div>
-                      ))}
+                    {[year, subtitle].filter(Boolean).map((line) => (
+                      <div
+                        key={line}
+                        // Long studio names end in an ellipsis; all of it
+                        // shows on hover
+                        title={line}
+                        className="truncate text-sm font-medium"
+                      >
+                        {line}
+                      </div>
+                    ))}
 
                     <h1
                       className={`whitespace-normal font-bold leading-tight ${
                         isScene ? 'text-lg' : 'text-xl'
                       }`}
                       style={{
-                        WebkitLineClamp: isScene
-                          ? 1
-                          : mediaType === 'adultmovie'
-                            ? 2
-                            : 3,
+                        WebkitLineClamp: clamps.title,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',
@@ -686,16 +495,8 @@ const TitleCard = ({
                           (currentStatus &&
                             currentStatus !== MediaStatus.UNKNOWN &&
                             currentStatus !== MediaStatus.DELETED)
-                            ? isScene
-                              ? 2
-                              : mediaType === 'adultmovie'
-                                ? 2
-                                : 5
-                            : isScene
-                              ? 1
-                              : mediaType === 'adultmovie'
-                                ? 2
-                                : 3,
+                            ? clamps.summaryCompact
+                            : clamps.summary,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

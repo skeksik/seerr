@@ -3,7 +3,7 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import Tooltip from '@app/components/Common/Tooltip';
 import { issueOptions } from '@app/components/IssueModal/constants';
-import useIssueMedia from '@app/hooks/useIssueMedia';
+import useMediaTitle from '@app/hooks/useMediaTitle';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
@@ -37,7 +37,7 @@ const IssueItem = ({ issue }: IssueItemProps) => {
   const { ref, inView } = useInView({
     triggerOnce: true,
   });
-  const title = useIssueMedia(issue.media, inView);
+  const title = useMediaTitle(issue.media, inView);
 
   if (!inView || title.loading) {
     return (

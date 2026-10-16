@@ -1,5 +1,6 @@
 import CachedImage from '@app/components/Common/CachedImage';
 import TitleCard from '@app/components/TitleCard';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import defineMessages from '@app/utils/defineMessages';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/solid';
 import Link from 'next/link';
@@ -26,7 +27,7 @@ const ShowMoreCard = ({
   imageType = 'tmdb',
   landscape = false,
 }: ShowMoreCardProps) => {
-  const width = landscape ? 'w-64 sm:w-72' : 'w-36 sm:w-36 md:w-44';
+  const width = landscape ? LANDSCAPE_CARD_WIDTH : 'w-36 sm:w-36 md:w-44';
   const intl = useIntl();
   const [isHovered, setHovered] = useState(false);
   const { ref, inView } = useInView({
@@ -36,14 +37,7 @@ const ShowMoreCard = ({
   if (!inView) {
     return (
       <div ref={ref}>
-        {landscape ? (
-          <div
-            className={`${width} animate-pulse rounded-xl bg-gray-700`}
-            style={{ aspectRatio: '16 / 9' }}
-          />
-        ) : (
-          <TitleCard.Placeholder />
-        )}
+        <TitleCard.Placeholder landscape={landscape} />
       </div>
     );
   }

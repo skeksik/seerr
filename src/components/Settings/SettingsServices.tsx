@@ -10,6 +10,7 @@ import OverrideRuleModal from '@app/components/Settings/OverrideRule/OverrideRul
 import OverrideRuleTiles from '@app/components/Settings/OverrideRule/OverrideRuleTiles';
 import RadarrModal from '@app/components/Settings/RadarrModal';
 import SonarrModal from '@app/components/Settings/SonarrModal';
+import { useSafeMode } from '@app/hooks/useAdult';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
@@ -210,6 +211,10 @@ export const ServerInstance = ({
   );
 };
 
+// One empty list, so the override rule tiles don't test the servers again
+// on every render
+const noServers: WhisparrSettings[] = [];
+
 interface SettingsServicesProps {
   // More servers, shown above the override rules that apply to them
   extraServices?: React.ReactNode;
@@ -227,9 +232,12 @@ const SettingsServices = ({ extraServices }: SettingsServicesProps) => {
     error: sonarrError,
     mutate: revalidateSonarr,
   } = useSWR<SonarrSettings[]>('/api/v1/settings/sonarr');
-  const { data: whisparrData } = useSWR<WhisparrSettings[]>(
-    '/api/v1/settings/whisparr'
+  // Safe mode hides the Whisparr servers; override rules don't wait for them
+  const safeMode = useSafeMode();
+  const { data: whisparrServers } = useSWR<WhisparrSettings[]>(
+    safeMode ? null : '/api/v1/settings/whisparr'
   );
+  const whisparrData = whisparrServers ?? noServers;
   const { data: rules, mutate: revalidate } =
     useSWR<OverrideRuleResultsResponse>('/api/v1/overrideRule');
   const [editRadarrModal, setEditRadarrModal] = useState<{
@@ -527,7 +535,7 @@ const SettingsServices = ({ extraServices }: SettingsServicesProps) => {
       </div>
       <div className="section">
         <ul className="grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-          {rules && radarrData && sonarrData && whisparrData && (
+          {rules && radarrData && sonarrData && (
             <OverrideRuleTiles
               rules={rules}
               radarrServices={radarrData}
@@ -560,7 +568,7 @@ const SettingsServices = ({ extraServices }: SettingsServicesProps) => {
           </li>
         </ul>
       </div>
-      {overrideRuleModal.open && radarrData && sonarrData && whisparrData && (
+      {overrideRuleModal.open && radarrData && sonarrData && (
         <OverrideRuleModal
           rule={overrideRuleModal.rule}
           onClose={() => {

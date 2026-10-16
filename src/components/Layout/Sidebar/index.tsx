@@ -218,44 +218,42 @@ const Sidebar = ({
                       </span>
                     </div>
                     <nav className="mt-10 flex-1 space-y-4 px-4">
-                      {SidebarLinks.filter(
-                        (link) => !link.requiresAdult || canViewAdult
-                      )
-                        .filter((link) =>
-                          link.requiredPermission
+                      {SidebarLinks.filter((link) =>
+                        link.requiresAdult && !canViewAdult
+                          ? false
+                          : link.requiredPermission
                             ? hasPermission(link.requiredPermission, {
                                 type: link.permissionType ?? 'and',
                               })
                             : true
-                        )
-                        .map((sidebarLink) => {
-                          return (
-                            <Link
-                              key={`mobile-${sidebarLink.messagesKey}`}
-                              href={sidebarLink.href}
-                              as={sidebarLink.as}
-                              onClick={() => setClosed()}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  setClosed();
-                                }
-                              }}
-                              role="button"
-                              tabIndex={0}
-                              className={`flex items-center rounded-md px-2 py-2 text-base font-medium leading-6 text-white transition duration-150 ease-in-out focus:outline-none ${
-                                router.pathname.match(sidebarLink.activeRegExp)
-                                  ? 'bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
-                                  : 'hover:bg-gray-700 focus:bg-gray-700'
-                              } `}
-                              data-testid={`${sidebarLink.dataTestId}-mobile`}
-                            >
-                              {sidebarLink.svgIcon}
-                              {intl.formatMessage(
-                                menuMessages[sidebarLink.messagesKey]
-                              )}
-                            </Link>
-                          );
-                        })}
+                      ).map((sidebarLink) => {
+                        return (
+                          <Link
+                            key={`mobile-${sidebarLink.messagesKey}`}
+                            href={sidebarLink.href}
+                            as={sidebarLink.as}
+                            onClick={() => setClosed()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                setClosed();
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            className={`flex items-center rounded-md px-2 py-2 text-base font-medium leading-6 text-white transition duration-150 ease-in-out focus:outline-none ${
+                              router.pathname.match(sidebarLink.activeRegExp)
+                                ? 'bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
+                                : 'hover:bg-gray-700 focus:bg-gray-700'
+                            } `}
+                            data-testid={`${sidebarLink.dataTestId}-mobile`}
+                          >
+                            {sidebarLink.svgIcon}
+                            {intl.formatMessage(
+                              menuMessages[sidebarLink.messagesKey]
+                            )}
+                          </Link>
+                        );
+                      })}
                     </nav>
                     {hasPermission(Permission.ADMIN) && (
                       <div className="px-2">
@@ -290,70 +288,64 @@ const Sidebar = ({
                 </span>
               </div>
               <nav className="mt-8 flex-1 space-y-4 px-4">
-                {SidebarLinks.filter(
-                  (link) => !link.requiresAdult || canViewAdult
-                )
-                  .filter((link) =>
-                    link.requiredPermission
+                {SidebarLinks.filter((link) =>
+                  link.requiresAdult && !canViewAdult
+                    ? false
+                    : link.requiredPermission
                       ? hasPermission(link.requiredPermission, {
                           type: link.permissionType ?? 'and',
                         })
                       : true
-                  )
-                  .map((sidebarLink) => {
-                    return (
-                      <Link
-                        key={`desktop-${sidebarLink.messagesKey}`}
-                        href={sidebarLink.href}
-                        as={sidebarLink.as}
-                        className={`group flex items-center rounded-md px-2 py-2 text-lg font-medium leading-6 text-white transition duration-150 ease-in-out focus:outline-none ${
-                          router.pathname.match(sidebarLink.activeRegExp)
-                            ? 'bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
-                            : 'hover:bg-gray-700 focus:bg-gray-700'
-                        } `}
-                        data-testid={sidebarLink.dataTestId}
-                      >
-                        {sidebarLink.svgIcon}
-                        {intl.formatMessage(
-                          menuMessages[sidebarLink.messagesKey]
+                ).map((sidebarLink) => {
+                  return (
+                    <Link
+                      key={`desktop-${sidebarLink.messagesKey}`}
+                      href={sidebarLink.href}
+                      as={sidebarLink.as}
+                      className={`group flex items-center rounded-md px-2 py-2 text-lg font-medium leading-6 text-white transition duration-150 ease-in-out focus:outline-none ${
+                        router.pathname.match(sidebarLink.activeRegExp)
+                          ? 'bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
+                          : 'hover:bg-gray-700 focus:bg-gray-700'
+                      } `}
+                      data-testid={sidebarLink.dataTestId}
+                    >
+                      {sidebarLink.svgIcon}
+                      {intl.formatMessage(
+                        menuMessages[sidebarLink.messagesKey]
+                      )}
+                      {sidebarLink.messagesKey === 'requests' &&
+                        pendingRequestsCount > 0 &&
+                        hasPermission(Permission.MANAGE_REQUESTS) && (
+                          <div className="ml-auto flex">
+                            <Badge
+                              className={`rounded-md bg-gradient-to-br ${
+                                router.pathname.match(sidebarLink.activeRegExp)
+                                  ? 'border-indigo-600 from-indigo-700 to-purple-700'
+                                  : 'border-indigo-500 from-indigo-600 to-purple-600'
+                              }`}
+                            >
+                              {pendingRequestsCount}
+                            </Badge>
+                          </div>
                         )}
-                        {sidebarLink.messagesKey === 'requests' &&
-                          pendingRequestsCount > 0 &&
-                          hasPermission(Permission.MANAGE_REQUESTS) && (
-                            <div className="ml-auto flex">
-                              <Badge
-                                className={`rounded-md bg-gradient-to-br ${
-                                  router.pathname.match(
-                                    sidebarLink.activeRegExp
-                                  )
-                                    ? 'border-indigo-600 from-indigo-700 to-purple-700'
-                                    : 'border-indigo-500 from-indigo-600 to-purple-600'
-                                }`}
-                              >
-                                {pendingRequestsCount}
-                              </Badge>
-                            </div>
-                          )}
-                        {sidebarLink.messagesKey === 'issues' &&
-                          openIssuesCount > 0 &&
-                          hasPermission(Permission.MANAGE_ISSUES) && (
-                            <div className="ml-auto flex">
-                              <Badge
-                                className={`rounded-md bg-gradient-to-br ${
-                                  router.pathname.match(
-                                    sidebarLink.activeRegExp
-                                  )
-                                    ? 'border-indigo-600 from-indigo-700 to-purple-700'
-                                    : 'border-indigo-500 from-indigo-600 to-purple-600'
-                                }`}
-                              >
-                                {openIssuesCount}
-                              </Badge>
-                            </div>
-                          )}
-                      </Link>
-                    );
-                  })}
+                      {sidebarLink.messagesKey === 'issues' &&
+                        openIssuesCount > 0 &&
+                        hasPermission(Permission.MANAGE_ISSUES) && (
+                          <div className="ml-auto flex">
+                            <Badge
+                              className={`rounded-md bg-gradient-to-br ${
+                                router.pathname.match(sidebarLink.activeRegExp)
+                                  ? 'border-indigo-600 from-indigo-700 to-purple-700'
+                                  : 'border-indigo-500 from-indigo-600 to-purple-600'
+                              }`}
+                            >
+                              {openIssuesCount}
+                            </Badge>
+                          </div>
+                        )}
+                    </Link>
+                  );
+                })}
               </nav>
               {hasPermission(Permission.ADMIN) && (
                 <div className="px-2">

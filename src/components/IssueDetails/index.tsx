@@ -8,7 +8,7 @@ import IssueComment from '@app/components/IssueDetails/IssueComment';
 import IssueDescription from '@app/components/IssueDetails/IssueDescription';
 import { issueOptions } from '@app/components/IssueModal/constants';
 import useDeepLinks from '@app/hooks/useDeepLinks';
-import useIssueMedia from '@app/hooks/useIssueMedia';
+import useMediaTitle from '@app/hooks/useMediaTitle';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -81,7 +81,7 @@ const IssueDetails = () => {
   const { data: issueData, mutate: revalidateIssue } = useSWR<Issue>(
     `/api/v1/issue/${router.query.issueId}`
   );
-  const media = useIssueMedia(issueData?.media, !!issueData);
+  const media = useMediaTitle(issueData?.media, !!issueData);
 
   const { mediaUrl, mediaUrl4k } = useDeepLinks({
     mediaUrl: media.mediaInfo?.mediaUrl,

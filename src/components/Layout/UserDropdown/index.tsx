@@ -1,7 +1,9 @@
 import CachedImage from '@app/components/Common/CachedImage';
 import MiniQuotaDisplay from '@app/components/Layout/UserDropdown/MiniQuotaDisplay';
 import { useAdultAllowed } from '@app/hooks/useAdult';
+import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
+import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { unsubscribeToPushNotifications } from '@app/utils/pushSubscriptionHelpers';
 import {
@@ -58,10 +60,57 @@ const ForwardedLink = forwardRef<
 
 ForwardedLink.displayName = 'ForwardedLink';
 
+// Lists fetched with the old setting still hold adult titles; the details
+// behind each card stay the same
+const listKey =
+  /\/api\/v1\/(discover|search|request|media|user\/\d+\/(requests|watchlist))|\/(discover|search|similar|recommendations|combined_credits|studios)\b/;
+
+interface ToggleMenuItemProps {
+  icon: React.ReactNode;
+  label: string;
+  on: boolean;
+  onToggle: () => void;
+}
+
+// A menu entry that flips a setting and shows whether it is on
+const ToggleMenuItem = ({ icon, label, on, onToggle }: ToggleMenuItemProps) => {
+  const intl = useIntl();
+
+  return (
+    <MenuItem>
+      {({ active }) => (
+        <button
+          type="button"
+          className={`flex w-full items-center rounded px-4 py-2 text-sm font-medium text-gray-200 transition duration-150 ease-in-out ${
+            active
+              ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white'
+              : ''
+          }`}
+          onClick={(e) => {
+            e.preventDefault();
+            onToggle();
+          }}
+        >
+          {icon}
+          <span className="flex-1 text-left">{label}</span>
+          <span
+            className={`rounded-full px-2 text-xs ${
+              on ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-200'
+            }`}
+          >
+            {intl.formatMessage(on ? messages.on : messages.off)}
+          </span>
+        </button>
+      )}
+    </MenuItem>
+  );
+};
+
 const UserDropdown = () => {
   const intl = useIntl();
   const { user, revalidate, hasPermission } = useUser();
   const adultAllowed = useAdultAllowed();
+  const { addToast } = useToasts();
 
   const toggleAdultSetting = async (
     key: 'adultSafeMode' | 'blurAdultImages'
@@ -70,12 +119,19 @@ const UserDropdown = () => {
       return;
     }
 
-    await axios.post(`/api/v1/user/${user.id}/settings/adult`, {
-      [key]: !user.settings?.[key],
-    });
+    try {
+      await axios.post(`/api/v1/user/${user.id}/settings/adult`, {
+        [key]: !user.settings?.[key],
+      });
+    } catch {
+      addToast(intl.formatMessage(globalMessages.error), {
+        appearance: 'error',
+        autoDismiss: true,
+      });
+      return;
+    }
     await revalidate();
-    // Lists fetched with the old setting still hold adult titles
-    mutate(() => true);
+    mutate((key) => typeof key === 'string' && listKey.test(key));
   };
 
   const logout = async () => {
@@ -228,75 +284,19 @@ const UserDropdown = () => {
               </MenuItem>
               {adultAllowed && (
                 <>
-                  <MenuItem>
-                    {({ active }) => (
-                      <button
-                        type="button"
-                        className={`flex w-full items-center rounded px-4 py-2 text-sm font-medium text-gray-200 transition duration-150 ease-in-out ${
-                          active
-                            ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white'
-                            : ''
-                        }`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleAdultSetting('adultSafeMode');
-                        }}
-                      >
-                        <EyeSlashIcon className="mr-2 inline h-5 w-5" />
-                        <span className="flex-1 text-left">
-                          {intl.formatMessage(messages.safeMode)}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 text-xs ${
-                            user?.settings?.adultSafeMode
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-600 text-gray-200'
-                          }`}
-                        >
-                          {intl.formatMessage(
-                            user?.settings?.adultSafeMode
-                              ? messages.on
-                              : messages.off
-                          )}
-                        </span>
-                      </button>
-                    )}
-                  </MenuItem>
+                  <ToggleMenuItem
+                    icon={<EyeSlashIcon className="mr-2 inline h-5 w-5" />}
+                    label={intl.formatMessage(messages.safeMode)}
+                    on={!!user?.settings?.adultSafeMode}
+                    onToggle={() => toggleAdultSetting('adultSafeMode')}
+                  />
                   {!user?.settings?.adultSafeMode && (
-                    <MenuItem>
-                      {({ active }) => (
-                        <button
-                          type="button"
-                          className={`flex w-full items-center rounded px-4 py-2 text-sm font-medium text-gray-200 transition duration-150 ease-in-out ${
-                            active
-                              ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white'
-                              : ''
-                          }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleAdultSetting('blurAdultImages');
-                          }}
-                        >
-                          <EyeIcon className="mr-2 inline h-5 w-5" />
-                          <span className="flex-1 text-left">
-                            {intl.formatMessage(messages.blurAdult)}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 text-xs ${
-                              user?.settings?.blurAdultImages
-                                ? 'bg-green-600 text-white'
-                                : 'bg-gray-600 text-gray-200'
-                            }`}
-                          >
-                            {intl.formatMessage(
-                              user?.settings?.blurAdultImages
-                                ? messages.on
-                                : messages.off
-                            )}
-                          </span>
-                        </button>
-                      )}
-                    </MenuItem>
+                    <ToggleMenuItem
+                      icon={<EyeIcon className="mr-2 inline h-5 w-5" />}
+                      label={intl.formatMessage(messages.blurAdult)}
+                      on={!!user?.settings?.blurAdultImages}
+                      onToggle={() => toggleAdultSetting('blurAdultImages')}
+                    />
                   )}
                 </>
               )}

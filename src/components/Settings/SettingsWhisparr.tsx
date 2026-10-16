@@ -2,8 +2,8 @@ import Alert from '@app/components/Common/Alert';
 import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import Modal from '@app/components/Common/Modal';
+import RadarrModal from '@app/components/Settings/RadarrModal';
 import { ServerInstance } from '@app/components/Settings/SettingsServices';
-import WhisparrModal from '@app/components/Settings/WhisparrModal';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
@@ -54,8 +54,9 @@ const SettingsWhisparr = () => {
         </p>
       </div>
       {editModal.open && (
-        <WhisparrModal
-          whisparr={editModal.whisparr}
+        <RadarrModal
+          service="whisparr"
+          radarr={editModal.whisparr}
           onClose={() => setEditModal({ open: false, whisparr: null })}
           onSave={() => {
             mutate();

@@ -1,8 +1,10 @@
 import Button from '@app/components/Common/Button';
 import Tooltip from '@app/components/Common/Tooltip';
-import ManageSlideOver from '@app/components/ManageSlideOver';
+import ManageSlideOver, {
+  messages as manageMessages,
+} from '@app/components/ManageSlideOver';
 import { Permission, useUser } from '@app/hooks/useUser';
-import defineMessages from '@app/utils/defineMessages';
+import { mediaTypeMessage } from '@app/utils/adultMedia';
 import { CogIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { AdultMovieDetails } from '@server/models/AdultMovie';
@@ -10,11 +12,6 @@ import type { SceneDetails } from '@server/models/Scene';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-
-const messages = defineMessages('components.AdultMediaActions', {
-  managescene: 'Manage Scene',
-  manageadultmovie: 'Manage Adult Movie',
-});
 
 type AdultManageButtonProps =
   | { mediaType: 'scene'; data: SceneDetails; revalidate: () => void }
@@ -65,11 +62,9 @@ const AdultManageButton = (props: AdultManageButtonProps) => {
         onClose={() => setShowManager(false)}
       />
       <Tooltip
-        content={intl.formatMessage(
-          props.mediaType === 'scene'
-            ? messages.managescene
-            : messages.manageadultmovie
-        )}
+        content={intl.formatMessage(manageMessages.manageModalTitle, {
+          mediaType: intl.formatMessage(mediaTypeMessage(props.mediaType)),
+        })}
       >
         <Button
           buttonType="ghost"

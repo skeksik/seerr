@@ -1,25 +1,23 @@
 import Button from '@app/components/Common/Button';
 import Modal from '@app/components/Common/Modal';
 import { issueOptions } from '@app/components/IssueModal/constants';
+import type { MediaTitleDetails } from '@app/hooks/useMediaTitle';
+import useMediaTitle from '@app/hooks/useMediaTitle';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
-import { stashImageUrl } from '@app/utils/stashImage';
 import { Label, Radio, RadioGroup } from '@headlessui/react';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/solid';
 import { MediaStatus } from '@server/constants/media';
 import type Issue from '@server/entity/Issue';
-import type { AdultMovieDetails } from '@server/models/AdultMovie';
-import type { MovieDetails } from '@server/models/Movie';
-import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
 import Link from 'next/link';
 import { useIntl } from 'react-intl';
-import useSWR, { mutate } from 'swr';
+import { mutate } from 'swr';
 import * as Yup from 'yup';
 
 const messages = defineMessages('components.IssueModal.CreateIssueModal', {
@@ -42,45 +40,8 @@ const messages = defineMessages('components.IssueModal.CreateIssueModal', {
   submitissue: 'Submit Issue',
 });
 
-type IssueMediaDetails =
-  | MovieDetails
-  | TvDetails
-  | SceneDetails
-  | AdultMovieDetails;
-
-const isTv = (media: IssueMediaDetails): media is TvDetails =>
+const isTv = (media: MediaTitleDetails): media is TvDetails =>
   (media as TvDetails).name !== undefined;
-
-// Scenes and adult movies use their own image hosts for the backdrop
-const backdropFor = (
-  mediaType: CreateIssueModalProps['mediaType'],
-  data?: IssueMediaDetails
-): { backdrop?: string; backdropType: 'tmdb' | 'stashdb' | 'tpdb' } => {
-  if (mediaType === 'scene') {
-    return {
-      backdrop: stashImageUrl(
-        (data as SceneDetails | undefined)?.imageUrl,
-        1280
-      ),
-      backdropType: 'stashdb',
-    };
-  }
-
-  if (mediaType === 'adultmovie') {
-    const movie = data as AdultMovieDetails | undefined;
-    return {
-      backdrop: movie?.backdropUrl ?? movie?.posterUrl,
-      backdropType: 'tpdb',
-    };
-  }
-
-  return {
-    backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
-      (data as MovieDetails | TvDetails | undefined)?.backdropPath
-    }`,
-    backdropType: 'tmdb',
-  };
-};
 
 const classNames = (...classes: string[]) => {
   return classes.filter(Boolean).join(' ');
@@ -104,17 +65,19 @@ const CreateIssueModal = ({
   const settings = useSettings();
   const { hasPermission } = useUser();
   const { addToast } = useToasts();
-  const id =
-    mediaType === 'scene' || mediaType === 'adultmovie' ? externalId : tmdbId;
-  const { data, error } = useSWR<IssueMediaDetails>(
-    id ? `/api/v1/${mediaType}/${id}` : null
-  );
+  const media = useMediaTitle({
+    mediaType,
+    tmdbId,
+    stashId: externalId,
+    tpdbId: externalId,
+  });
+  const data = media.details;
 
-  if (!id) {
+  if (!media.id) {
     return null;
   }
 
-  const title = data && (isTv(data) ? data.name : data.title);
+  const title = media.title;
 
   const availableSeasons = (
     data && isTv(data) ? (data.mediaInfo?.seasons ?? []) : []
@@ -204,8 +167,9 @@ const CreateIssueModal = ({
             cancelText={intl.formatMessage(globalMessages.close)}
             onOk={() => handleSubmit()}
             okText={intl.formatMessage(messages.submitissue)}
-            loading={!data && !error}
-            {...backdropFor(mediaType, data)}
+            loading={media.loading}
+            backdrop={media.backdropUrl}
+            backdropType={media.imageType}
           >
             {mediaType === 'tv' && data && isTv(data) && (
               <>

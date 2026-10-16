@@ -100,6 +100,10 @@ const UserGeneralSettings = () => {
   });
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
   const { currentSettings } = useSettings();
+  // Adult rows show when adult content is on, the viewer is out of safe mode
+  // and the edited user may see it
+  const showAdult =
+    currentSettings.enableAdult && !safeMode && hasPermission(Permission.ADULT);
   const {
     data,
     error,
@@ -449,43 +453,37 @@ const UserGeneralSettings = () => {
                   </div>
                 </div>
               </div>
-              {currentSettings.enableAdult &&
-                !safeMode &&
-                hasPermission(Permission.ADULT) && (
-                  <div className="form-row">
-                    <label className="text-label">
-                      <span>
-                        {intl.formatMessage(messages.sexualPreferences)}
-                      </span>
-                      <span className="label-tip">
-                        {intl.formatMessage(messages.sexualPreferencesTip)}
-                      </span>
-                    </label>
-                    <div className="form-input-area">
-                      <OrientationSelector
-                        options={ORIENTATIONS.filter(
-                          (value) =>
-                            !values.disabledOrientations.includes(value)
-                        )}
-                        selected={ORIENTATIONS.filter(
-                          (value) =>
-                            !values.uncheckedOrientations.includes(value)
-                        )}
-                        onChange={(selected) =>
-                          setFieldValue(
-                            'uncheckedOrientations',
-                            ORIENTATIONS.filter(
-                              (value) => !selected.includes(value)
-                            )
+              {showAdult && (
+                <div className="form-row">
+                  <label className="text-label">
+                    <span>
+                      {intl.formatMessage(messages.sexualPreferences)}
+                    </span>
+                    <span className="label-tip">
+                      {intl.formatMessage(messages.sexualPreferencesTip)}
+                    </span>
+                  </label>
+                  <div className="form-input-area">
+                    <OrientationSelector
+                      options={ORIENTATIONS.filter(
+                        (value) => !values.disabledOrientations.includes(value)
+                      )}
+                      selected={ORIENTATIONS.filter(
+                        (value) => !values.uncheckedOrientations.includes(value)
+                      )}
+                      onChange={(selected) =>
+                        setFieldValue(
+                          'uncheckedOrientations',
+                          ORIENTATIONS.filter(
+                            (value) => !selected.includes(value)
                           )
-                        }
-                      />
-                    </div>
+                        )
+                      }
+                    />
                   </div>
-                )}
-              {currentSettings.enableAdult &&
-                !safeMode &&
-                hasPermission(Permission.ADULT) &&
+                </div>
+              )}
+              {showAdult &&
                 currentHasPermission(Permission.MANAGE_USERS) &&
                 !hasPermission(Permission.MANAGE_USERS) && (
                   <div className="form-row">
@@ -600,7 +598,7 @@ const UserGeneralSettings = () => {
                         </div>
                       </div>
                     </div>
-                    {currentSettings.enableAdult && !safeMode && (
+                    {showAdult && (
                       <div className="form-row">
                         <label htmlFor="sceneQuotaLimit" className="text-label">
                           <span>
