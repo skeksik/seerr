@@ -26,8 +26,9 @@ interface GraphqlResponse<T> {
 
 const PAGE_SIZE = 1000;
 
-const SCENE_FIELDS =
-  'id title created_at stash_ids { endpoint stash_id } files { path }';
+const SCENE_FIELDS = 'id title created_at stash_ids { endpoint stash_id }';
+// Unidentified scenes match on their folder name
+const SCENE_FILE_FIELDS = `${SCENE_FIELDS} files { path }`;
 
 // Stash stores the endpoint as typed by the user; compare loosely
 export const normalizeEndpoint = (endpoint: string): string =>
@@ -106,7 +107,10 @@ class StashAPI extends ExternalAPI {
     return data.version.version;
   }
 
-  private async findAllScenes(sceneFilter: string): Promise<StashScene[]> {
+  private async findAllScenes(
+    sceneFilter: string,
+    fields = SCENE_FIELDS
+  ): Promise<StashScene[]> {
     const scenes: StashScene[] = [];
 
     for (let page = 1; ; page++) {
@@ -117,7 +121,7 @@ class StashAPI extends ExternalAPI {
           findScenes(
             scene_filter: ${sceneFilter}
             filter: { page: $page, per_page: $perPage, sort: "id", direction: ASC }
-          ) { count scenes { ${SCENE_FIELDS} } }
+          ) { count scenes { ${fields} } }
         }`,
         { page, perPage: PAGE_SIZE }
       );
@@ -140,7 +144,10 @@ class StashAPI extends ExternalAPI {
 
   // Scenes Stash has not identified yet, e.g. fresh Whisparr downloads
   public async getUnidentifiedScenes(): Promise<StashScene[]> {
-    return this.findAllScenes('{ stash_id_endpoint: { modifier: IS_NULL } }');
+    return this.findAllScenes(
+      '{ stash_id_endpoint: { modifier: IS_NULL } }',
+      SCENE_FILE_FIELDS
+    );
   }
 
   public async getScene(id: string): Promise<StashScene | null> {

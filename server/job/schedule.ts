@@ -185,6 +185,13 @@ export const startJobs = (): void => {
     interval: 'minutes',
     cronSchedule: jobs['stash-scan'].schedule,
     job: schedule.scheduleJob(jobs['stash-scan'].schedule, () => {
+      // Runs often; a new run would abort one still going
+      if (stashScanner.status().running) {
+        logger.debug('Stash Scan is still running, skipping this run', {
+          label: 'Jobs',
+        });
+        return;
+      }
       logger.info('Starting scheduled job: Stash Scan', { label: 'Jobs' });
       stashScanner.run();
     }),

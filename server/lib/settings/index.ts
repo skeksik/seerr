@@ -71,7 +71,6 @@ export interface StashDbSettings {
   apiKey: string;
 }
 
-// Stash is a companion library for scenes, not a login media server
 // ThePornDB's REST API. Its stash-box GraphQL endpoint finds movies but
 // returns no lists, which browsing needs
 export interface TpdbSettings {
@@ -79,6 +78,7 @@ export interface TpdbSettings {
   apiKey: string;
 }
 
+// Stash is a companion library for scenes, not a login media server.
 // Entered like the Jellyfin server, address part by part
 export interface StashSettings {
   hostname: string;
@@ -649,7 +649,7 @@ class Settings {
           schedule: '0 30 4 * * *',
         },
         'whisparr-scan': {
-          schedule: '0 0 5 * * *',
+          schedule: '0 45 4 * * *',
         },
         'stash-scan': {
           schedule: '0 */15 * * * *',
