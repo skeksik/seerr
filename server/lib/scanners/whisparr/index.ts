@@ -32,16 +32,16 @@ type SyncStatus = StatusBase & {
   servers: WhisparrSettings[];
 };
 
-// Links scenes and adult movies to Whisparr and marks them available once
-// Whisparr has their file. Only titles requested through Seerr show as
-// processing: performer and studio monitoring adds many more, which stay
-// requestable like a series Sonarr follows. Only monitored items are
-// scanned; see WhisparrAPI.getMonitoredItems. Servers flagged 4K hold the 4K
-// versions, like 4K Radarr servers do for movies.
+// Tracks scenes and adult movies in Whisparr the way the Radarr scan tracks
+// movies, whoever added them: monitored titles without a file are
+// processing, titles with a file available. Only monitored items are listed;
+// see WhisparrAPI.getMonitoredItems. Servers flagged 4K hold the 4K versions,
+// like 4K Radarr servers do for movies.
 //
-// Like the Radarr scan, requested titles that Whisparr removed, or that went
-// unmonitored without a file, are reset and their approved requests declined
-// once every server of their tier was scanned; see cleanupOrphanedMedia.
+// Like the Radarr scan, titles still processing that Whisparr removed, or
+// that went unmonitored without a file, are reset and their approved
+// requests declined once every server of their tier was scanned; see
+// cleanupOrphanedMedia. Available titles are left to the availability sync.
 class WhisparrScanner
   extends BaseScanner<WhisparrItem>
   implements RunnableScanner<SyncStatus>
@@ -49,8 +49,6 @@ class WhisparrScanner
   private servers: WhisparrSettings[] = [];
   private currentServer: WhisparrSettings;
   // Read once per server, so items mostly need no queries of their own
-  private requestedIds = new Set<number>();
-  private requested4kIds = new Set<number>();
   private adultMedia = new Map<string, Media>();
   // Titles each tier's servers monitor, keyed like adultMedia
   private scannedKeys = new Set<string>();
@@ -156,8 +154,6 @@ class WhisparrScanner
       this.log('Scan interrupted', 'error', { errorMessage: e.message });
     } finally {
       if (this.sessionId === sessionId) {
-        this.requestedIds.clear();
-        this.requested4kIds.clear();
         this.adultMedia.clear();
       }
       this.endRun(sessionId);
@@ -165,22 +161,10 @@ class WhisparrScanner
   }
 
   private async preload(): Promise<void> {
-    const [requested, adult] = await Promise.all([
-      getRepository(Media).query(
-        'SELECT DISTINCT "mediaId", "is4k" FROM media_request'
-      ) as Promise<{ mediaId: number; is4k: boolean | number }[]>,
-      getRepository(Media).find({
-        where: { mediaType: In([MediaType.SCENE, MediaType.ADULT_MOVIE]) },
-      }),
-    ]);
+    const adult = await getRepository(Media).find({
+      where: { mediaType: In([MediaType.SCENE, MediaType.ADULT_MOVIE]) },
+    });
 
-    // SQLite returns booleans as 0 and 1
-    this.requestedIds = new Set(
-      requested.filter(({ is4k }) => !is4k).map(({ mediaId }) => mediaId)
-    );
-    this.requested4kIds = new Set(
-      requested.filter(({ is4k }) => !!is4k).map(({ mediaId }) => mediaId)
-    );
     this.adultMedia = new Map(
       adult.flatMap((media) => {
         const id = media[adultIdField(media.mediaType as AdultMediaType)];
@@ -235,31 +219,30 @@ class WhisparrScanner
       [is4k ? 'externalServiceSlug4k' : 'externalServiceSlug']: item.titleSlug,
     } as Partial<Media>;
 
-    // The status the title should have, and whether that changes it
+    // The status the title should have, as BaseScanner.processMovie decides
+    // it for Radarr movies, and whether that changes it. Titles turning
+    // available are dated for Recently Added by their Whisparr file, the way
+    // Jellyfin dates movies, since adult movies have no media server to do it
     const plan = (media: Media) => {
-      const requested =
-        !!media.id &&
-        (is4k ? this.requested4kIds : this.requestedIds).has(media.id);
       const previous = media[statusField] ?? MediaStatus.UNKNOWN;
-      const next = item.hasFile
-        ? MediaStatus.AVAILABLE
-        : !requested
-          ? // Earlier scans marked every monitored title processing
-            previous === MediaStatus.PROCESSING
-            ? MediaStatus.UNKNOWN
-            : previous
-          : previous === MediaStatus.AVAILABLE ||
-              previous === MediaStatus.DELETED
-            ? previous
-            : MediaStatus.PROCESSING;
+      const next =
+        previous === MediaStatus.AVAILABLE
+          ? previous
+          : item.hasFile
+            ? MediaStatus.AVAILABLE
+            : item.monitored && previous !== MediaStatus.DELETED
+              ? MediaStatus.PROCESSING
+              : previous;
+      const dated = item.hasFile && (previous !== next || !media.mediaAddedAt);
       const changed =
         !media.id ||
-        media[statusField] !== next ||
+        previous !== next ||
+        dated ||
         Object.entries(serviceFields).some(
           ([field, value]) => media[field as keyof Media] !== value
         );
 
-      return { next, changed };
+      return { next, dated, changed };
     };
 
     const newMedia = () =>
@@ -284,20 +267,21 @@ class WhisparrScanner
         (known &&
           (await mediaRepository.findOne({ where: { id: known.id } }))) ||
         newMedia();
-      const { next, changed } = plan(media);
+      const { next, dated, changed } = plan(media);
 
-      if (!changed) {
+      // Like Radarr's, unmonitored titles without a file are not added
+      if (!changed || (!media.id && !item.monitored && !item.hasFile)) {
         return;
       }
 
-      Object.assign(media, serviceFields);
-      media[statusField] = next;
-
-      if (next === MediaStatus.AVAILABLE && !media.mediaAddedAt) {
+      if (dated) {
         media.mediaAddedAt = item.movieFile?.dateAdded
           ? new Date(item.movieFile.dateAdded)
           : new Date();
       }
+
+      Object.assign(media, serviceFields);
+      media[statusField] = next;
 
       this.adultMedia.set(key, await mediaRepository.save(media));
       this.log(`Updated ${mediaType}: ${item.title}`);
@@ -331,8 +315,8 @@ class WhisparrScanner
     }
   }
 
-  // Requested titles still processing that no scanned server monitors: gone
-  // from Whisparr, or unmonitored there with nothing downloaded. Mirrors
+  // Titles still processing that no scanned server monitors: gone from
+  // Whisparr, or unmonitored there with nothing downloaded. Mirrors
   // RadarrScanner.cleanupOrphanedMovies and its status resets, but asks
   // Whisparr about each one, as unmonitored items are not scanned
   private async cleanupOrphanedMedia(is4k: boolean): Promise<void> {

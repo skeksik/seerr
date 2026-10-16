@@ -45,17 +45,20 @@ export const syncSceneAvailability = async (media: Media): Promise<void> => {
     try {
       inStash = !!(await StashAPI.fromSettings().getScene(media.stashMediaId));
     } catch (e) {
-      logger.debug('Could not check scene in Stash, skipping', {
+      // Counts as present, like a Jellyfin outage does for movies
+      inStash = true;
+      logger.debug('Could not check scene in Stash, keeping it', {
         label: 'AvailabilitySync',
         mediaId: media.id,
         errorMessage: e.message,
       });
-      return;
     }
   }
 
   let changed = false;
 
+  // Unlike Jellyfin ids, a Stash id it no longer has is cleared, so the
+  // play link goes until Stash finds the scene again
   if (!inStash && media.stashMediaId) {
     media.stashMediaId = null;
     changed = true;

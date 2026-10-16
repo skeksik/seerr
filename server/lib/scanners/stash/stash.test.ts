@@ -116,6 +116,49 @@ describe('StashScanner', () => {
     assert.strictEqual(await getRepository(Media).count(), 1);
   });
 
+  it('dates scenes like Jellyfin dates movies', async () => {
+    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
+    const old = new Date('2025-01-01T00:00:00Z');
+    // Deleted before, and available through Whisparr
+    await getRepository(Media).save([
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: SCENE_ID,
+        tmdbId: null,
+        status: MediaStatus.DELETED,
+        mediaAddedAt: old,
+      }),
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: OTHER_ID,
+        tmdbId: null,
+        status: MediaStatus.AVAILABLE,
+        mediaAddedAt: old,
+      }),
+    ]);
+    mock.method(StashAPI.prototype, 'getLinkedScenes', async () => [
+      stashScene(),
+      stashScene({
+        id: '58',
+        stash_ids: [
+          { endpoint: 'https://stashdb.org/graphql', stash_id: OTHER_ID },
+        ],
+      }),
+    ]);
+
+    await stashScanner.run();
+
+    const back = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(back?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(
+      back?.mediaAddedAt.toISOString(),
+      '2026-09-28T18:59:13.000Z'
+    );
+    const kept = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
+    assert.strictEqual(kept?.stashMediaId, '58');
+    assert.strictEqual(kept?.mediaAddedAt.toISOString(), old.toISOString());
+  });
+
   it('does nothing while Stash is not configured', async () => {
     getSettings().stash = {
       hostname: '',
@@ -276,5 +319,29 @@ describe('syncSceneAvailability', () => {
     const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(latest?.stashMediaId, '56');
+  });
+
+  it('still checks the 4K version while Stash cannot be reached', async () => {
+    getSettings().whisparr = [{ ...whisparrServer, id: 1, is4k: true }];
+    const media = await saveScene({
+      status4k: MediaStatus.AVAILABLE,
+      serviceId4k: 1,
+      externalServiceId4k: 12,
+    });
+    mock.method(StashAPI.prototype, 'getScene', async () => {
+      throw new Error('ECONNREFUSED');
+    });
+    mock.method(WhisparrAPI.prototype, 'getItem', async () => {
+      throw new Error('[Whisparr] Failed to retrieve item: 404', {
+        cause: { response: { status: 404 } },
+      });
+    });
+
+    await syncSceneAvailability(media);
+
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(latest?.stashMediaId, '56');
+    assert.strictEqual(latest?.status4k, MediaStatus.DELETED);
   });
 });

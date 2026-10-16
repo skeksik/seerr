@@ -55,39 +55,61 @@ const available = (init: Partial<Media>) =>
   );
 
 describe('GET /media', () => {
-  it('keeps unrequested adult titles out of Recently Added', async () => {
+  const RECENT = '/media?filter=allavailable&sort=mediaAdded';
+
+  const seed = async () => {
     await available({ mediaType: MediaType.MOVIE, tmdbId: 1 });
+    // Added in Whisparr, with no Seerr request
     await available({
       mediaType: MediaType.SCENE,
       stashId: '01a0de25-5c7e-75b7-b319-ee76dd9a4879',
     });
     const requested = await available({
-      mediaType: MediaType.SCENE,
-      stashId: '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10',
+      mediaType: MediaType.ADULT_MOVIE,
+      tpdbId: '02b1383e-b871-4fd6-a731-2119a3aa93a7',
     });
     await getRepository(MediaRequest).save(
       new MediaRequest({
-        type: MediaType.SCENE,
+        type: MediaType.ADULT_MOVIE,
         status: MediaRequestStatus.COMPLETED,
         media: requested,
         requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
         is4k: false,
       })
     );
-    const agent = request.agent(app);
-    await agent
-      .post('/auth/local')
-      .send({ email: 'admin@seerr.dev', password: 'test1234' });
+  };
 
-    const all = await agent.get('/media?filter=allavailable&sort=mediaAdded');
-    const recent = await agent.get(
-      '/media?filter=allavailable&sort=mediaAdded&adultRequested=true'
-    );
+  const signIn = async (email: string) => {
+    const agent = request.agent(app);
+    await agent.post('/auth/local').send({ email, password: 'test1234' });
+    return agent;
+  };
+
+  it('lists adult titles in Recently Added whoever added them', async () => {
+    await seed();
+    const agent = await signIn('admin@seerr.dev');
+
+    const all = await agent.get(RECENT);
+    const scenes = await agent.get(`${RECENT}&mediaType=scene`);
 
     assert.strictEqual(all.body.results.length, 3);
     assert.deepStrictEqual(
-      recent.body.results.map((m: Media) => m.tmdbId ?? m.stashId).sort(),
-      [1, '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'].sort()
+      scenes.body.results.map((m: Media) => m.stashId),
+      ['01a0de25-5c7e-75b7-b319-ee76dd9a4879']
     );
+  });
+
+  it('leaves adult titles out for users without adult access', async () => {
+    await seed();
+    const agent = await signIn('demo@seerr.dev');
+
+    const all = await agent.get(RECENT);
+    const scenes = await agent.get(`${RECENT}&mediaType=scene`);
+
+    assert.deepStrictEqual(
+      all.body.results.map((m: Media) => m.tmdbId),
+      [1]
+    );
+    assert.strictEqual(scenes.body.results.length, 0);
   });
 });

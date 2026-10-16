@@ -14,8 +14,7 @@ const messages = defineMessages('components.Discover.RecentlyAddedSlider', {
   recentlyAddedScenes: 'Recently Added Scenes',
 });
 
-const RECENT_URL =
-  '/api/v1/media?filter=allavailable&take=20&sort=mediaAdded&adultRequested=true';
+const RECENT_URL = '/api/v1/media?filter=allavailable&take=20&sort=mediaAdded';
 
 interface RecentRowProps {
   sliderKey: string;
