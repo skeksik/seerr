@@ -11,16 +11,15 @@ import {
   tpdbPerformerFor,
   tpdbSiteFor,
 } from '@server/lib/adultLinks';
-import type { SuggestionType } from '@server/lib/adultLists';
 import {
   handleError,
-  hasPickedFilters,
+  lookupQuery,
   mergeByDate,
   pageParam,
   pageQuery,
+  pickedAndExcluded,
   sharedFilters,
   tpdbDateOperations,
-  withSuggestion,
   withoutSeen,
 } from '@server/lib/adultLists';
 import type { ClassifiedMovie } from '@server/lib/adultMedia';
@@ -71,7 +70,7 @@ const ids = z
   .regex(/^\d+(,\d+)*$/)
   .transform((value) => value.split(',').map(Number));
 
-// The Filters panel; lists and filter suggestions take the same
+// The Filters panel
 const movieFilters = z.object({
   studio: z.coerce.number().int().positive().optional(),
   // ThePornDB takes one site but any number of performers
@@ -93,10 +92,6 @@ const discoverQuery = movieFilters.extend({
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
-
-const lookupQuery = movieFilters.extend({
-  query: z.string().trim().min(1),
-});
 
 interface MovieListFilter {
   hidden: Set<Orientation>;
@@ -146,6 +141,10 @@ interface MoviePlan {
   dense: boolean;
   // Asked for tagged movies only, which leaves out unidentified ones
   narrowed: boolean;
+  // No movie can show, like with a tag both picked and excluded
+  empty: boolean;
+  // A picked tag stands for an orientation, so no movie is unidentified
+  identified: boolean;
 }
 
 // The ThePornDB query for the picked filters, and what is left to filter
@@ -155,16 +154,13 @@ const planMovies = (
   filters: MovieFilters,
   narrow: Narrow = 'needed'
 ): MoviePlan => {
-  const { hidden, tagIds, anyTag, narrowed } = planOrientationTags(
-    user,
-    {
-      orientation: filters.orientation,
-      picked: filters.tags ?? [],
-      tagMode: filters.tagMode,
-    },
-    TPDB_ORIENTATION_TAG_IDS,
-    narrow
-  );
+  const { hidden, tagIds, anyTag, narrowed, empty, identified } =
+    planOrientationTags(
+      user,
+      { orientation: filters.orientation, picked: filters.tags ?? [] },
+      TPDB_ORIENTATION_TAG_IDS,
+      narrow
+    );
 
   // ThePornDB takes one date bound; future dates are often placeholders
   // like 3024, so released lists stop at today
@@ -184,7 +180,6 @@ const planMovies = (
     query: {
       siteId: filters.studio,
       performerIds: filters.performer,
-      anyPerformer: filters.performerMode === 'or',
       tagIds,
       anyTag,
       year: filters.year,
@@ -202,45 +197,13 @@ const planMovies = (
     // movies are unidentified
     dense: hidden.size > 0 && !narrowed,
     narrowed,
+    empty:
+      empty ||
+      pickedAndExcluded(filters) ||
+      (filters.studio !== undefined &&
+        !!filters.studioExclude?.includes(filters.studio)),
+    identified,
   };
-};
-
-// ThePornDB allows two requests a second, so only the first suggestions are
-// checked
-const CHECKED_SUGGESTIONS = 10;
-
-// Drops suggestions that would find no movie next to the picked filters
-const withMatches = async <T extends { id: number }>(
-  user: User | undefined,
-  type: SuggestionType,
-  results: T[],
-  filters: MovieFilters
-): Promise<T[]> => {
-  if (!hasPickedFilters(filters) || results.length === 0) {
-    return results;
-  }
-
-  try {
-    const tpdb = TpdbAPI.fromSettings();
-    const checked = results.slice(0, CHECKED_SUGGESTIONS);
-    const totals = await Promise.all(
-      checked.map(async (result) => {
-        const { query } = planMovies(
-          user,
-          withSuggestion(filters, type, result.id, { studio: result.id })
-        );
-        const list = await tpdb.getMovies({ ...query, perPage: 1 });
-        return list.meta.total;
-      })
-    );
-    return checked.filter((_, i) => totals[i] > 0);
-  } catch (e) {
-    logger.debug('Unable to count movies for filter suggestions', {
-      label: 'API',
-      errorMessage: e.message,
-    });
-    return results;
-  }
 };
 
 const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
@@ -262,8 +225,15 @@ const discoverMovies = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
 ): Promise<AdultMovieListResponse> => {
-  const tpdb = TpdbAPI.fromSettings();
   const plan = planMovies(user, filters);
+
+  // Filters that leave nothing, like a tag both picked and excluded, find
+  // no movie rather than pages of nothing
+  if (plan.empty) {
+    return { page, totalPages: 1, totalResults: 0, results: [] };
+  }
+
+  const tpdb = TpdbAPI.fromSettings();
   const query = {
     page,
     sort: filters.upcoming ? 'former_released' : tpdbSorts[sort],
@@ -281,7 +251,7 @@ const discoverMovies = async (
     }),
     joined
       ? tpdb.getMovies({
-          ...joined.plan.query,
+          ...joined.query,
           ...query,
           perPage: DENSE_PAGE_SIZE,
         })
@@ -295,9 +265,7 @@ const discoverMovies = async (
             extra.data,
             shown.map(({ movie }) => movie)
           ),
-          joined.unidentified
-            ? onlyUnidentified(joined.plan.filter)
-            : joined.plan.filter
+          onlyUnidentified(joined.filter)
         )
       : [];
   const movies = mergeByDate(
@@ -351,42 +319,30 @@ const mapMovieList = async (
   ),
 });
 
-// Lookups for the ThePornDB filters, by path
+// Lookups for the ThePornDB filters, by path: what ThePornDB's search finds
 const lookups: Record<
   string,
-  {
-    type: SuggestionType;
-    search: (
-      tpdb: TpdbAPI,
-      query: string
-    ) => Promise<{ id: number; name: string; imageUrl?: string }[]>;
-  }
+  (
+    tpdb: TpdbAPI,
+    query: string
+  ) => Promise<{ id: number; name: string; imageUrl?: string }[]>
 > = {
-  studios: {
-    type: 'studio',
-    search: async (tpdb, query) =>
-      (await tpdb.searchSites(query)).map((site) => ({
-        id: site.id,
-        name: site.name,
-      })),
-  },
-  performers: {
-    type: 'performer',
-    search: async (tpdb, query) =>
-      (await tpdb.searchPerformers(query)).map((performer) => ({
-        id: performer._id,
-        name: performer.name,
-        imageUrl: performer.image ?? undefined,
-      })),
-  },
-  tags: {
-    type: 'tag',
-    search: async (tpdb, query) =>
-      (await tpdb.searchTags(query)).map((tag) => ({
-        id: tag.id,
-        name: tag.name,
-      })),
-  },
+  studios: async (tpdb, query) =>
+    (await tpdb.searchSites(query)).map((site) => ({
+      id: site.id,
+      name: site.name,
+    })),
+  performers: async (tpdb, query) =>
+    (await tpdb.searchPerformers(query)).map((performer) => ({
+      id: performer._id,
+      name: performer.name,
+      imageUrl: performer.image ?? undefined,
+    })),
+  tags: async (tpdb, query) =>
+    (await tpdb.searchTags(query)).map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+    })),
 };
 
 for (const [path, lookup] of Object.entries(lookups)) {
@@ -398,12 +354,9 @@ for (const [path, lookup] of Object.entries(lookups)) {
     }
 
     try {
-      const { query, ...filters } = parsed.data;
-      const results = await lookup.search(TpdbAPI.fromSettings(), query);
-
       return res
         .status(200)
-        .json(await withMatches(req.user, lookup.type, results, filters));
+        .json(await lookup(TpdbAPI.fromSettings(), parsed.data.query));
     } catch (e) {
       return handleError(e, next, `Unable to search ${path}.`, {
         query: parsed.data.query,

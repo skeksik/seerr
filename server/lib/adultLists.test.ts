@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  hasPickedFilters,
   mergeByDate,
+  pickedAndExcluded,
   stashDbDate,
   tpdbDateOperations,
-  withSuggestion,
   withoutSeen,
 } from '@server/lib/adultLists';
 import type { Orientation } from '@server/lib/orientation';
@@ -16,7 +15,7 @@ import {
   planOrientationTags,
 } from '@server/lib/orientation';
 
-const ids = { lesbian: 8, gay: 1065, trans: 14025 };
+const ids = { straight: 1, lesbian: 8, gay: 1065, trans: 14025 };
 
 describe('planOrientationTags', () => {
   it('asks for any shown orientation without straight', () => {
@@ -42,40 +41,79 @@ describe('planOrientationTags', () => {
     assert.strictEqual(plan.anyTag, false);
   });
 
+  it('asks for a picked orientation tag once next to the same preference', () => {
+    const plan = planOrientationTags(
+      undefined,
+      { orientation: 'lesbian', picked: [8, 8] },
+      ids
+    );
+
+    assert.deepStrictEqual(plan.tagIds, [8]);
+    assert.strictEqual(plan.empty, false);
+    assert.strictEqual(plan.identified, true);
+  });
+
   it('leaves picked tags alone when not narrowed', () => {
     const plan = planOrientationTags(
       undefined,
-      { orientation: 'lesbian,gay', picked: [70], tagMode: 'or' },
+      { orientation: 'lesbian,gay', picked: [70] },
       ids,
       'none'
     );
 
     assert.deepStrictEqual(plan.tagIds, [70]);
-    assert.strictEqual(plan.anyTag, true);
+    assert.strictEqual(plan.anyTag, false);
     assert.strictEqual(plan.narrowed, false);
+  });
+
+  it('names the tags of every hidden orientation', () => {
+    const plan = planOrientationTags(
+      undefined,
+      { orientation: 'straight,lesbian,unidentified', picked: [] },
+      ids
+    );
+
+    assert.deepStrictEqual(plan.hiddenTagIds, [1065, 14025]);
+    assert.deepStrictEqual(plan.tagIds, []);
+  });
+
+  it('finds nothing when a picked tag stands for a hidden orientation', () => {
+    const plan = planOrientationTags(
+      undefined,
+      { orientation: 'straight', picked: [8] },
+      ids
+    );
+
+    assert.strictEqual(plan.empty, true);
   });
 });
 
 describe('joinedPlan', () => {
-  const plan = (narrowed: boolean, hidden: Orientation[] = []) => ({
+  const plan = (
+    narrowed: boolean,
+    hidden: Orientation[] = [],
+    identified = false
+  ) => ({
     narrowed,
+    identified,
     filter: { hidden: new Set(hidden) },
   });
 
   it('joins unidentified titles to narrowed lists that show them', () => {
-    const joined = joinedPlan(plan(true), () => plan(false));
+    const joined = plan(false);
 
-    assert.strictEqual(joined?.unidentified, true);
+    assert.strictEqual(
+      joinedPlan(plan(true), () => joined),
+      joined
+    );
     assert.strictEqual(
       joinedPlan(plan(true, ['unidentified']), () => plan(false)),
       undefined
     );
-  });
-
-  it('joins tagged titles shown beside straight', () => {
+    // A picked orientation tag leaves no title unidentified
     assert.strictEqual(
-      joinedPlan(plan(false), () => plan(true))?.unidentified,
-      false
+      joinedPlan(plan(true, [], true), () => plan(false)),
+      undefined
     );
     assert.strictEqual(
       joinedPlan(plan(false), () => plan(false)),
@@ -109,26 +147,20 @@ describe('list helpers', () => {
     assert.deepStrictEqual(idsOf(withoutSeen([a, c], [a, b])), ['c']);
   });
 
-  it('adds suggestions alone or next to the picked values', () => {
-    const filters = { performer: [1], tags: [2], tagMode: 'or' as const };
-
-    assert.deepStrictEqual(
-      withSuggestion(filters, 'performer', 3, {}).performer,
-      [1, 3]
-    );
-    assert.deepStrictEqual(withSuggestion(filters, 'tag', 3, {}).tags, [3]);
-    assert.deepStrictEqual(
-      withSuggestion(filters, 'studio', 3, { performer: [9] }).performer,
-      [9]
-    );
-  });
-
-  it('does not count how fields combine as a pick', () => {
+  it('tells a performer or tag both picked and excluded', () => {
     assert.strictEqual(
-      hasPickedFilters({ tagMode: 'or', released: 'gt', tags: undefined }),
+      pickedAndExcluded({ tags: [1, 2], tagsExclude: [2] }),
+      true
+    );
+    assert.strictEqual(
+      pickedAndExcluded({ performer: ['a'], performerExclude: ['a'] }),
+      true
+    );
+    assert.strictEqual(
+      pickedAndExcluded({ tags: [1], performerExclude: [1] }),
       false
     );
-    assert.strictEqual(hasPickedFilters({ orientation: 'gay' }), true);
+    assert.strictEqual(pickedAndExcluded({}), false);
   });
 });
 

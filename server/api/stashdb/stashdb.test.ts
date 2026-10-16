@@ -107,17 +107,6 @@ describe('StashDbAPI', () => {
     assert.strictEqual(input.sort, 'DATE');
   });
 
-  it('counts every scene, not only the trending ones', async () => {
-    const api = new TestStashDbAPI([{ data: { c0: { count: 3 } } }]);
-
-    assert.deepStrictEqual(
-      await api.countScenes([{ tagIds: ['tag'], sort: 'TRENDING' }]),
-      [3]
-    );
-    const { c0 } = JSON.parse(api.requests[0].data).variables;
-    assert.strictEqual(c0.sort, 'DATE');
-  });
-
   it('shares one request between callers asking the same at once', async () => {
     const api = new TestStashDbAPI([{ data: { findScene: scene } }]);
 
@@ -131,39 +120,38 @@ describe('StashDbAPI', () => {
     assert.strictEqual(api.requests.length, 1);
   });
 
-  it('looks up the studios of all counts in one request', async () => {
+  it('excludes studios only when none is included', async () => {
     const api = new TestStashDbAPI([
-      {
-        data: {
-          s0: { child_studios: [{ id: 'child' }] },
-          s1: { child_studios: [] },
-        },
-      },
-      { data: { c0: { count: 1 }, c1: { count: 2 }, c2: { count: 0 } } },
+      { data: { s0: { child_studios: [{ id: 'child' }] } } },
+      { data: { queryScenes: { count: 0, scenes: [] } } },
+      { data: { s0: { child_studios: [] } } },
+      { data: { queryScenes: { count: 0, scenes: [] } } },
     ]);
 
-    assert.deepStrictEqual(
-      await api.countScenes([
-        { studioIds: ['network'] },
-        { studioIds: ['network'], exclude: { studioIds: ['ignored'] } },
-        { exclude: { studioIds: ['excluded'] } },
-      ]),
-      [1, 2, 0]
-    );
-
-    assert.strictEqual(api.requests.length, 2);
-    // An exclusion next to an included studio is left to the caller
-    assert.deepStrictEqual(JSON.parse(api.requests[0].data).variables, {
-      s0: 'network',
-      s1: 'excluded',
+    await api.queryScenes({ exclude: { studioIds: ['excluded'] } });
+    await api.queryScenes({
+      studioIds: ['network'],
+      exclude: { studioIds: ['ignored'], tagIds: ['tag'] },
     });
-    const { c0, c2 } = JSON.parse(api.requests[1].data).variables;
-    assert.deepStrictEqual(c0.studios, {
-      value: ['network', 'child'],
+
+    assert.deepStrictEqual(
+      JSON.parse(api.requests[1].data).variables.input.studios,
+      {
+        value: ['excluded', 'child'],
+        modifier: 'EXCLUDES',
+      }
+    );
+    // An exclusion next to an included studio is left to the caller
+    assert.deepStrictEqual(JSON.parse(api.requests[2].data).variables, {
+      s0: 'network',
+    });
+    const { input } = JSON.parse(api.requests[3].data).variables;
+    assert.deepStrictEqual(input.studios, {
+      value: ['network'],
       modifier: 'INCLUDES',
     });
-    assert.deepStrictEqual(c2.studios, {
-      value: ['excluded'],
+    assert.deepStrictEqual(input.tags, {
+      value: ['tag'],
       modifier: 'EXCLUDES',
     });
   });

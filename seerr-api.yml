@@ -7897,12 +7897,12 @@ paths:
             type: number
         - in: query
           name: performer
-          description: Comma-separated ThePornDB performer ids (all must match, unless performerMode is or)
+          description: Comma-separated ThePornDB performer ids (all must match)
           schema:
             type: string
         - in: query
           name: tags
-          description: Comma-separated ThePornDB tag ids (all must match, unless tagMode is or)
+          description: Comma-separated ThePornDB tag ids (all must match)
           schema:
             type: string
         - in: query
@@ -7921,22 +7921,8 @@ paths:
           schema:
             type: string
         - in: query
-          name: performerMode
-          description: Whether movies need all of the performers or any
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          description: Whether movies need all of the tags or any
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
           name: orientation
-          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa), or none; the user's defaults when left out
+          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa, unidentified), or none; the user's defaults when left out. Titles with any other preference are left out
           schema:
             type: string
             example: straight,lesbian
@@ -7976,69 +7962,10 @@ paths:
         - in: query
           name: query
           required: true
+          description: Text the source searches for
+          allowReserved: true
           schema:
             type: string
-        - in: query
-          name: studio
-          description: Picked site id; suggestions that would find nothing are left out
-          schema:
-            type: number
-        - in: query
-          name: performer
-          description: Picked performer ids
-          schema:
-            type: string
-        - in: query
-          name: tags
-          description: Picked tag ids
-          schema:
-            type: string
-        - in: query
-          name: performerMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: studioExclude
-          schema:
-            type: string
-        - in: query
-          name: performerExclude
-          schema:
-            type: string
-        - in: query
-          name: tagsExclude
-          schema:
-            type: string
-        - in: query
-          name: orientation
-          schema:
-            type: string
-        - in: query
-          name: released
-          schema:
-            type: string
-            enum: [eq, gt, gte, lt, lte]
-        - in: query
-          name: releaseDate
-          schema:
-            type: string
-        - in: query
-          name: upcoming
-          schema:
-            type: string
-            enum: ['true', 'false']
-        - in: query
-          name: year
-          schema:
-            type: number
       responses:
         '200':
           description: Matches
@@ -8055,69 +7982,10 @@ paths:
         - in: query
           name: query
           required: true
+          description: Text the source searches for
+          allowReserved: true
           schema:
             type: string
-        - in: query
-          name: studio
-          description: Picked site id; suggestions that would find nothing are left out
-          schema:
-            type: number
-        - in: query
-          name: performer
-          description: Picked performer ids
-          schema:
-            type: string
-        - in: query
-          name: tags
-          description: Picked tag ids
-          schema:
-            type: string
-        - in: query
-          name: performerMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: studioExclude
-          schema:
-            type: string
-        - in: query
-          name: performerExclude
-          schema:
-            type: string
-        - in: query
-          name: tagsExclude
-          schema:
-            type: string
-        - in: query
-          name: orientation
-          schema:
-            type: string
-        - in: query
-          name: released
-          schema:
-            type: string
-            enum: [eq, gt, gte, lt, lte]
-        - in: query
-          name: releaseDate
-          schema:
-            type: string
-        - in: query
-          name: upcoming
-          schema:
-            type: string
-            enum: ['true', 'false']
-        - in: query
-          name: year
-          schema:
-            type: number
       responses:
         '200':
           description: Matches
@@ -8134,69 +8002,10 @@ paths:
         - in: query
           name: query
           required: true
+          description: Text the source searches for
+          allowReserved: true
           schema:
             type: string
-        - in: query
-          name: studio
-          description: Picked site id; suggestions that would find nothing are left out
-          schema:
-            type: number
-        - in: query
-          name: performer
-          description: Picked performer ids
-          schema:
-            type: string
-        - in: query
-          name: tags
-          description: Picked tag ids
-          schema:
-            type: string
-        - in: query
-          name: performerMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: studioExclude
-          schema:
-            type: string
-        - in: query
-          name: performerExclude
-          schema:
-            type: string
-        - in: query
-          name: tagsExclude
-          schema:
-            type: string
-        - in: query
-          name: orientation
-          schema:
-            type: string
-        - in: query
-          name: released
-          schema:
-            type: string
-            enum: [eq, gt, gte, lt, lte]
-        - in: query
-          name: releaseDate
-          schema:
-            type: string
-        - in: query
-          name: upcoming
-          schema:
-            type: string
-            enum: ['true', 'false']
-        - in: query
-          name: year
-          schema:
-            type: number
       responses:
         '200':
           description: Matches
@@ -8471,12 +8280,12 @@ paths:
             type: string
         - in: query
           name: performer
-          description: Comma-separated StashDB performer ids (all must match, unless performerMode is or)
+          description: Comma-separated StashDB performer ids (all must match)
           schema:
             type: string
         - in: query
           name: tags
-          description: Comma-separated StashDB tag ids (all must match, unless tagMode is or)
+          description: Comma-separated StashDB tag ids (all must match)
           schema:
             type: string
         - in: query
@@ -8495,22 +8304,8 @@ paths:
           schema:
             type: string
         - in: query
-          name: performerMode
-          description: Whether scenes need all of the performers or any
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          description: Whether scenes need all of the tags or any
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
           name: orientation
-          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa), or none; the user's defaults when left out
+          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa, unidentified), or none; the user's defaults when left out. Titles with any other preference are left out
           schema:
             type: string
             example: straight,lesbian
@@ -8594,65 +8389,10 @@ paths:
         - in: query
           name: query
           required: true
+          description: Text the source searches for
+          allowReserved: true
           schema:
             type: string
-        - in: query
-          name: studio
-          description: Picked studio ids; suggestions that would find nothing are left out
-          schema:
-            type: string
-        - in: query
-          name: performer
-          description: Picked performer ids
-          schema:
-            type: string
-        - in: query
-          name: tags
-          description: Picked tag ids
-          schema:
-            type: string
-        - in: query
-          name: performerMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: tagMode
-          schema:
-            type: string
-            enum: [and, or]
-            default: and
-        - in: query
-          name: studioExclude
-          schema:
-            type: string
-        - in: query
-          name: performerExclude
-          schema:
-            type: string
-        - in: query
-          name: tagsExclude
-          schema:
-            type: string
-        - in: query
-          name: orientation
-          schema:
-            type: string
-        - in: query
-          name: released
-          schema:
-            type: string
-            enum: [eq, gt, gte, lt, lte]
-        - in: query
-          name: releaseDate
-          schema:
-            type: string
-        - in: query
-          name: upcoming
-          schema:
-            type: string
-            enum: ['true', 'false']
       responses:
         '200':
           description: Matches
@@ -8722,6 +8462,7 @@ paths:
         - in: query
           name: query
           description: Part of the studio name
+          allowReserved: true
           schema:
             type: string
       responses:
@@ -8754,13 +8495,14 @@ paths:
   /scene/search:
     get:
       summary: Search scenes
-      description: Searches StashDB scenes by title, studio or performer.
+      description: Searches StashDB scenes by title, studio or performer. The query may come form-encoded, with + for spaces.
       tags:
         - scenes
       parameters:
         - in: query
           name: query
           required: true
+          allowReserved: true
           schema:
             type: string
             example: Slo-Mo

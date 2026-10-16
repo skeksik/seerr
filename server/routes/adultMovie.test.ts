@@ -181,7 +181,7 @@ describe('GET /adultmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      '/adultmovie/discover?tags=1,2&tagMode=or&tagsExclude=71&orientation=straight,lesbian,unidentified'
+      '/adultmovie/discover?tags=1,2&tagsExclude=71&orientation=straight,lesbian,unidentified'
     );
 
     assert.strictEqual(res.status, 200);
@@ -189,7 +189,66 @@ describe('GET /adultmovie/discover', () => {
       res.body.results.map((result: { id: string }) => result.id),
       [MOVIE_ID]
     );
-    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.anyTag, true);
+    // Movies need all of the picked tags
+    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.anyTag, false);
+  });
+
+  it('hides movies with any unchecked preference', async () => {
+    const female = (id: number) => ({
+      id: `p${id}`,
+      _id: id,
+      name: `P${id}`,
+      extra: { gender: 'Female' },
+    });
+    const solo = { ...movie, id: 'solo', performers: [female(1)] };
+    const straight = {
+      ...movie,
+      id: 'straight',
+      performers: [
+        female(1),
+        { id: 'm', _id: 2, name: 'M', extra: { gender: 'Male' } },
+      ],
+    };
+    mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [solo, straight],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 2 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/adultmovie/discover?orientation=straight');
+
+    assert.strictEqual(res.status, 200);
+    // A lone woman suits lesbian too, which is hidden
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      ['straight']
+    );
+  });
+
+  it('finds nothing for filters that leave nothing', async () => {
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [movie],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    for (const url of [
+      '/adultmovie/discover?tags=70&tagsExclude=70',
+      '/adultmovie/discover?performer=99899&performerExclude=99899',
+      '/adultmovie/discover?studio=37335&studioExclude=37335',
+      // Every movie with ThePornDB's Lesbian tag is lesbian, which is hidden
+      '/adultmovie/discover?tags=8&orientation=straight',
+    ]) {
+      const res = await agent.get(url);
+
+      assert.strictEqual(res.status, 200, url);
+      assert.deepStrictEqual(
+        res.body,
+        { page: 1, totalPages: 1, totalResults: 0, results: [] },
+        url
+      );
+    }
+    assert.strictEqual(getMovies.mock.callCount(), 0);
   });
 
   it('pads release dates from the date picker', async () => {
@@ -219,6 +278,25 @@ describe('GET /adultmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     assert.strictEqual((await agent.get('/adultmovie/discover')).status, 503);
+  });
+});
+
+describe('ThePornDB filter lookups', () => {
+  it("returns all of ThePornDB's suggestions whatever else is picked", async () => {
+    const searchTags = mock.method(TpdbAPI.prototype, 'searchTags', async () =>
+      Array.from({ length: 25 }, (_, i) => ({ id: i + 1, name: `Tag ${i}` }))
+    );
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies');
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/adultmovie/tags?query=cream%20pie&tags=70&orientation=straight'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.length, 25);
+    assert.deepStrictEqual(searchTags.mock.calls[0].arguments, ['cream pie']);
+    assert.strictEqual(getMovies.mock.callCount(), 0);
   });
 });
 
