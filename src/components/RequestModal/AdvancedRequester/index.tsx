@@ -24,7 +24,7 @@ import type {
 } from '@server/interfaces/api/serviceInterfaces';
 import type { UserResultsResponse } from '@server/interfaces/api/userInterfaces';
 import type { OverrideRulesResult } from '@server/lib/overrideRules';
-import { hasPermission } from '@server/lib/permissions';
+import { hasPermission, mediaPermissions } from '@server/lib/permissions';
 import axios from 'axios';
 import { isEqual } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -161,25 +161,33 @@ const AdvancedRequester = ({
   const filteredUserData = useMemo(
     () =>
       userData?.results.filter((user) =>
-        hasPermission(
-          is4k
-            ? [
-                Permission.REQUEST_4K,
-                type === 'movie'
-                  ? Permission.REQUEST_4K_MOVIE
-                  : Permission.REQUEST_4K_TV,
-              ]
-            : [
-                Permission.REQUEST,
-                type === 'movie'
-                  ? Permission.REQUEST_MOVIE
-                  : Permission.REQUEST_TV,
-              ],
-          user.permissions,
-          { type: 'or' }
-        )
+        adultType
+          ? // Scenes and adult movies take their own permissions, and adult
+            // access
+            hasPermission(
+              mediaPermissions(is4k ? 'request4k' : 'request', adultType),
+              user.permissions,
+              { type: 'or' }
+            ) && hasPermission(Permission.ADULT, user.permissions)
+          : hasPermission(
+              is4k
+                ? [
+                    Permission.REQUEST_4K,
+                    type === 'movie'
+                      ? Permission.REQUEST_4K_MOVIE
+                      : Permission.REQUEST_4K_TV,
+                  ]
+                : [
+                    Permission.REQUEST,
+                    type === 'movie'
+                      ? Permission.REQUEST_MOVIE
+                      : Permission.REQUEST_TV,
+                  ],
+              user.permissions,
+              { type: 'or' }
+            )
       ),
-    [userData?.results]
+    [userData?.results, adultType, is4k, type]
   );
 
   useEffect(() => {
