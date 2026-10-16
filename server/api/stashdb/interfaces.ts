@@ -93,7 +93,7 @@ export interface StashDbSceneSummary {
   studio?: StashDbStudioSummary | null;
   performers: { as?: string | null; performer: StashDbPerformerSummary }[];
   // Ids only in lists, for ranking by shared tags and orientation
-  tags?: { id: string }[];
+  tags?: { id: string; name?: string }[];
 }
 
 export interface StashDbScene extends StashDbSceneSummary {

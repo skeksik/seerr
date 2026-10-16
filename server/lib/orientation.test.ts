@@ -65,6 +65,17 @@ describe('classifyScene', () => {
     );
   });
 
+  it('takes a non-binary listed woman for a woman by her tags', () => {
+    const named = {
+      ...scene(['MALE', 'NON_BINARY' as StashDbGender]),
+      tags: [
+        { id: 'a', name: 'Asian Woman' },
+        { id: 'b', name: 'Male - POV' },
+      ],
+    };
+    assert.deepStrictEqual(classifyScene(named, tagIds), ['straight']);
+  });
+
   it('fills in the cast from group tags', () => {
     const withGroups = {
       ...tagIds,
@@ -126,6 +137,14 @@ describe('tagHint', () => {
       orientation: 'lesbian',
     });
     assert.strictEqual(tagHint('Straight Hair'), undefined);
+  });
+
+  it('reads gender from tags about looks and roles', () => {
+    assert.deepStrictEqual(tagHint('Asian Woman')?.cast?.female, 1);
+    assert.deepStrictEqual(tagHint('Long Hair (Female)')?.cast?.female, 1);
+    assert.deepStrictEqual(tagHint('Step Brother')?.cast?.male, 1);
+    assert.strictEqual(tagHint('Trans Woman'), undefined);
+    assert.strictEqual(tagHint('Big Tits'), undefined);
   });
 
   it('reads the performer behind the camera from point of view tags', () => {

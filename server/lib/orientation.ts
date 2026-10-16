@@ -58,6 +58,12 @@ interface TagHint {
   orientation?: Orientation;
 }
 
+const TRANS_WORDS = /trans|shemale|t-?girl|ladyboy|futa/i;
+const FEMALE_WORDS =
+  /\b(woman|women|girl|girls|milf|wife|girlfriend|step ?(sister|mom|mother|daughter)|vaginal|pussy|cunnilingus)\b|\(female\)/i;
+const MALE_WORDS =
+  /\b(man|men|husband|boyfriend|step ?(brother|dad|father|son))\b|\(male\)/i;
+
 export const tagHint = (name: string): TagHint | undefined => {
   const group = name.match(/\(([BGT]{2,})\)\s*$/);
   if (group) {
@@ -95,6 +101,17 @@ export const tagHint = (name: string): TagHint | undefined => {
           ? 'straight'
           : (value as 'lesbian' | 'gay' | 'straight' | 'trans'),
     };
+  }
+  // Tags about someone's looks or role name their gender, like "Asian
+  // Woman", "Long Hair (Female)" or "Step Brother", for performers the
+  // cast lists without one; trans tags are left to the cast
+  if (!TRANS_WORDS.test(name)) {
+    if (FEMALE_WORDS.test(name)) {
+      return { cast: { male: 0, female: 1, trans: 0 } };
+    }
+    if (MALE_WORDS.test(name)) {
+      return { cast: { male: 1, female: 0, trans: 0 } };
+    }
   }
   return undefined;
 };
@@ -206,7 +223,9 @@ export const classifyScene = (
   return classify(
     tagged,
     cast,
-    [...sceneTags].flatMap((id) => tagIds.groups?.[id] ?? [])
+    (scene.tags ?? []).flatMap((tag) =>
+      tag.name ? (tagHint(tag.name) ?? []) : (tagIds.groups?.[tag.id] ?? [])
+    )
   );
 };
 

@@ -33,7 +33,7 @@ const SCENE_SUMMARY_FIELDS = `
     as
     performer { id name disambiguation gender images { ${IMAGE_FIELDS} } }
   }
-  tags { id }
+  tags { id name }
 `;
 
 const SCENE_FIELDS = `
@@ -43,7 +43,6 @@ const SCENE_FIELDS = `
   director
   deleted
   urls { url site { name icon } }
-  tags { id name }
 `;
 
 const SCENE_LIST_FIELDS = `count scenes { ${SCENE_SUMMARY_FIELDS} }`;
