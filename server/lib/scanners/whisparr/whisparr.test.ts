@@ -229,3 +229,170 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(await Media.getMedia(777, MediaType.MOVIE), undefined);
   });
 });
+
+describe('WhisparrScanner orphan cleanup', () => {
+  const ORPHAN_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
+
+  // A requested scene Whisparr was asked for: processing, request approved.
+  // Written directly, so no request is sent to Whisparr
+  const approved = async (is4k = false): Promise<Media> => {
+    const media = await getRepository(Media).save(
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: ORPHAN_ID,
+        tmdbId: null,
+      })
+    );
+    const request = await getRepository(MediaRequest).save(
+      new MediaRequest({
+        type: MediaType.SCENE,
+        status: MediaRequestStatus.DECLINED,
+        media,
+        requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
+        is4k,
+      })
+    );
+    const tier = is4k ? '4k' : '';
+    await getRepository(Media).query(
+      `UPDATE media SET status${tier} = ?, serviceId${tier} = 3, externalServiceId${tier} = 30 WHERE id = ?`,
+      [MediaStatus.PROCESSING, media.id]
+    );
+    await getRepository(Media).query(
+      'UPDATE media_request SET status = ? WHERE id = ?',
+      [MediaRequestStatus.APPROVED, request.id]
+    );
+    return media;
+  };
+
+  const stateOf = async () => {
+    const media = await getRepository(Media).findOneOrFail({
+      where: { stashId: ORPHAN_ID },
+      relations: { requests: true },
+    });
+    return {
+      status: media.status,
+      status4k: media.status4k,
+      requestStatus: media.requests[0].status,
+    };
+  };
+
+  // Other titles stay monitored, so the server did not come back empty
+  const monitored = () =>
+    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
+      item({ id: 1 }),
+    ]);
+
+  const notFound = async (): Promise<WhisparrItem> => {
+    throw new Error('404', { cause: { response: { status: 404 } } });
+  };
+
+  it('resets requested titles Whisparr removed', async () => {
+    await approved();
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', notFound);
+    // Lookups of titles outside the library have no id
+    mock.method(WhisparrAPI.prototype, 'lookupScene', async () =>
+      item({ id: undefined, stashId: ORPHAN_ID, monitored: false })
+    );
+
+    await whisparrScanner.run();
+
+    assert.deepStrictEqual(await stateOf(), {
+      status: MediaStatus.UNKNOWN,
+      status4k: MediaStatus.UNKNOWN,
+      requestStatus: MediaRequestStatus.DECLINED,
+    });
+  });
+
+  it('resets requested titles left unmonitored without a file', async () => {
+    await approved();
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', async () =>
+      item({ id: 30, stashId: ORPHAN_ID, monitored: false, hasFile: false })
+    );
+
+    await whisparrScanner.run();
+
+    const state = await stateOf();
+    assert.strictEqual(state.status, MediaStatus.UNKNOWN);
+    assert.strictEqual(state.requestStatus, MediaRequestStatus.DECLINED);
+  });
+
+  it('marks unmonitored titles with a file available', async () => {
+    await approved();
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', async () =>
+      item({ id: 30, stashId: ORPHAN_ID, monitored: false, hasFile: true })
+    );
+
+    await whisparrScanner.run();
+
+    const state = await stateOf();
+    assert.strictEqual(state.status, MediaStatus.AVAILABLE);
+    assert.notStrictEqual(state.requestStatus, MediaRequestStatus.DECLINED);
+  });
+
+  it('leaves titles alone when Whisparr cannot answer', async () => {
+    await approved();
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', async () => {
+      throw new Error('503', { cause: { response: { status: 503 } } });
+    });
+
+    await whisparrScanner.run();
+
+    assert.strictEqual((await stateOf()).status, MediaStatus.PROCESSING);
+  });
+
+  it('skips cleanup when a server returns no monitored items', async () => {
+    await approved();
+    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => []);
+    const getItem = mock.method(WhisparrAPI.prototype, 'getItem', notFound);
+
+    await whisparrScanner.run();
+
+    assert.strictEqual((await stateOf()).status, MediaStatus.PROCESSING);
+    assert.strictEqual(getItem.mock.callCount(), 0);
+  });
+
+  it('skips cleanup when a server of the tier is not synced', async () => {
+    getSettings().whisparr.push({
+      ...getSettings().whisparr[0],
+      id: 4,
+      hostname: 'other.test',
+      syncEnabled: false,
+    });
+    await approved();
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', notFound);
+
+    await whisparrScanner.run();
+
+    assert.strictEqual((await stateOf()).status, MediaStatus.PROCESSING);
+  });
+
+  it('cleans up 4K versions only after scanning the 4K servers', async () => {
+    await approved(true);
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', notFound);
+    mock.method(WhisparrAPI.prototype, 'lookupScene', async () =>
+      item({ id: undefined, stashId: ORPHAN_ID })
+    );
+
+    // Only a non-4K server so far
+    await whisparrScanner.run();
+    assert.strictEqual((await stateOf()).status4k, MediaStatus.PROCESSING);
+
+    getSettings().whisparr.push({
+      ...getSettings().whisparr[0],
+      id: 5,
+      hostname: 'whisparr4k.test',
+      is4k: true,
+    });
+    await whisparrScanner.run();
+
+    const state = await stateOf();
+    assert.strictEqual(state.status4k, MediaStatus.UNKNOWN);
+    assert.strictEqual(state.requestStatus, MediaRequestStatus.DECLINED);
+  });
+});

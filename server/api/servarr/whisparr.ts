@@ -74,6 +74,9 @@ interface WhisparrPage {
 
 const SCAN_PAGE_SIZE = 1000;
 
+// A lookup Whisparr answered without results, unlike a failed one
+export class WhisparrItemNotFoundError extends Error {}
+
 class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   constructor({ url, apiKey }: { url: string; apiKey: string }) {
     super({ url, apiKey, cacheName: 'whisparr', apiName: 'Whisparr' });
@@ -161,7 +164,9 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
 
     if (!items[0]) {
-      throw new Error(`Item not found in Whisparr: ${term}`);
+      throw new WhisparrItemNotFoundError(
+        `Item not found in Whisparr: ${term}`
+      );
     }
 
     return items[0];
