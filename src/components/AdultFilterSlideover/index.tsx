@@ -35,10 +35,6 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   excludePerformers: 'Exclude Performers',
   tags: 'Tags',
   excludeTags: 'Exclude Tags',
-  modeAnd: 'And',
-  modeOr: 'Or',
-  modeAndTip: 'Titles with all of them',
-  modeOrTip: 'Titles with any of them',
   search: 'Search…',
   startTyping: 'Start typing to search.',
   clearfilters: 'Clear Active Filters',
@@ -50,7 +46,8 @@ export const activeFiltersMessage = messages.activefilters;
 // Scenes filter on StashDB; adult movies on ThePornDB
 export type AdultFilterKind = 'scene' | 'adultmovie';
 
-// Filters that count as active; the others only qualify them
+// Filters that count as active; the release comparison only qualifies the
+// date
 const countedParams = [
   'releaseDate',
   'orientation',
@@ -63,27 +60,20 @@ const countedParams = [
 ] as const;
 
 // The filter params the browse APIs take
-export const adultFilterParams = [
-  ...countedParams,
-  'released',
-  'performerMode',
-  'tagMode',
-] as const;
+export const adultFilterParams = [...countedParams, 'released'] as const;
 
 // Query params the filters own; everything else (like sort) is kept.
 // ThePornDB's tag names only ride along for the panel
+// The And/Or modes of older links go too
 const filterKeys = [
   ...adultFilterParams,
   'tagNames',
   'tagsExcludeNames',
+  'performerMode',
+  'tagMode',
 ] as const;
 
 type Option = { value: string; label: string };
-
-// Each field and its Exclude twin
-const studioParams = ['studio', 'studioExclude'];
-const performerParams = ['performer', 'performerExclude'];
-const tagParams = ['tags', 'tagsExclude'];
 
 // The date picker drops leading zeros (2026-10-7); the API wants YYYY-MM-DD
 const toIsoDate = (value: Date | string) =>
@@ -109,33 +99,19 @@ interface LookupSelectProps {
   inputId: string;
   isMulti: boolean;
   ids: string[];
-  // Search endpoint taking ?query=
+  // Search endpoint taking ?query=, answering with what the source finds
   searchUrl: string;
-  // The other filters, so suggestions that find nothing are left out
-  context?: Record<string, string | undefined>;
-  // The params this field and its Exclude twin set, whose picks should not
-  // remount it
-  ownParams: string[];
   // Where already-selected ids are named, e.g. after a page reload
   nameUrl?: (id: string) => string;
   knownNames?: string[];
   onChange: (options: Option[]) => void;
 }
 
-const toQuery = (context: Record<string, string | undefined>) =>
-  new URLSearchParams(
-    Object.entries(context).flatMap(([name, value]) =>
-      value ? [[name, value]] : []
-    )
-  ).toString();
-
 const LookupSelect = ({
   inputId,
   isMulti,
   ids,
   searchUrl,
-  context = {},
-  ownParams,
   nameUrl,
   knownNames,
   onChange,
@@ -144,13 +120,6 @@ const LookupSelect = ({
   const { cache, mutate } = useSWRConfig();
   const [selected, setSelected] = useState<Option[]>([]);
   const key = ids.join(',');
-  const contextKey = toQuery(context);
-  // Suggestions depend on the other fields' picks
-  const otherKey = toQuery(
-    Object.fromEntries(
-      Object.entries(context).filter(([name]) => !ownParams.includes(name))
-    )
-  );
 
   // Names come from the performer and studio pages' own requests, so a page
   // seen before needs none, and one opened later finds it cached
@@ -211,11 +180,7 @@ const LookupSelect = ({
         name: string;
         disambiguation?: string | null;
       }[]
-    >(
-      `${searchUrl}?query=${encodeURIComponent(query)}${
-        contextKey ? `&${contextKey}` : ''
-      }`
-    );
+    >(`${searchUrl}?query=${encodeURIComponent(query)}`);
 
     return data.map((item) => ({
       value: String(item.id),
@@ -227,7 +192,6 @@ const LookupSelect = ({
 
   return (
     <AsyncSelect<Option, boolean>
-      key={otherKey}
       inputId={inputId}
       className="react-select-container"
       classNamePrefix="react-select"
@@ -255,52 +219,8 @@ const LookupSelect = ({
   );
 };
 
-interface ModeToggleProps {
-  mode: 'and' | 'or';
-  onChange: (mode: 'and' | 'or') => void;
-}
-
-// Whether titles need all of the picked performers or tags, or any
-const ModeToggle = ({ mode, onChange }: ModeToggleProps) => {
-  const intl = useIntl();
-
-  return (
-    <div className="flex overflow-hidden rounded-md border border-gray-500 text-xs font-medium">
-      {(['and', 'or'] as const).map((value) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={mode === value}
-          title={intl.formatMessage(
-            value === 'and' ? messages.modeAndTip : messages.modeOrTip
-          )}
-          onClick={() => onChange(value)}
-          className={`px-3 py-1 transition-colors ${
-            mode === value
-              ? 'bg-indigo-600 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-          }`}
-        >
-          {intl.formatMessage(
-            value === 'and' ? messages.modeAnd : messages.modeOr
-          )}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-const SectionTitle = ({
-  children,
-  action,
-}: {
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) => (
-  <div className="flex items-center justify-between">
-    <span className="text-lg font-semibold">{children}</span>
-    {action}
-  </div>
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <div className="text-lg font-semibold">{children}</div>
 );
 
 // The user's sexual preferences: those picked by default, and those offered
@@ -348,11 +268,8 @@ const AdultFilterSlideover = ({
   const studioExclude = param(router.query.studioExclude);
   const performer = param(router.query.performer);
   const performerExclude = param(router.query.performerExclude);
-  const performerMode =
-    param(router.query.performerMode) === 'or' ? 'or' : 'and';
   const tags = param(router.query.tags)?.split(',') ?? [];
   const tagsExclude = param(router.query.tagsExclude);
-  const tagMode = param(router.query.tagMode) === 'or' ? 'or' : 'and';
   const tagNames = param(router.query.tagNames)?.split('|');
   const tagsExcludeNames = param(router.query.tagsExcludeNames)?.split('|');
   const isScene = kind === 'scene';
@@ -361,11 +278,6 @@ const AdultFilterSlideover = ({
     `/api/v1/${kind}/${type}/${id}`;
   const activeFilters = countAdultFilters(router.query);
 
-  // Every field's suggestions are checked against all the picked filters,
-  // so nothing that would find no title is offered
-  const context = Object.fromEntries(
-    adultFilterParams.map((key) => [key, param(router.query[key])])
-  );
   const ids = (value?: string) => value?.split(',') ?? [];
   const joined = (options: Option[]) =>
     options.map((option) => option.value).join(',') || undefined;
@@ -462,8 +374,6 @@ const AdultFilterSlideover = ({
           isMulti={isScene}
           ids={ids(studio)}
           searchUrl={`${lookupBase}/studios`}
-          context={context}
-          ownParams={studioParams}
           nameUrl={nameUrl('studio')}
           onChange={(options) => batchUpdate({ studio: joined(options) })}
         />
@@ -473,36 +383,19 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="studioExcludeFilter"
           isMulti
-          context={context}
           ids={ids(studioExclude)}
           searchUrl={`${lookupBase}/studios`}
-          ownParams={studioParams}
           nameUrl={nameUrl('studio')}
           onChange={(options) =>
             batchUpdate({ studioExclude: joined(options) })
           }
         />
-        <SectionTitle
-          action={
-            <ModeToggle
-              mode={performerMode}
-              onChange={(mode) =>
-                batchUpdate({
-                  performerMode: mode === 'or' ? 'or' : undefined,
-                })
-              }
-            />
-          }
-        >
-          {intl.formatMessage(messages.performers)}
-        </SectionTitle>
+        <SectionTitle>{intl.formatMessage(messages.performers)}</SectionTitle>
         <LookupSelect
           inputId="performerFilter"
           isMulti
           ids={ids(performer)}
           searchUrl={`${lookupBase}/performers`}
-          context={context}
-          ownParams={performerParams}
           nameUrl={nameUrl('performer')}
           onChange={(options) => batchUpdate({ performer: joined(options) })}
         />
@@ -512,34 +405,19 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="performerExcludeFilter"
           isMulti
-          context={context}
           ids={ids(performerExclude)}
           searchUrl={`${lookupBase}/performers`}
-          ownParams={performerParams}
           nameUrl={nameUrl('performer')}
           onChange={(options) =>
             batchUpdate({ performerExclude: joined(options) })
           }
         />
-        <SectionTitle
-          action={
-            <ModeToggle
-              mode={tagMode}
-              onChange={(mode) =>
-                batchUpdate({ tagMode: mode === 'or' ? 'or' : undefined })
-              }
-            />
-          }
-        >
-          {intl.formatMessage(messages.tags)}
-        </SectionTitle>
+        <SectionTitle>{intl.formatMessage(messages.tags)}</SectionTitle>
         <LookupSelect
           inputId="tagFilter"
           isMulti
           ids={tags}
           searchUrl={`${lookupBase}/tags`}
-          context={context}
-          ownParams={tagParams}
           // ThePornDB cannot look tags up by id, so their names ride along
           nameUrl={isScene ? nameUrl('tag') : undefined}
           knownNames={isScene ? undefined : tagNames}
@@ -556,10 +434,8 @@ const AdultFilterSlideover = ({
         <LookupSelect
           inputId="tagExcludeFilter"
           isMulti
-          context={context}
           ids={ids(tagsExclude)}
           searchUrl={`${lookupBase}/tags`}
-          ownParams={tagParams}
           nameUrl={isScene ? nameUrl('tag') : undefined}
           knownNames={isScene ? undefined : tagsExcludeNames}
           onChange={(options) =>

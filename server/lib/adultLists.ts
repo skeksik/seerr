@@ -16,17 +16,19 @@ export const searchQuery = z.object({
   page: pageParam,
 });
 
-const filterMode = z.enum(['and', 'or']).optional();
+// Filter suggestions: whatever the source finds for the text
+export const lookupQuery = z.object({
+  query: z.string().trim().min(1),
+});
 
 export const dateComparisons = ['eq', 'gt', 'gte', 'lt', 'lte'] as const;
 export type DateComparison = (typeof dateComparisons)[number];
 
-// Filters panel fields both sources take
+// Filters panel fields both sources take; titles need all of the picked
+// performers and tags
 export const sharedFilters = {
-  // Whether a title needs all of the performers or tags, or any
-  performerMode: filterMode,
-  tagMode: filterMode,
-  // Comma-separated sexual preferences to show; the user's defaults if unset
+  // Comma-separated sexual preferences to show; the user's defaults if
+  // unset. Titles with any other are left out
   orientation: z.string().optional(),
   // How the release date compares; both sources take one date bound
   released: z.enum(dateComparisons).optional(),
@@ -37,47 +39,25 @@ export const sharedFilters = {
     .optional(),
 };
 
-// Whether anything is picked besides how fields combine
-export const hasPickedFilters = (filters: object): boolean =>
-  Object.entries(filters).some(
-    ([key, value]) =>
-      !['performerMode', 'tagMode', 'released'].includes(key) &&
-      value !== undefined
+// Whether a performer or tag is both picked and excluded: titles need all
+// picked ones, so then none is left
+export const pickedAndExcluded = <I>({
+  performer,
+  performerExclude,
+  tags,
+  tagsExclude,
+}: {
+  performer?: I[];
+  performerExclude?: I[];
+  tags?: I[];
+  tagsExclude?: I[];
+}): boolean =>
+  [
+    [performer, performerExclude],
+    [tags, tagsExclude],
+  ].some(([picked, excluded]) =>
+    (picked ?? []).some((id) => excluded?.includes(id))
   );
-
-export type SuggestionType = 'studio' | 'performer' | 'tag';
-
-// The picked filters with a suggestion added to its field: alone where the
-// field takes one or any of its values, next to the others where it needs
-// all of them. Studios take one, set by the caller's studio fields
-export const withSuggestion = <
-  I,
-  F extends {
-    performer?: I[];
-    tags?: I[];
-    performerMode?: 'and' | 'or';
-    tagMode?: 'and' | 'or';
-  },
->(
-  filters: F,
-  type: SuggestionType,
-  id: I,
-  studio: Partial<F>
-): F =>
-  type === 'studio'
-    ? { ...filters, ...studio }
-    : type === 'performer'
-      ? {
-          ...filters,
-          performer:
-            filters.performerMode === 'or'
-              ? [id]
-              : [...(filters.performer ?? []), id],
-        }
-      : {
-          ...filters,
-          tags: filters.tagMode === 'or' ? [id] : [...(filters.tags ?? []), id],
-        };
 
 // The items of joined that are not in items already
 export const withoutSeen = <T extends { id: string }>(

@@ -237,32 +237,6 @@ class StashDbAPI extends ExternalAPI {
     return data.queryScenes;
   }
 
-  // How many scenes each query finds, in one request
-  public async countScenes(queries: StashDbSceneQuery[]): Promise<number[]> {
-    if (queries.length === 0) {
-      return [];
-    }
-
-    // The studios of every query are looked up together
-    const children = await this.childStudios([
-      ...new Set(queries.flatMap(studioLookups)),
-    ]);
-    // Trending counts only the scenes trending now, so the count goes by
-    // date, which counts them all
-    const inputs = queries.map((query) =>
-      this.sceneInput({ ...query, sort: 'DATE', perPage: 1 }, children)
-    );
-    const data = await this.query<Record<string, { count: number }>>(
-      `query (${inputs.map((_, i) => `$c${i}: SceneQueryInput!`).join(', ')}) {
-        ${inputs.map((_, i) => `c${i}: queryScenes(input: $c${i}) { count }`).join('\n')}
-      }`,
-      Object.fromEntries(inputs.map((input, i) => [`c${i}`, input])),
-      LIST_TTL
-    );
-
-    return inputs.map((_, i) => data[`c${i}`]?.count ?? 0);
-  }
-
   // stash-box takes one criterion per field, so an exclusion only goes along
   // when nothing is included on that field; callers filter out the rest.
   // Studios take in the studios under them, from childStudios

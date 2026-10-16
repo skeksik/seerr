@@ -223,17 +223,21 @@ describe('classifyMovie', () => {
 describe('isHidden', () => {
   const hidden = new Set<Orientation>(['gay', 'trans']);
 
-  it('shows titles suiting any shown audience', () => {
+  it('shows titles whose preferences are all shown', () => {
     assert.strictEqual(isHidden(['straight', 'lesbian'], hidden), false);
-    assert.strictEqual(isHidden(['gay'], hidden), true);
     assert.strictEqual(isHidden(['unidentified'], hidden), false);
   });
 
-  it('hides titles with a hidden feature', () => {
+  it('hides titles with any hidden preference, alone or with others', () => {
+    assert.strictEqual(isHidden(['gay'], hidden), true);
     assert.strictEqual(isHidden(['straight', 'trans'], hidden), true);
     assert.strictEqual(
-      isHidden(['straight', 'trans'], new Set<Orientation>(['straight'])),
-      false
+      isHidden(['straight', 'lesbian'], new Set<Orientation>(['lesbian'])),
+      true
+    );
+    assert.strictEqual(
+      isHidden(['unidentified'], new Set<Orientation>(['unidentified'])),
+      true
     );
   });
 });
