@@ -63,6 +63,24 @@ describe('MergedStudioList', () => {
     assert.strictEqual(list.total, 4);
   });
 
+  it('leaves out ThePornDB sites a StashDB studio links to', async () => {
+    const api = stashDb(['Blacked']) as unknown as {
+      findIdsByUrls: (type: string, urls: string[]) => Promise<unknown[]>;
+    };
+    api.findIdsByUrls = async (_type, urls) =>
+      urls.map((url) =>
+        url === 'https://theporndb.net/sites/1001' ? 's-Blacked' : undefined
+      );
+    const list = new MergedStudioList(
+      api as unknown as StashDbAPI,
+      tpdb(['Adult Prime', 'Blacked Raw', 'Tushy'])
+    );
+
+    const names = (await list.page(1, 40)).map(({ name }) => name);
+
+    assert.deepStrictEqual(names, ['Adult Prime', 'Blacked', 'Tushy']);
+  });
+
   it('reads on from where the last page stopped', async () => {
     const list = new MergedStudioList(
       stashDb(Array.from({ length: 150 }, (_, i) => `S${1000 + i}`)),

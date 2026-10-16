@@ -27,7 +27,7 @@ Users without the permission never see adult titles: scene pages show "not found
 
 ## Browsing
 
-Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel. Like them, they live under Discover, at `/discover/scenes` and `/discover/adultmovies`. **Scenes** sorts by popularity (the default), release date, date added to StashDB, duration and title, each either way, and by StashDB's trending order. Performer and studio pages show their scenes and adult movies in rows, newest first; a row's title and **See More** card open the tab sorted by release date, to sort or filter them further. Rows with nothing in them are left out.
+Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel. Like them, they live under Discover, at `/discover/scenes` and `/discover/adultmovies`. **Scenes** sorts by popularity (the default), release date, date added to StashDB, duration and title, each either way, and by StashDB's trending order. Performer and studio pages (see [Performers and Studios](#performers-and-studios)) show their scenes and adult movies in rows, newest first; a row's title and **See More** card open the tab sorted by release date, to sort or filter them further. Rows with nothing in them are left out.
 
 - **Adult Movies** filters by release date, studio, performers and tags from ThePornDB.
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
@@ -40,19 +40,44 @@ Both also leave out studios, performers and tags picked under **Exclude**, and *
 
 Each user picks which sexual preferences are on by default in their **General** settings. Admins can take some away from a user under **Allowed Sexual Preferences**, the same way they set request limits; those never show for that user, not even in search or recommendations.
 
-Search shows matching scenes in a row above the regular results. Adult movies and performers join the regular results: StashDB's first, then ThePornDB's. ThePornDB performers are marked ThePornDB and open their ThePornDB page, also when StashDB lists the same performer. Adult TMDB movies carry an **Adult** badge instead of the movie one.
+Search shows matching scenes in a row above the regular results. Adult movies and performers join the regular results: StashDB's first, then ThePornDB's. A ThePornDB performer linked to a StashDB one is left out when that StashDB performer is already among the results, and otherwise opens the StashDB page, with ThePornDB's picture. The others are marked ThePornDB and open their ThePornDB page. Adult TMDB movies carry an **Adult** badge instead of the movie one.
 
 Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
 ### Discover Rows
 
-The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming adult movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Their titles and **See More** cards open every StashDB studio or network, searchable by name; the Studios list leaves out networks. Listed by name or searched, the Studios list also takes in ThePornDB's sites that no StashDB studio has the name of, leaving out clip store channels like "Manyvids: Someone"; they open their ThePornDB page. ThePornDB can't tell networks apart or sort its sites by date, so the Networks list and the other orders stay StashDB's. These lists start out like the rows, by trending, and also sort by popularity, name or newest. StashDB can't rank studios itself, so trending and popularity count each studio's scenes among the top 5,000 trending or popular ones; studios without any there are only listed by name or newest. A network's page links to all its studios the same way. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and adult movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
+The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming adult movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Their titles and **See More** cards open every StashDB studio or network, searchable by name; the Studios list leaves out networks. Listed by name or searched, the Studios list also takes in ThePornDB's sites that no StashDB studio has the name of or links to, leaving out clip store channels like "Manyvids: Someone"; they open their ThePornDB page. ThePornDB can't tell networks apart or sort its sites by date, so the Networks list and the other orders stay StashDB's. These lists start out like the rows, by trending, and also sort by popularity, name or newest. StashDB can't rank studios itself, so trending and popularity count each studio's scenes among the top 5,000 trending or popular ones; studios without any there are only listed by name or newest. A network's page links to all its studios the same way. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and adult movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
+
+## Performers and Studios
+
+Performers and studios come from two sources: StashDB, for scenes, and ThePornDB, for adult movies. Like actors at `/person/[id]`, they have one address each, whichever source they come from:
+
+| Page | StashDB | ThePornDB |
+| --- | --- | --- |
+| Performer | `/performer/<StashDB UUID>` | `/performer/<ThePornDB number>` |
+| Studio | `/studio/<StashDB UUID>` | `/studio/<ThePornDB site number>` |
+| A network's studios or sites | `/studio/<StashDB UUID>/studios` | `/studio/<ThePornDB site number>/studios` |
+
+StashDB ids are always UUIDs, and Seerr takes ThePornDB's numeric ids (not its UUIDs), so the two never collide.
+
+A StashDB performer or studio and a ThePornDB one are the same when **either** links the other:
+
+- the StashDB performer or studio lists the ThePornDB profile among its links (`theporndb.net/performers/…`, or `theporndb.net/sites/…` for studios), or
+- the ThePornDB performer lists the StashDB profile among its links. ThePornDB keeps no StashDB links for sites, so studios are linked from StashDB only.
+
+Names alone never link them. Linked performers and studios have a single page, StashDB's: its details, its links (with the ThePornDB profile), its scenes, and the ThePornDB adult movies in a row. Every link to the ThePornDB performer or studio, from adult movie casts and studios, the **More from** banner, search results, network site lists and the Studios list, opens that StashDB page instead, and the ThePornDB address forwards to it. Performers and studios neither side links keep a page on each: StashDB's with its scenes, ThePornDB's with its own details, bio and adult movies.
+
+For example, Gal Ritchie's ThePornDB profile links her StashDB profile, so she has one page, with StashDB's details, her StashDB scenes and her ThePornDB movies. Little Dragon has a profile on both, but neither links the other, so each keeps its own page.
+
+Links on performer and studio pages show as StashDB's icon for the site, or a logo where StashDB has no icon, or by name for sites without either. A network's page also lists its studios (or a ThePornDB network its sites) and the titles of all of them. Request managers can monitor StashDB performers and studios in Whisparr from their page; see [Whisparr](/using-seerr/adult-content/whisparr#monitoring-performers-and-studios).
+
+ThePornDB can't be asked which performer links a StashDB id, so the StashDB page looks for it among the ThePornDB performers of the same name or first alias, and keeps any ThePornDB performer seen linking to it. Matches are kept for six hours, like other details.
 
 ## Scenes
 
 Scenes are their own media type, separate from movies and series.
 
-Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags; a tag opens the Scenes tab filtered to it, newest first, as do the tags of adult movie pages in the Adult Movies tab. Performer and studio pages list their scenes in a row; the **Scenes** title opens the Scenes tab filtered to them. Their links to StashDB, ThePornDB and the sites StashDB knows about show as StashDB's icon for the site, or a logo where StashDB has no icon, or by name for sites without either. Performers get a ThePornDB link when their ThePornDB profile links back to them on StashDB, and studios when ThePornDB has a site of the same name. A network's page also lists its studios and the scenes of all of them. With a ThePornDB key, these pages add an **Adult Movies** row and button, which opens the ThePornDB page of the performer or studio. Studios are matched on their name, performers on the StashDB link ThePornDB keeps for them, the same link Whisparr relies on.
+Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags; a tag opens the Scenes tab filtered to it, newest first, as do the tags of adult movie pages in the Adult Movies tab.
 
 ### Detail Pages
 

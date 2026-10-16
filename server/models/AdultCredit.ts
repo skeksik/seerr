@@ -1,4 +1,4 @@
-import { stashDbPerformerId, tpdbUrl } from '@server/api/tpdb';
+import { tpdbUrl } from '@server/api/tpdb';
 import type {
   TpdbPerformerSummary,
   TpdbSiteSummary,
@@ -19,7 +19,8 @@ export interface AdultPerformerDetails {
   careerStart?: number;
   careerEnd?: number;
   links: SiteLink[];
-  // StashDB performer ThePornDB links to, which has the scenes page
+  // The StashDB performer this one is linked to, whose page it has instead
+  // of its own
   stashDbId?: string;
   tpdbUrl: string;
 }
@@ -29,16 +30,19 @@ export interface AdultStudioDetails {
   name: string;
   imageUrl?: string;
   url?: string;
-  network?: { id: number; name: string };
+  // Linked sites carry their StashDB studio, whose page they have
+  network?: { id: number; name: string; stashDbId?: string };
   // A network's sites
-  sites: { id: number; name: string; imageUrl?: string }[];
-  // StashDB studio of the same name, which has the scenes page
+  sites: { id: number; name: string; imageUrl?: string; stashDbId?: string }[];
+  // The StashDB studio this site is linked to, whose page it has instead of
+  // its own
   stashDbId?: string;
   tpdbUrl: string;
 }
 
 export const mapAdultPerformerDetails = (
-  performer: TpdbPerformerSummary
+  performer: TpdbPerformerSummary,
+  stashDbId?: string
 ): AdultPerformerDetails => {
   const extras = performer.extras;
 
@@ -58,14 +62,16 @@ export const mapAdultPerformerDetails = (
       url,
       site,
     })),
-    stashDbId: stashDbPerformerId(extras),
+    stashDbId,
     tpdbUrl: tpdbUrl('performers', performer.id),
   };
 };
 
+// Links are StashDB studios by site id
 export const mapAdultStudioDetails = (
   site: TpdbSiteSummary,
-  sites: TpdbSiteSummary[]
+  sites: TpdbSiteSummary[],
+  links: Map<number, string> = new Map()
 ): AdultStudioDetails => ({
   id: site.id,
   name: site.name,
@@ -73,14 +79,20 @@ export const mapAdultStudioDetails = (
   url: site.url ?? undefined,
   network:
     site.network && site.network.id !== site.id
-      ? { id: site.network.id, name: site.network.name }
+      ? {
+          id: site.network.id,
+          name: site.network.name,
+          stashDbId: links.get(site.network.id),
+        }
       : undefined,
   sites: sites
     .map((child) => ({
       id: child.id,
       name: child.name,
       imageUrl: child.logo ?? undefined,
+      stashDbId: links.get(child.id),
     }))
     .sort((a, b) => a.name.localeCompare(b.name)),
+  stashDbId: links.get(site.id),
   tpdbUrl: tpdbUrl('sites', site.uuid),
 });

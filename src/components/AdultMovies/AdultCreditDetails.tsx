@@ -1,5 +1,4 @@
 import withAdultGate from '@app/components/Common/AdultGate';
-import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import {
   creditBrowseHref,
@@ -14,15 +13,13 @@ import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
-import { FilmIcon } from '@heroicons/react/24/solid';
 import type {
   AdultPerformerDetails,
   AdultStudioDetails,
 } from '@server/models/AdultCredit';
 import type { AdultMovieListResponse } from '@server/models/AdultMovie';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -40,8 +37,8 @@ interface AdultCreditDetailsProps {
   type: CreditType;
 }
 
-// Pages for ThePornDB performers and studios, for those without a StashDB
-// page and for the movies of those that have one
+// Pages for ThePornDB performers and studios neither StashDB nor ThePornDB
+// link to a StashDB one; linked ones have the StashDB page only
 const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
@@ -49,11 +46,19 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
   const { data, error } = useSWR<CreditDetails>(
     id ? `/api/v1/adultmovie/${type}/${id}` : null
   );
-  // The slider's own request, so both share it
+  const stashDbId = data?.stashDbId;
+  // The slider's own request, so both share it; a linked page's StashDB page
+  // shows the same list
   const moviesUrl = creditTitlesUrl('adultmovie', type, id);
   const { data: movies } = useSWR<AdultMovieListResponse>(
     id ? moviesUrl : null
   );
+
+  useEffect(() => {
+    if (stashDbId) {
+      router.replace(creditHref(type, stashDbId));
+    }
+  }, [router, type, stashDbId]);
 
   // Backdrops from the first movies listed, like the StashDB pages
   const backdrops = useMemo(
@@ -64,7 +69,7 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
     [movies]
   );
 
-  if (!data && !error) {
+  if ((!data && !error) || stashDbId) {
     return <LoadingSpinner />;
   }
 
@@ -101,23 +106,15 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
           !isPerformer(data) && data.network
             ? {
                 name: data.network.name,
-                href: creditHref('adultmovie', 'studio', data.network.id),
+                href: creditHref(
+                  'studio',
+                  data.network.stashDbId ?? data.network.id
+                ),
               }
             : undefined
         }
         aliases={isPerformer(data) ? data.aliases : []}
         bio={isPerformer(data) ? data.bio : undefined}
-        actions={
-          data.stashDbId && (
-            // Their scenes live on the StashDB page
-            <Link href={creditHref('scene', type, data.stashDbId)}>
-              <Button buttonType="ghost">
-                <FilmIcon />
-                <span>{intl.formatMessage(globalMessages.scenes)}</span>
-              </Button>
-            </Link>
-          )
-        }
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
@@ -125,12 +122,12 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
           <AdultStudioRow
             sliderKey={`tpdb-sites-${data.id}`}
             title={intl.formatMessage(messages.sites)}
-            linkUrl={`/discover/adultmovies/studio/${data.id}/sites`}
+            linkUrl={`${creditHref('studio', data.id)}/studios`}
             mediaType="adultmovie"
             studios={data.sites}
           />
         )}
-        {/* Their titles open the tabs filtered to them, which sort */}
+        {/* Their titles open the tab filtered to them, which sorts */}
         <AdultTitleSlider
           mediaType="adultmovie"
           sliderKey={`adult-${type}-${data.id}`}
@@ -139,16 +136,6 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
           linkUrl={creditBrowseHref('adultmovie', type, data.id)}
           hideWhenEmpty
         />
-        {data.stashDbId && (
-          <AdultTitleSlider
-            mediaType="scene"
-            sliderKey={`scenes-${type}-${data.stashDbId}`}
-            title={intl.formatMessage(globalMessages.scenes)}
-            url={creditTitlesUrl('scene', type, data.stashDbId)}
-            linkUrl={creditBrowseHref('scene', type, data.stashDbId)}
-            hideWhenEmpty
-          />
-        )}
       </div>
     </>
   );

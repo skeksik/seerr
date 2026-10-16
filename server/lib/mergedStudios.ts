@@ -1,6 +1,7 @@
 import type StashDbAPI from '@server/api/stashdb';
 import type TpdbAPI from '@server/api/tpdb';
 import type { TpdbSiteSummary } from '@server/api/tpdb/interfaces';
+import { linkedStashDbStudios } from '@server/lib/adultLinks';
 import type { SceneFilterDetails } from '@server/models/Scene';
 import { pickImage } from '@server/models/Scene';
 
@@ -9,7 +10,7 @@ type StashDbStudio = Awaited<
 >['studios'][number];
 
 export interface MergedStudio extends SceneFilterDetails {
-  // ThePornDB sites with no StashDB studio of their name
+  // ThePornDB sites with no StashDB studio of their name or linked to them
   source?: 'tpdb';
   imageType?: 'tpdb';
 }
@@ -41,7 +42,7 @@ interface Source<T> {
 }
 
 // StashDB studios and the ThePornDB sites StashDB has no studio for, both by
-// name. Neither can be paged into the other, so the list is merged from the
+// name. A site is StashDB's when a studio has its name or links to it. Neither can be paged into the other, so the list is merged from the
 // start as far as it is read, and kept for the next page
 export class MergedStudioList {
   private merged: MergedStudio[] = [];
@@ -114,9 +115,11 @@ export class MergedStudioList {
       this.tpdb.next,
       this.query
     );
+    // Sites a StashDB studio links to are that studio, whatever their name
+    const linked = await linkedStashDbStudios(data, this.stashDbApi);
     this.tpdb.next += 1;
     this.tpdb.total = meta.total;
-    this.tpdb.items.push(...data);
+    this.tpdb.items.push(...data.filter((site) => !linked.has(site.id)));
     this.tpdb.done = meta.current_page >= meta.last_page || data.length === 0;
   }
 

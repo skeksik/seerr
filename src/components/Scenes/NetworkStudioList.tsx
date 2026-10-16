@@ -2,6 +2,7 @@ import withAdultGate from '@app/components/Common/AdultGate';
 import Header from '@app/components/Common/Header';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
+import { creditHref, isTpdbCreditId } from '@app/components/Common/adultRoutes';
 import CompanyCard from '@app/components/CompanyCard';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
@@ -12,7 +13,7 @@ import type { AdultStudioDetails } from '@server/models/AdultCredit';
 import type { SceneStudioDetails } from '@server/models/Scene';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -22,15 +23,13 @@ const messages = defineMessages('components.Scenes.NetworkStudioList', {
   search: 'Search by name',
 });
 
-interface NetworkStudioListProps {
-  // A StashDB network's studios, or a ThePornDB network's sites
-  source: 'stashdb' | 'tpdb';
-}
-
-const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
+// A StashDB network's studios, or a ThePornDB network's sites, told apart
+// by the id like the studio page
+const NetworkStudioList = () => {
   const intl = useIntl();
   const router = useRouter();
   const id = router.query.id as string;
+  const source = isTpdbCreditId(id) ? 'tpdb' : 'stashdb';
   const [search, setSearch] = useState('');
   const { data, error } = useSWR<SceneStudioDetails | AdultStudioDetails>(
     id
@@ -39,8 +38,16 @@ const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
         : `/api/v1/adultmovie/studio/${id}`
       : null
   );
+  // A network linked to a StashDB one has that one's page only
+  const stashDbId = data && 'sites' in data ? data.stashDbId : undefined;
 
-  if (!data && !error) {
+  useEffect(() => {
+    if (stashDbId) {
+      router.replace(`${creditHref('studio', stashDbId)}/studios`);
+    }
+  }, [router, stashDbId]);
+
+  if ((!data && !error) || stashDbId) {
     return <LoadingSpinner />;
   }
 
@@ -48,10 +55,6 @@ const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
     return <ErrorPage statusCode={404} />;
   }
 
-  const base =
-    source === 'stashdb'
-      ? '/discover/scenes/studio'
-      : '/discover/adultmovies/studio';
   const studios = ('studios' in data ? data.studios : data.sites).filter(
     (studio) => studio.name.toLowerCase().includes(search.trim().toLowerCase())
   );
@@ -65,7 +68,10 @@ const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
       <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
         <Header
           subtext={
-            <Link href={`${base}/${data.id}`} className="hover:underline">
+            <Link
+              href={creditHref('studio', data.id)}
+              className="hover:underline"
+            >
               {data.name}
             </Link>
           }
@@ -98,7 +104,11 @@ const NetworkStudioList = ({ source }: NetworkStudioListProps) => {
                   : studio.imageUrl
               }
               imageType={source}
-              url={`${base}/${studio.id}`}
+              // Sites linked to a StashDB studio have its page
+              url={creditHref(
+                'studio',
+                ('stashDbId' in studio && studio.stashDbId) || studio.id
+              )}
             />
           </li>
         ))}

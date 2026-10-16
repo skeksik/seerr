@@ -23,7 +23,7 @@ Go to **Settings &rarr; Metadata Providers**. The **Adult Content** section show
 - The **Adult Movies** tab sorts by release date, date added to ThePornDB or duration, each either way. ThePornDB has no popularity order. Some ThePornDB durations are far off, like hundreds of hours; Seerr leaves out anything over 24 hours, and duration sorts skip those movies.
 - It filters by release date, one studio (ThePornDB takes a single site per query; networks include their sites), any number of performers (a movie must feature all of them) and tags.
 - Release dates in the future are often placeholders on ThePornDB, so the default list stops at today. **Upcoming Adult Movies** on Discover shows the rest.
-- Cast links open the performer's ThePornDB page, with their bio, profile links (with StashDB's site icons when StashDB is set up), adult movies and, when ThePornDB links them to StashDB, scenes. Studio links open the studio's ThePornDB page, with its sites, adult movies and, when StashDB has a studio of the same name, scenes.
+- Cast and studio links open the performer's or studio's page at `/performer/[id]` or `/studio/[id]`. Performers and studios linked to StashDB, by a link on either side, open their StashDB page, which adds their adult movies to their scenes. The others open their ThePornDB page, with their bio, profile links (with StashDB's site icons when StashDB is set up), a network's sites and their adult movies. See [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
 
 ## Images
 

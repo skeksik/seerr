@@ -12,10 +12,22 @@ export interface TpdbSiteSummary {
   id: number;
   uuid: string;
   name: string;
+  // The site's slug, as in its ThePornDB address
+  short_name?: string | null;
   url?: string | null;
   logo?: string | null;
-  network?: { id: number; uuid: string; name: string } | null;
-  parent?: { id: number; uuid: string; name: string } | null;
+  network?: {
+    id: number;
+    uuid: string;
+    name: string;
+    short_name?: string | null;
+  } | null;
+  parent?: {
+    id: number;
+    uuid: string;
+    name: string;
+    short_name?: string | null;
+  } | null;
   // Movies name their site's parent and network by id only
   parent_id?: number | null;
   network_id?: number | null;
@@ -34,6 +46,8 @@ export interface TpdbPerformerExtras {
 export interface TpdbPerformerSummary {
   id: string;
   _id: number;
+  // As in the performer's ThePornDB address, like the id
+  slug?: string | null;
   name: string;
   // Only on the performer endpoint
   bio?: string | null;
@@ -46,6 +60,7 @@ export interface TpdbPerformerSummary {
   parent?: {
     id: string;
     _id?: number;
+    slug?: string | null;
     name: string;
     image?: string | null;
     extras?: TpdbPerformerExtras | null;

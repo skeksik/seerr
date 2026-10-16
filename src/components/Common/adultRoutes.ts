@@ -3,14 +3,17 @@ import { stashImageUrl } from '@app/utils/stashImage';
 type AdultMediaType = 'scene' | 'adultmovie';
 type CreditType = 'performer' | 'studio';
 
-// Performer and studio pages: StashDB's under scenes, ThePornDB's under
-// adult movies
-export const creditHref = (
-  mediaType: AdultMediaType,
-  type: CreditType,
-  id: string | number
-): string =>
-  `/discover/${mediaType === 'scene' ? 'scenes' : 'adultmovies'}/${type}/${id}`;
+// Performer and studio pages, like /person/[id]: /performer/[id] and
+// /studio/[id] serve both sources. StashDB ids are UUIDs and ThePornDB's
+// numbers, so they never collide. ThePornDB performers and studios linked to
+// StashDB ones have StashDB's page only, so links pass the StashDB id when
+// there is one
+export const creditHref = (type: CreditType, id: string | number): string =>
+  `/${type}/${id}`;
+
+// ThePornDB's numeric ids, as opposed to StashDB's UUIDs
+export const isTpdbCreditId = (id: string | number | undefined): boolean =>
+  id !== undefined && /^\d+$/.test(String(id));
 
 // A performer's or studio's titles, newest first. Their pages and the
 // title pages' studio banner share these, so they share the SWR cache
@@ -52,6 +55,8 @@ interface AdultPerformer {
   disambiguation?: string;
   // ThePornDB's numeric id, which its pages take
   tpdbId?: number;
+  // The StashDB performer a ThePornDB one is linked to, which has its page
+  stashDbId?: string;
   // StashDB performers in search results can carry ThePornDB's image
   imageType?: 'tpdb';
 }
@@ -72,7 +77,10 @@ export const toSliderPerformer = (
     personId: performer.id,
     name: performer.name,
     subName: performer.as ?? performer.disambiguation,
-    href: creditHref(mediaType, 'performer', performer.tpdbId ?? performer.id),
+    href: creditHref(
+      'performer',
+      performer.stashDbId ?? performer.tpdbId ?? performer.id
+    ),
     image: src ? { src, type: imageType } : undefined,
   };
 };
