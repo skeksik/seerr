@@ -1,25 +1,16 @@
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
-import { isAdultMediaType, MediaType } from '@server/constants/media';
+import { MediaType } from '@server/constants/media';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 
-// Scenes always go to Whisparr; movies only when flagged adult at request time
-export const isWhisparrMedia = (media: {
-  mediaType: MediaType;
-  isAdult?: boolean;
-}): boolean =>
-  isAdultMediaType(media.mediaType) ||
-  (media.mediaType === MediaType.MOVIE && !!media.isAdult);
-
 type WhisparrMedia = {
   mediaType: MediaType;
-  tmdbId: number | null;
   stashId?: string | null;
   tpdbId?: string | null;
 };
 
-// Finds the Whisparr item for a scene, adult movie or adult TMDB movie
+// Finds the Whisparr item for a scene or adult movie
 export const lookupWhisparrItem = (
   whisparr: WhisparrAPI,
   media: WhisparrMedia
@@ -29,9 +20,6 @@ export const lookupWhisparrItem = (
   }
   if (media.mediaType === MediaType.ADULT_MOVIE && media.tpdbId) {
     return whisparr.lookupTpdbMovie(media.tpdbId);
-  }
-  if (media.mediaType === MediaType.MOVIE && media.tmdbId) {
-    return whisparr.lookupMovie(media.tmdbId);
   }
   return Promise.reject(
     new Error(`No Whisparr id for ${media.mediaType} media`)
@@ -43,9 +31,9 @@ export const lookupWhisparrItem = (
 const isItemOf = (item: WhisparrItem, media: WhisparrMedia): boolean =>
   media.mediaType === MediaType.SCENE
     ? !!media.stashId && item.stashId === media.stashId
-    : media.mediaType === MediaType.ADULT_MOVIE
-      ? !!media.tpdbId && item.tpdbId === media.tpdbId
-      : item.tmdbId === media.tmdbId;
+    : media.mediaType === MediaType.ADULT_MOVIE &&
+      !!media.tpdbId &&
+      item.tpdbId === media.tpdbId;
 
 // The library item by its known id, or else by looking the title up
 export const findWhisparrItem = async (

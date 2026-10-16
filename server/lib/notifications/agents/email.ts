@@ -1,5 +1,5 @@
 import { IssueType, IssueTypeName } from '@server/constants/issue';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { User } from '@server/entity/User';
 import { defineMessages, getIntl } from '@server/i18n';
@@ -7,7 +7,6 @@ import { mediaTypeMessage } from '@server/i18n/globalMessages';
 import PreparedEmail from '@server/lib/email';
 import type { NotificationAgentEmail } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
-import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
 import { getMediaPath } from '@server/utils/mediaIds';
@@ -176,7 +175,7 @@ class EmailAgent
             {
               mediaType,
               service:
-                payload.media && isWhisparrMedia(payload.media)
+                payload.media && isAdultMediaType(payload.media.mediaType)
                   ? 'Whisparr'
                   : payload.media?.mediaType === MediaType.MOVIE
                     ? 'Radarr'

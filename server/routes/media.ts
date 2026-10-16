@@ -21,11 +21,7 @@ import type {
 import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import {
-  findWhisparrItem,
-  getWhisparrServer,
-  isWhisparrMedia,
-} from '@server/lib/whisparrMedia';
+import { findWhisparrItem, getWhisparrServer } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
@@ -113,20 +109,7 @@ mediaRoutes.get('/', async (req, res, next) => {
   const clauses: FindOptionsWhere<Media>[] = [];
 
   if (tmdbTypes.length > 0) {
-    if (!allowAdult || requestedAdultOnly) {
-      clauses.push({ ...base, mediaType: In(tmdbTypes), isAdult: false });
-    }
-    if (allowAdult && requestedAdultOnly) {
-      clauses.push({
-        ...base,
-        mediaType: In(tmdbTypes),
-        isAdult: true,
-        ...requested,
-      });
-    }
-    if (allowAdult && !requestedAdultOnly) {
-      clauses.push({ ...base, mediaType: In(tmdbTypes) });
-    }
+    clauses.push({ ...base, mediaType: In(tmdbTypes) });
   }
 
   if (adultTypes.length > 0) {
@@ -283,7 +266,7 @@ mediaRoutes.delete(
 
       const is4k = String(req.query.is4k) === 'true';
 
-      if (isWhisparrMedia(media)) {
+      if (isAdultMediaType(media.mediaType)) {
         const server = getWhisparrServer(
           is4k,
           is4k ? media.serviceId4k : media.serviceId

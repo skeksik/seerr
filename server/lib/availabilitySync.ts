@@ -24,7 +24,6 @@ import { User } from '@server/entity/User';
 import { syncSceneAvailability } from '@server/lib/sceneAvailability';
 import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
-import { mediaExistsInWhisparr } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { getHostname } from '@server/utils/getHostname';
 
@@ -160,13 +159,8 @@ class AvailabilitySync {
           //   await this.mediaExistsInJellyfin(media, false);
           // }
 
-          // Adult movies live in Whisparr; the name is kept to limit churn
-          const existsInRadarr = media.isAdult
-            ? await mediaExistsInWhisparr(media, false)
-            : await this.mediaExistsInRadarr(media, false);
-          const existsInRadarr4k = media.isAdult
-            ? await mediaExistsInWhisparr(media, true)
-            : await this.mediaExistsInRadarr(media, true);
+          const existsInRadarr = await this.mediaExistsInRadarr(media, false);
+          const existsInRadarr4k = await this.mediaExistsInRadarr(media, true);
 
           // plex
           if (mediaServerType === MediaServerType.PLEX) {

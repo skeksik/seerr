@@ -114,7 +114,6 @@ const TmdbTitleCard = ({
       userScore={title.voteAverage}
       year={title.releaseDate}
       mediaType={'movie'}
-      isAdult={title.adult}
       canExpand={canExpand}
       mutateParent={mutateParent}
     />

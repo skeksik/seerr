@@ -3,7 +3,7 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import OverrideRule from '@server/entity/OverrideRule';
@@ -82,7 +82,6 @@ overrideRuleRoutes.post<
     mediaType: MediaType;
     is4k: boolean;
     tmdbId?: number;
-    service?: 'whisparr';
     requestUser: number;
     requestId: number | null;
     tags?: number[] | null;
@@ -97,7 +96,7 @@ overrideRuleRoutes.post<
     try {
       const tmdb = new TheMovieDb();
       let tmdbMedia: TmdbMovieDetails | TmdbTvDetails | undefined;
-      if (req.body.mediaType !== MediaType.SCENE) {
+      if (!isAdultMediaType(req.body.mediaType)) {
         if (!req.body.tmdbId) {
           return next({ status: 400, message: 'A TMDB id is required.' });
         }
@@ -189,7 +188,6 @@ overrideRuleRoutes.post<
         requestUser: ruleUser,
         tags: req.body.tags,
         serviceId: req.body.serviceId,
-        service: req.body.service,
       });
 
       res.status(200).json(overrideRulesResult);

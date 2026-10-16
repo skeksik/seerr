@@ -63,7 +63,6 @@ describe('lookupWhisparrItem', () => {
     await assert.rejects(() =>
       lookupWhisparrItem(whisparr, {
         mediaType: MediaType.ADULT_MOVIE,
-        tmdbId: null,
         tpdbId: null,
       })
     );

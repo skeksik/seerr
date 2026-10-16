@@ -33,8 +33,6 @@ interface StatusBadgeProps {
   inProgress?: boolean;
   plexUrl?: string;
   serviceUrl?: string;
-  // Defaults to Radarr or Sonarr by media type
-  serviceName?: string;
   tmdbId?: number | null;
   // StashDB scene or ThePornDB movie UUID, for their manage links
   externalId?: string | null;
@@ -50,7 +48,6 @@ const StatusBadge = ({
   inProgress = false,
   plexUrl,
   serviceUrl,
-  serviceName,
   tmdbId,
   externalId,
   mediaType,
@@ -116,7 +113,7 @@ const StatusBadge = ({
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
       mediaLink = serviceUrl;
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
-        arr: serviceName ?? arrName({ mediaType }),
+        arr: arrName({ mediaType }),
       });
     }
   }

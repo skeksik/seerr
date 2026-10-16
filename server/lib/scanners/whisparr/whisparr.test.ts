@@ -111,25 +111,7 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(processing?.status, MediaStatus.PROCESSING);
   });
 
-  it('flags TMDB movies from Whisparr as adult and skips TPDB-only ones', async () => {
-    await requested({ mediaType: MediaType.MOVIE, tmdbId: 1288332 });
-    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      item({ id: 8, itemType: 'movie', stashId: null, tmdbId: 1288332 }),
-      item({ id: 9, itemType: 'movie', stashId: null, tmdbId: 0 }),
-    ]);
-
-    await whisparrScanner.run();
-
-    const movies = await getRepository(Media).find({
-      where: { mediaType: MediaType.MOVIE },
-    });
-    assert.strictEqual(movies.length, 1);
-    assert.strictEqual(movies[0].tmdbId, 1288332);
-    assert.strictEqual(movies[0].isAdult, true);
-    assert.strictEqual(movies[0].status, MediaStatus.AVAILABLE);
-  });
-
-  it('leaves movies that Radarr manages alone', async () => {
+  it('leaves TMDB movies to Radarr', async () => {
     await requested({
       mediaType: MediaType.MOVIE,
       tmdbId: 555,
@@ -139,13 +121,17 @@ describe('WhisparrScanner', () => {
     });
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
       item({ id: 10, itemType: 'movie', stashId: null, tmdbId: 555 }),
+      item({ id: 9, itemType: 'movie', stashId: null, tmdbId: 1288332 }),
     ]);
 
     await whisparrScanner.run();
 
-    const movie = await Media.getMedia(555, MediaType.MOVIE);
-    assert.strictEqual(movie?.isAdult, false);
-    assert.strictEqual(movie?.externalServiceId, 99);
+    const movies = await getRepository(Media).find({
+      where: { mediaType: MediaType.MOVIE },
+    });
+    assert.strictEqual(movies.length, 1);
+    assert.strictEqual(movies[0].serviceId, 0);
+    assert.strictEqual(movies[0].externalServiceId, 99);
   });
 
   const TPDB_ID = '02b1383e-b871-4fd6-a731-2119a3aa93a7';
@@ -156,7 +142,6 @@ describe('WhisparrScanner', () => {
     await requested({
       mediaType: MediaType.ADULT_MOVIE,
       tpdbId: TPDB_ID,
-      isAdult: true,
     });
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
       movieItem({ id: 11, tmdbId: 0 }),
@@ -166,30 +151,8 @@ describe('WhisparrScanner', () => {
 
     const movie = await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID);
     assert.strictEqual(movie?.mediaType, MediaType.ADULT_MOVIE);
-    assert.strictEqual(movie?.isAdult, true);
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(movie?.externalServiceId, 11);
-  });
-
-  it('keeps movies already tracked as adult TMDB movies', async () => {
-    await requested({
-      mediaType: MediaType.MOVIE,
-      tmdbId: 1786674,
-      isAdult: true,
-      status: MediaStatus.PROCESSING,
-    });
-    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      movieItem({ id: 13, tmdbId: 1786674 }),
-    ]);
-
-    await whisparrScanner.run();
-
-    assert.strictEqual(
-      await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID),
-      undefined
-    );
-    const movie = await Media.getMedia(1786674, MediaType.MOVIE);
-    assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
   });
 
   it('links titles nobody requested without marking them requested', async () => {
@@ -228,7 +191,7 @@ describe('WhisparrScanner', () => {
       (await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID))?.status,
       MediaStatus.AVAILABLE
     );
-    // TMDB movies without a file only get a row once requested
+    // TMDB movies belong to Radarr
     assert.strictEqual(await Media.getMedia(777, MediaType.MOVIE), undefined);
   });
 });

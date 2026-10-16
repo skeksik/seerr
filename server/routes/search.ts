@@ -127,7 +127,6 @@ searchRoutes.get('/', async (req, res, next) => {
         tmdb.searchMulti({
           query: queryString,
           page: Number(req.query.page),
-          includeAdult: canViewAdult(req.user),
           language: (req.query.language as string) ?? req.locale,
         }),
         searchAdult(queryString, Number(req.query.page) || 1, req.user),

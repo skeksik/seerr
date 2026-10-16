@@ -258,14 +258,6 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
 
   const movieAttributes: React.ReactNode[] = [];
 
-  if (data.adult) {
-    movieAttributes.push(
-      <span className="rounded-md border border-pink-500 bg-pink-600/80 p-0.5 py-0 text-white">
-        {intl.formatMessage(globalMessages.adult)}
-      </span>
-    );
-  }
-
   const certification = releases?.find((r) => r.certification)?.certification;
   if (certification) {
     movieAttributes.push(
@@ -455,7 +447,6 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
         <div className="media-page-bg-image">
           <CachedImage
             type="tmdb"
-            adult={data.adult}
             alt=""
             src={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${data.backdropPath}`}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -503,7 +494,6 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
         <div className="media-poster">
           <CachedImage
             type="tmdb"
-            adult={data.adult}
             src={
               data.posterPath
                 ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${data.posterPath}`
@@ -528,7 +518,6 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
               mediaType="movie"
               plexUrl={plexUrl}
               serviceUrl={data.mediaInfo?.serviceUrl}
-              serviceName={data.mediaInfo?.isAdult ? 'Whisparr' : undefined}
             />
             {settings.currentSettings.movie4kEnabled &&
               hasPermission(
@@ -553,7 +542,6 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
                   mediaType="movie"
                   plexUrl={plexUrl4k}
                   serviceUrl={data.mediaInfo?.serviceUrl4k}
-                  serviceName={data.mediaInfo?.isAdult ? 'Whisparr' : undefined}
                 />
               )}
           </div>

@@ -118,7 +118,6 @@ describe('GET /adultmovie/discover', () => {
         mediaType: MediaType.ADULT_MOVIE,
         tpdbId: MOVIE_ID,
         tmdbId: null,
-        isAdult: true,
         status: MediaStatus.AVAILABLE,
       })
     );

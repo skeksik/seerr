@@ -4,7 +4,8 @@ import ServarrBase from './base';
 
 // Whisparr v3 ("Eros") is a Radarr fork where scenes and movies share the
 // movie resource. Scenes are keyed by their stash-box UUID (stashId) and
-// movies by their TMDB id. Whisparr v2 (a Sonarr fork) is not supported.
+// adult movies by their ThePornDB UUID (tpdbId). Whisparr v2 (a Sonarr fork)
+// is not supported.
 
 export type WhisparrItemType = 'scene' | 'movie';
 
@@ -133,10 +134,6 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   // Lookup results carry the library id and state when the item already exists
   public lookupScene(stashId: string): Promise<WhisparrItem> {
     return this.lookup(`stash:${stashId}`, 'scene');
-  }
-
-  public lookupMovie(tmdbId: number): Promise<WhisparrItem> {
-    return this.lookup(`tmdb:${tmdbId}`, 'movie');
   }
 
   public lookupTpdbMovie(tpdbId: string): Promise<WhisparrItem> {

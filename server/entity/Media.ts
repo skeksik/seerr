@@ -4,6 +4,7 @@ import { stashUrl } from '@server/api/stash';
 import type { AdultMediaType } from '@server/constants/media';
 import {
   adultIdField,
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -17,7 +18,7 @@ import type { DownloadingItem } from '@server/lib/downloadtracker';
 import downloadTracker from '@server/lib/downloadtracker';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { isWhisparrMedia, whisparrServiceUrl } from '@server/lib/whisparrMedia';
+import { whisparrServiceUrl } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { getHostname } from '@server/utils/getHostname';
@@ -198,10 +199,6 @@ class Media {
   // ThePornDB movie UUID of an adult movie, shared by Whisparr
   @Column({ type: 'varchar', unique: true, nullable: true })
   public tpdbId?: string | null;
-
-  // Adult movie sent to Whisparr instead of Radarr; always set on adult movies
-  @Column({ type: 'boolean', default: false })
-  public isAdult: boolean;
 
   @Column({ unique: true, nullable: true })
   @Index()
@@ -411,7 +408,7 @@ class Media {
 
   @AfterLoad()
   public setServiceUrl(): void {
-    if (isWhisparrMedia(this)) {
+    if (isAdultMediaType(this.mediaType)) {
       const { whisparr } = getSettings();
       const buildUrl = (serviceId?: number | null, slug?: string | null) => {
         const server = whisparr.find((s) => s.id === serviceId);
@@ -494,7 +491,7 @@ class Media {
 
   @AfterLoad()
   public getDownloadingItem(): void {
-    if (isWhisparrMedia(this)) {
+    if (isAdultMediaType(this.mediaType)) {
       if (this.serviceId != null && this.externalServiceId != null) {
         this.downloadStatus = downloadTracker.getWhisparrProgress(
           this.serviceId,

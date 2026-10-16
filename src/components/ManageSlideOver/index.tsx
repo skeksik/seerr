@@ -142,11 +142,7 @@ const ManageSlideOver = ({
       : null
   );
   const isAdultType = isAdultMediaType(mediaType);
-  // Adult TMDB movies are sent to Whisparr too
-  const arrName = mediaArrName({
-    mediaType,
-    isAdult: data.mediaInfo?.isAdult,
-  });
+  const arrName = mediaArrName({ mediaType });
   const usesWhisparr = arrName === 'Whisparr';
   const mediaTypeName = intl.formatMessage(
     messages[mediaType === 'tv' ? 'tvshow' : mediaType]

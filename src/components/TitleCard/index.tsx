@@ -44,8 +44,6 @@ interface TitleCardProps {
   title: string;
   userScore?: number;
   mediaType: MediaType | AdultMediaType;
-  // Adult TMDB movies get an Adult badge instead of the movie one
-  isAdult?: boolean;
   status?: MediaStatus;
   canExpand?: boolean;
   inProgress?: boolean;
@@ -83,7 +81,6 @@ const TitleCard = ({
   title,
   status,
   mediaType,
-  isAdult = false,
   isAddedToWatchlist = false,
   inProgress = false,
   canExpand = false,
@@ -277,7 +274,6 @@ const TitleCard = ({
           ) : (
             <CachedImage
               type="tmdb"
-              adult={isAdult}
               className="absolute inset-0 h-full w-full"
               alt=""
               src={
@@ -293,7 +289,7 @@ const TitleCard = ({
             <div className="pointer-events-none z-40 flex flex-col items-start gap-1 self-start">
               <div
                 className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                  adultType || (isAdult && mediaType === 'movie')
+                  adultType
                     ? 'border-pink-500 bg-pink-600/80'
                     : mediaType === 'movie' || mediaType === 'collection'
                       ? 'border-blue-500 bg-blue-600/80'
@@ -303,7 +299,7 @@ const TitleCard = ({
                 <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
                   {isScene
                     ? intl.formatMessage(globalMessages.scene)
-                    : adultType || (isAdult && mediaType === 'movie')
+                    : adultType
                       ? intl.formatMessage(globalMessages.adult)
                       : mediaType === 'movie'
                         ? intl.formatMessage(globalMessages.movie)

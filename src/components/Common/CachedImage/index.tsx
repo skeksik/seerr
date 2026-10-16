@@ -8,8 +8,8 @@ const imageLoader: ImageLoader = ({ src }) => src;
 export type CachedImageProps = ImageProps & {
   src: string;
   type: 'tmdb' | 'avatar' | 'tvdb' | 'stashdb' | 'tpdb';
-  // Adult TMDB artwork; StashDB and ThePornDB images count as adult unless
-  // told otherwise, like stash-box's site icons
+  // StashDB and ThePornDB images count as adult unless told otherwise, like
+  // stash-box's site icons
   adult?: boolean;
 };
 

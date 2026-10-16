@@ -11,7 +11,7 @@ import type {
 import BaseScanner from '@server/lib/scanners/baseScanner';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
-import { chunk, uniqWith } from 'lodash';
+import { uniqWith } from 'lodash';
 import { In } from 'typeorm';
 
 type SyncStatus = StatusBase & {
@@ -33,7 +33,6 @@ class WhisparrScanner
   // Read once per server, so items mostly need no queries of their own
   private requestedIds = new Set<number>();
   private adultMedia = new Map<string, Media>();
-  private movies = new Map<number, Media>();
 
   constructor() {
     super('Whisparr Scan', { bundleSize: 50 });
@@ -80,7 +79,7 @@ class WhisparrScanner
         const whisparr = WhisparrAPI.forServer(server);
 
         this.items = await whisparr.getMonitoredItems();
-        await this.preload(this.items);
+        await this.preload();
         await this.loop(this.processItem.bind(this), { sessionId });
       }
 
@@ -91,35 +90,19 @@ class WhisparrScanner
       if (this.sessionId === sessionId) {
         this.requestedIds.clear();
         this.adultMedia.clear();
-        this.movies.clear();
       }
       this.endRun(sessionId);
     }
   }
 
-  private async preload(items: WhisparrItem[]): Promise<void> {
-    const tmdbIds = [
-      ...new Set(
-        items.flatMap((item) =>
-          item.itemType === 'movie' && item.tmdbId > 0 ? [item.tmdbId] : []
-        )
-      ),
-    ];
-    const [requested, adult, movies] = await Promise.all([
+  private async preload(): Promise<void> {
+    const [requested, adult] = await Promise.all([
       getRepository(Media).query(
         'SELECT DISTINCT "mediaId" FROM media_request'
       ) as Promise<{ mediaId: number }[]>,
       getRepository(Media).find({
         where: { mediaType: In([MediaType.SCENE, MediaType.ADULT_MOVIE]) },
       }),
-      // In batches, as databases cap the values a query takes
-      Promise.all(
-        chunk(tmdbIds, 500).map((ids) =>
-          getRepository(Media).find({
-            where: { tmdbId: In(ids), mediaType: MediaType.MOVIE },
-          })
-        )
-      ).then((lists) => lists.flat()),
     ]);
 
     this.requestedIds = new Set(requested.map(({ mediaId }) => mediaId));
@@ -129,11 +112,6 @@ class WhisparrScanner
         return id ? [[`${media.mediaType}:${id}`, media] as const] : [];
       })
     );
-    this.movies = new Map(
-      movies.flatMap((media) =>
-        media.tmdbId ? [[media.tmdbId, media] as const] : []
-      )
-    );
   }
 
   private async processItem(item: WhisparrItem): Promise<void> {
@@ -142,40 +120,20 @@ class WhisparrScanner
     try {
       if (item.itemType === 'scene' && item.stashId) {
         await this.processExternal(item, is4k, MediaType.SCENE, item.stashId);
-      } else if (item.itemType === 'movie') {
-        await this.processMovieItem(item, is4k);
+      } else if (item.itemType === 'movie' && item.tpdbId) {
+        // Only ThePornDB movies are adult movies; TMDB movies belong to Radarr
+        await this.processExternal(
+          item,
+          is4k,
+          MediaType.ADULT_MOVIE,
+          item.tpdbId
+        );
       }
     } catch (e) {
       this.log('Failed to process Whisparr item', 'error', {
         errorMessage: e.message,
         title: item.title,
       });
-    }
-  }
-
-  // Movies become adult movies when ThePornDB knows them, unless an adult TMDB
-  // movie already tracks them; otherwise they are TMDB movies
-  private async processMovieItem(item: WhisparrItem, is4k: boolean) {
-    const hasTmdb = item.tmdbId > 0;
-
-    if (!item.tpdbId) {
-      if (hasTmdb) {
-        await this.processAdultMovie(item, is4k);
-      }
-      return;
-    }
-
-    const trackedByTmdb = hasTmdb && !!this.movies.get(item.tmdbId)?.isAdult;
-
-    if (!trackedByTmdb) {
-      await this.processExternal(
-        item,
-        is4k,
-        MediaType.ADULT_MOVIE,
-        item.tpdbId
-      );
-    } else {
-      await this.processAdultMovie(item, is4k);
     }
   }
 
@@ -226,7 +184,6 @@ class WhisparrScanner
         mediaType,
         [idField]: externalId,
         tmdbId: null,
-        isAdult: mediaType === MediaType.ADULT_MOVIE,
       });
 
     await this.asyncLock.dispatch(key, async () => {
@@ -262,38 +219,6 @@ class WhisparrScanner
       this.adultMedia.set(key, await mediaRepository.save(media));
       this.log(`Updated ${mediaType}: ${item.title}`);
     });
-  }
-
-  private async processAdultMovie(item: WhisparrItem, is4k: boolean) {
-    const existing = this.movies.get(item.tmdbId);
-    const requested = !!existing && this.requestedIds.has(existing.id);
-
-    // Radarr already manages this movie; leave its service ids alone
-    if (
-      existing &&
-      !existing.isAdult &&
-      (existing.serviceId != null || existing.serviceId4k != null)
-    ) {
-      return;
-    }
-
-    await this.processMovie(item.tmdbId, {
-      is4k: this.enable4kMovie && is4k,
-      serviceId: this.currentServer.id,
-      externalServiceId: item.id,
-      externalServiceSlug: item.titleSlug,
-      title: item.title,
-      // Only monitored items are scanned
-      processing: !item.hasFile && requested,
-      hasFile: item.hasFile,
-    });
-
-    if (!existing?.isAdult) {
-      await getRepository(Media).update(
-        { tmdbId: item.tmdbId, mediaType: MediaType.MOVIE, isAdult: false },
-        { isAdult: true }
-      );
-    }
   }
 }
 

@@ -341,8 +341,9 @@ describe('Whisparr override rules', () => {
   });
 });
 
-describe('Adult movie requests', () => {
-  const stubTmdbMovie = (adult: boolean) =>
+describe('Adult TMDB movies', () => {
+  it('are requested like any other movie', async () => {
+    getSettings().whisparr = [whisparrServer];
     mock.method(
       ExternalAPI.prototype as unknown as {
         get: (endpoint: string) => Promise<unknown>;
@@ -350,66 +351,29 @@ describe('Adult movie requests', () => {
       'get',
       async (endpoint: string) => ({
         id: Number(endpoint.replace(/^\/movie\//, '')),
-        adult,
+        adult: true,
         external_ids: {},
         videos: { results: [{ type: 'Trailer', key: 'trailer' }] },
       })
     );
-
-  it('flags adult movies for Whisparr when one is configured', async () => {
-    getSettings().whisparr = [whisparrServer];
-    stubTmdbMovie(true);
-    mock.method(WhisparrAPI.prototype, 'lookupMovie', async () => ({
-      ...lookupItem,
-      itemType: 'movie',
-      tmdbId: 777,
-    }));
-    mock.method(WhisparrAPI.prototype, 'addItem', async () => ({
-      ...lookupItem,
-      id: 5,
-    }));
-    const user = await createUser(
-      'adultmovie@seerr.dev',
-      Permission.REQUEST | Permission.ADULT
+    const lookup = mock.method(
+      WhisparrAPI.prototype,
+      'lookupTpdbMovie',
+      async () => lookupItem
     );
+    const user = await createUser('tmdbadult@seerr.dev', Permission.REQUEST);
 
-    await MediaRequest.request(
+    const request = await MediaRequest.request(
       { mediaType: MediaType.MOVIE, mediaId: 777 },
       user
     );
 
-    const media = await Media.getMedia(777, MediaType.MOVIE);
-    assert.strictEqual(media?.isAdult, true);
-  });
-
-  it('keeps adult movies on Radarr without a Whisparr server', async () => {
-    stubTmdbMovie(true);
-    const user = await createUser(
-      'radarradult@seerr.dev',
-      Permission.REQUEST | Permission.ADULT
+    assert.strictEqual(request.type, MediaType.MOVIE);
+    assert.strictEqual(
+      (await Media.getMedia(777, MediaType.MOVIE))?.mediaType,
+      MediaType.MOVIE
     );
-
-    await MediaRequest.request(
-      { mediaType: MediaType.MOVIE, mediaId: 778 },
-      user
-    );
-
-    const media = await Media.getMedia(778, MediaType.MOVIE);
-    assert.strictEqual(media?.isAdult, false);
-  });
-
-  it('refuses adult movies to users without adult access', async () => {
-    stubTmdbMovie(true);
-    const user = await createUser('kid@seerr.dev', Permission.REQUEST);
-
-    await assert.rejects(
-      () =>
-        MediaRequest.request(
-          { mediaType: MediaType.MOVIE, mediaId: 779 },
-          user
-        ),
-      RequestPermissionError
-    );
+    assert.strictEqual(lookup.mock.callCount(), 0);
   });
 });
 
@@ -445,7 +409,6 @@ describe('Adult movie requests', () => {
 
     assert.strictEqual(request.type, MediaType.ADULT_MOVIE);
     const media = await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID);
-    assert.strictEqual(media?.isAdult, true);
     assert.strictEqual(media?.tmdbId, null);
     assert.strictEqual(media?.status, MediaStatus.PENDING);
   });

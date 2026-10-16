@@ -24,7 +24,6 @@ async function overrideRules({
   requestUser,
   tags = null,
   serviceId,
-  service,
 }: {
   mediaType: MediaType;
   is4k: boolean;
@@ -33,15 +32,14 @@ async function overrideRules({
   requestUser: User;
   tags?: number[] | null;
   serviceId?: number;
-  // Scenes and adult movies are handled by Whisparr
-  service?: 'whisparr';
 }): Promise<OverrideRulesResult> {
   const settings = getSettings();
 
   let rootFolder: string | null = null;
   let profileId: number | null = null;
 
-  const useWhisparr = service === 'whisparr' || isAdultMediaType(mediaType);
+  // Scenes and adult movies are handled by Whisparr
+  const useWhisparr = isAdultMediaType(mediaType);
   const serviceIdField = useWhisparr
     ? 'whisparrServiceId'
     : mediaType === MediaType.MOVIE

@@ -25,7 +25,6 @@ interface MediaTitleRef {
   tmdbId?: number | null;
   stashId?: string | null;
   tpdbId?: string | null;
-  isAdult?: boolean;
 }
 
 export interface MediaTitle {
@@ -89,7 +88,7 @@ const useMediaTitle = (
     year,
     href: `/${type}/${id}`,
     mediaInfo: data?.mediaInfo,
-    arr: arrName({ mediaType: media?.mediaType, isAdult: media?.isAdult }),
+    arr: arrName({ mediaType: media?.mediaType }),
   };
 
   if (isAdult) {

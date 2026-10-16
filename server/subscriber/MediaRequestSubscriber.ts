@@ -20,7 +20,6 @@ import Season from '@server/entity/Season';
 import SeasonRequest from '@server/entity/SeasonRequest';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { getSettings } from '@server/lib/settings';
-import { isWhisparrMedia } from '@server/lib/whisparrMedia';
 import { sendToWhisparr } from '@server/lib/whisparrRequest';
 import logger from '@server/logger';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -200,7 +199,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     if (
       entity.status === MediaRequestStatus.APPROVED &&
       entity.type === MediaType.MOVIE &&
-      !isWhisparrMedia(entity.media)
+      !isAdultMediaType(entity.media.mediaType)
     ) {
       try {
         const mediaRepository = manager.getRepository(Media);

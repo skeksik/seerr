@@ -6,6 +6,7 @@ import useToasts from '@app/hooks/useToasts';
 import type { User } from '@app/hooks/useUser';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
+import type { AdultMediaType } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { formatBytes } from '@app/utils/numberHelpers';
 import {
@@ -67,7 +68,7 @@ export type RequestOverrides = {
 interface AdvancedRequesterProps {
   type: 'movie' | 'tv';
   // Scenes and adult movies use Whisparr servers instead of Radarr's
-  service?: 'whisparr';
+  adultType?: AdultMediaType;
   tmdbId?: number;
   is4k: boolean;
   isAnime?: boolean;
@@ -80,7 +81,7 @@ interface AdvancedRequesterProps {
 
 const AdvancedRequester = ({
   type,
-  service,
+  adultType,
   tmdbId,
   is4k = false,
   isAnime = false,
@@ -93,7 +94,11 @@ const AdvancedRequester = ({
   const intl = useIntl();
   const { addToast } = useToasts();
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
-  const serviceName = service ?? (type === 'movie' ? 'radarr' : 'sonarr');
+  const serviceName = adultType
+    ? 'whisparr'
+    : type === 'movie'
+      ? 'radarr'
+      : 'sonarr';
   const { data, error } = useSWR<ServiceCommonServer[]>(
     `/api/v1/service/${serviceName}`,
     {
@@ -343,14 +348,12 @@ const AdvancedRequester = ({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Whisparr requests without a TMDB id are scenes
-      if ((tmdbId || service) && serverData?.server.id === selectedServer) {
+      if ((tmdbId || adultType) && serverData?.server.id === selectedServer) {
         try {
           const { data: override } = await axios.post<OverrideRulesResult>(
             '/api/v1/overrideRule/advancedRequest',
             {
-              mediaType: tmdbId ? type : 'scene',
-              service,
+              mediaType: adultType ?? type,
               is4k,
               requestUser:
                 selectedUser?.id ?? requestUser?.id ?? currentUser?.id,
@@ -393,7 +396,7 @@ const AdvancedRequester = ({
   }, [
     tmdbId,
     type,
-    service,
+    adultType,
     is4k,
     serverData?.server.id,
     selectedServer,

@@ -160,7 +160,7 @@ const AdultRequestModal = ({
       ) && (
         <AdvancedRequester
           type="movie"
-          service="whisparr"
+          adultType={type}
           is4k={false}
           // Adult media goes through the movie form with its own quota
           quota={itemQuota && quota && { movie: itemQuota, tv: quota.tv }}

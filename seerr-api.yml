@@ -1418,10 +1418,6 @@ components:
           readOnly: true
           nullable: true
           description: ThePornDB movie UUID, set for adult movies only
-        isAdult:
-          type: boolean
-          readOnly: true
-          description: Adult movie handled by Whisparr instead of Radarr
         status:
           type: number
           example: 0
@@ -10173,10 +10169,6 @@ paths:
                   type: number
                   description: Required for movies and series
                   example: 1
-                service:
-                  type: string
-                  enum: [whisparr]
-                  description: Evaluate Whisparr rules (scenes and adult movies)
                 is4k:
                   type: boolean
                   example: false

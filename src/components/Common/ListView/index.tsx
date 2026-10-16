@@ -109,7 +109,6 @@ const ListView = ({
                     userScore={title.voteAverage}
                     year={title.releaseDate}
                     mediaType={title.mediaType}
-                    isAdult={title.adult}
                     inProgress={
                       (title.mediaInfo?.downloadStatus ?? []).length > 0
                     }

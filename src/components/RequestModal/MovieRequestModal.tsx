@@ -10,7 +10,6 @@ import defineMessages from '@app/utils/defineMessages';
 import { MediaStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { NonFunctionProperties } from '@server/interfaces/api/common';
-import type { ServiceCommonServer } from '@server/interfaces/api/serviceInterfaces';
 import type { QuotaResponse } from '@server/interfaces/api/userInterfaces';
 import { Permission } from '@server/lib/permissions';
 import type { MovieDetails } from '@server/models/Movie';
@@ -62,13 +61,6 @@ const MovieRequestModal = ({
   const { data, error } = useSWR<MovieDetails>(`/api/v1/movie/${tmdbId}`, {
     revalidateOnMount: true,
   });
-  // Mirrors the server: Adult movies go to the default Whisparr when there is one
-  const { data: whisparrServers } = useSWR<ServiceCommonServer[]>(
-    data?.adult ? '/api/v1/service/whisparr' : null
-  );
-  const useWhisparr = !!whisparrServers?.some(
-    (server) => server.isDefault && server.is4k === is4k
-  );
   const intl = useIntl();
   const { user, hasPermission } = useUser();
   const { data: quota } = useSWR<QuotaResponse>(
@@ -377,7 +369,6 @@ const MovieRequestModal = ({
         <AdvancedRequester
           tmdbId={tmdbId}
           type="movie"
-          service={useWhisparr ? 'whisparr' : undefined}
           is4k={is4k}
           quota={quota}
           onChange={(overrides) => {

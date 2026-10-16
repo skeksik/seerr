@@ -20,7 +20,6 @@ import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { getWhisparrServer, isWhisparrMedia } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { requireTmdbId } from '@server/utils/mediaIds';
@@ -367,12 +366,6 @@ export class MediaRequest {
         ? await tmdb.getMovie({ movieId: requestBody.mediaId })
         : await tmdb.getTvShow({ tvId: requestBody.mediaId });
 
-    if ('adult' in tmdbMedia && tmdbMedia.adult && !canViewAdult(requestUser)) {
-      throw new RequestPermissionError(
-        'You do not have permission to request adult movies.'
-      );
-    }
-
     let media = await mediaRepository.findOne({
       where: {
         tmdbId: requestBody.mediaId,
@@ -468,26 +461,12 @@ export class MediaRequest {
     let profileId = requestBody.profileId;
     let tags = requestBody.tags;
 
-    // Adult movies go to Whisparr when one is configured, unless Radarr
-    // already handles this title
-    if (
-      requestBody.mediaType === MediaType.MOVIE &&
-      'adult' in tmdbMedia &&
-      tmdbMedia.adult &&
-      getWhisparrServer(!!requestBody.is4k, requestBody.serverId) &&
-      media.serviceId == null &&
-      media.serviceId4k == null
-    ) {
-      media.isAdult = true;
-    }
-
     const ruleResult = await overrideRules({
       mediaType: requestBody.mediaType,
       is4k: requestBody.is4k || false,
       tmdbMedia,
       requestUser,
       tags,
-      service: isWhisparrMedia(media) ? 'whisparr' : undefined,
     });
     const isAdvanced = user.hasPermission(
       [Permission.MANAGE_REQUESTS, Permission.REQUEST_ADVANCED],
