@@ -110,18 +110,10 @@ const sceneFilters = z.object({
   studioExclude: uuids.optional(),
   performerExclude: uuids.optional(),
   tagsExclude: uuids.optional(),
-  // Single tag, kept for older links
-  tag: z.string().uuid().optional(),
   ...sharedFilters,
 });
 
 type SceneFilters = z.infer<typeof sceneFilters>;
-
-// The picked tags, with the single tag of older links
-const pickedTags = (filters: SceneFilters): string[] => [
-  ...(filters.tags ?? []),
-  ...(filters.tag ? [filters.tag] : []),
-];
 
 const discoverQuery = sceneFilters.extend({
   page: pageParam,
@@ -282,7 +274,7 @@ const planScenes = (
     user,
     {
       orientation: filters.orientation,
-      picked: pickedTags(filters),
+      picked: filters.tags ?? [],
       tagMode: filters.tagMode,
     },
     orientationTags.orientations,
@@ -568,14 +560,12 @@ const withMatches = async <T extends { id: string }>(
 
   try {
     const tagIds = await orientationIds(api);
-    // The single tag of older links joins the picked tags
-    const picked = { ...filters, tag: undefined, tags: pickedTags(filters) };
     const counts = await api.countScenes(
       results.map(
         (result) =>
           planScenes(
             user,
-            withSuggestion(picked, type, result.id, { studio: [result.id] }),
+            withSuggestion(filters, type, result.id, { studio: [result.id] }),
             tagIds
           ).query
       )
