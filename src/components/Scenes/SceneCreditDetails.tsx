@@ -160,7 +160,6 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
             title={intl.formatMessage(globalMessages.adultMovies)}
             url={creditTitlesUrl('adultmovie', type, tpdbMatch.id)}
             linkUrl={creditBrowseHref('adultmovie', type, tpdbMatch.id)}
-            hideWhenEmpty
           />
         )}
       </div>

@@ -566,8 +566,20 @@ describe('linking StashDB and ThePornDB', () => {
       site: brazzers,
       performers: [
         { ...GAL_TPDB, id: 'site-gal', _id: 1, parent: GAL_TPDB },
-        DRAGON_TPDB,
-        { ...DRAGON_TPDB, id: 'sasha', _id: 169067, slug: 'sasha-paige' },
+        { ...DRAGON_TPDB, id: 'site-dragon', _id: 2, parent: DRAGON_TPDB },
+        {
+          ...DRAGON_TPDB,
+          id: 'site-sasha',
+          _id: 3,
+          parent: {
+            ...DRAGON_TPDB,
+            id: 'sasha',
+            _id: 169067,
+            slug: 'sasha-paige',
+          },
+        },
+        // Credited on the site only, without a performer page
+        { id: 'site-only', _id: 4, name: 'Carra', parent: null },
       ],
     }));
     mock.method(
@@ -591,6 +603,7 @@ describe('linking StashDB and ThePornDB', () => {
         [241509, GAL_STASHDB],
         [114293, undefined],
         [169067, 'sasha-stashdb'],
+        [undefined, undefined],
       ]
     );
     assert.strictEqual(res.body.studio.stashDbId, BRAZZERS_STASHDB);

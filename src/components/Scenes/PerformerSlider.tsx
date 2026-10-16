@@ -27,12 +27,14 @@ const PerformerSlider = ({
       <PersonCard key={`${sliderKey}-${performer.personId}`} {...performer} />
     ));
   const more = performers.slice(SLIDER_LIMIT, SLIDER_LIMIT + 4);
+  // Like the other rows, the full cast is only linked past what fits
+  const fullCastUrl = more.length > 0 ? linkUrl : undefined;
 
-  if (linkUrl && more.length > 0) {
+  if (fullCastUrl) {
     items.push(
       <ShowMoreCard
         key={`${sliderKey}-more`}
-        url={linkUrl}
+        url={fullCastUrl}
         imageType={more.find((performer) => performer.image)?.image?.type}
         posters={more.map((performer) => performer.image?.src)}
       />
@@ -41,7 +43,7 @@ const PerformerSlider = ({
 
   return (
     <>
-      <SliderHeader title={title} linkUrl={linkUrl} />
+      <SliderHeader title={title} linkUrl={fullCastUrl} />
       <Slider
         sliderKey={sliderKey}
         isLoading={false}

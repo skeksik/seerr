@@ -10,6 +10,9 @@ interface AdultStudioRowProps {
   title: string;
   // Every studio of the row, also behind its last card
   linkUrl: string;
+  // Whether the list behind the row holds more than it shows; by default
+  // when there are more studios than fit
+  hasMore?: boolean;
   // StashDB studios or ThePornDB sites, for their images
   mediaType: 'scene' | 'adultmovie';
   // Until they load. Sites linked to a StashDB studio open its page
@@ -21,6 +24,8 @@ interface AdultStudioRowProps {
   }[];
 }
 
+const SLIDER_LIMIT = 20;
+
 // The studio row of the Discover page, for StashDB and ThePornDB studios
 const AdultStudioRow = ({
   sliderKey,
@@ -28,28 +33,33 @@ const AdultStudioRow = ({
   linkUrl,
   mediaType,
   studios,
+  hasMore = (studios?.length ?? 0) > SLIDER_LIMIT,
 }: AdultStudioRowProps) => (
   <>
-    <SliderHeader title={title} linkUrl={linkUrl} />
+    <SliderHeader title={title} linkUrl={hasMore ? linkUrl : undefined} />
     <Slider
       sliderKey={sliderKey}
       isLoading={!studios}
       isEmpty={false}
       items={[
-        ...(studios ?? []).map((studio) => (
-          <CompanyCard
-            key={`${sliderKey}-${studio.id}`}
-            name={studio.name}
-            image={
-              mediaType === 'scene'
-                ? stashImageUrl(studio.imageUrl, 300)
-                : studio.imageUrl
-            }
-            imageType={mediaType === 'scene' ? 'stashdb' : 'tpdb'}
-            url={creditHref('studio', studio.stashDbId ?? studio.id)}
-          />
-        )),
-        <SeeAllStudiosCard key={`${sliderKey}-all`} url={linkUrl} />,
+        ...(studios ?? [])
+          .slice(0, SLIDER_LIMIT)
+          .map((studio) => (
+            <CompanyCard
+              key={`${sliderKey}-${studio.id}`}
+              name={studio.name}
+              image={
+                mediaType === 'scene'
+                  ? stashImageUrl(studio.imageUrl, 300)
+                  : studio.imageUrl
+              }
+              imageType={mediaType === 'scene' ? 'stashdb' : 'tpdb'}
+              url={creditHref('studio', studio.stashDbId ?? studio.id)}
+            />
+          )),
+        ...(hasMore
+          ? [<SeeAllStudiosCard key={`${sliderKey}-all`} url={linkUrl} />]
+          : []),
       ]}
     />
   </>

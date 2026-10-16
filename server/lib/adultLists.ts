@@ -28,12 +28,8 @@ export const sharedFilters = {
   tagMode: filterMode,
   // Comma-separated sexual preferences to show; the user's defaults if unset
   orientation: z.string().optional(),
-  // How the release date compares; both sources take one date bound.
-  // 'after' and 'before' are older links' values
-  released: z.preprocess(
-    (value) => (value === 'after' ? 'gte' : value === 'before' ? 'lt' : value),
-    z.enum(dateComparisons).optional()
-  ),
+  // How the release date compares; both sources take one date bound
+  released: z.enum(dateComparisons).optional(),
   releaseDate: isoDate.optional(),
   upcoming: z
     .enum(['true', 'false'])

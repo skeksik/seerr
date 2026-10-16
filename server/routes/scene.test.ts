@@ -12,6 +12,7 @@ import { MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
+import { UserSettings } from '@server/entity/UserSettings';
 import { Permission } from '@server/lib/permissions';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
@@ -252,13 +253,44 @@ describe('GET /scene/:sceneId/recommendations', () => {
       res.body.results.map((r: { id: string }) => r.id),
       [other.id]
     );
-    assert.deepStrictEqual(queryScenes.mock.calls[0].arguments[0], {
-      page: 1,
-      perPage: 20,
-      sort: 'POPULARITY',
-      performerIds: ['performer'],
-      any: { performers: true },
+    const query = queryScenes.mock.calls[0].arguments[0];
+    assert.strictEqual(query?.page, 1);
+    assert.strictEqual(query?.sort, 'POPULARITY');
+    assert.deepStrictEqual(query?.performerIds, ['performer']);
+    assert.strictEqual(query?.any?.performers, true);
+  });
+
+  it('asks for tagged scenes when straight ones are hidden, like the list', async () => {
+    const LESBIAN_TAG = 'lesbian-tag';
+    mock.method(StashDbAPI.prototype, 'getScene', async () => scene);
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({
+      Lesbian: LESBIAN_TAG,
+    }));
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
+    const userRepository = getRepository(User);
+    const admin = await userRepository.findOneOrFail({
+      where: { email: 'admin@seerr.dev' },
+      relations: { settings: true },
     });
+    admin.settings = new UserSettings({
+      ...admin.settings,
+      user: admin,
+      uncheckedOrientations: ['straight'],
+    });
+    await userRepository.save(admin);
+    const agent = await loginAs('admin@seerr.dev');
+
+    await agent.get(`/scene/${SCENE_ID}/recommendations?page=1`);
+    admin.settings.uncheckedOrientations = [];
+    await userRepository.save(admin);
+
+    const query = queryScenes.mock.calls[0].arguments[0];
+    assert.deepStrictEqual(query?.performerIds, ['performer']);
+    assert.ok(query?.tagIds?.includes(LESBIAN_TAG));
   });
 });
 
@@ -465,7 +497,7 @@ describe('GET /scene/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     await agent.get(
-      `/scene/discover?released=before&releaseDate=2026-01-01&tags=${SCENE_ID},${SCENE_ID}`
+      `/scene/discover?released=lt&releaseDate=2026-01-01&tags=${SCENE_ID},${SCENE_ID}`
     );
     await agent.get('/scene/discover?upcoming=true');
 

@@ -25,7 +25,7 @@ import { Field, Form, Formik } from 'formik';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import useSWR, { mutate } from 'swr';
+import useSWR, { mutate, useSWRConfig } from 'swr';
 import validator from 'validator';
 import * as Yup from 'yup';
 
@@ -101,6 +101,16 @@ const UserGeneralSettings = () => {
     id: Number(router.query.userId),
   });
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
+  const { cache } = useSWRConfig();
+  // Scene and adult movie lists are filtered by the sexual preferences on
+  // the server, so the ones read before are read again when next opened
+  const forgetAdultLists = () => {
+    for (const key of cache.keys()) {
+      if (/\/api\/v1\/(scene|adultmovie)\b/.test(key)) {
+        cache.delete(key);
+      }
+    }
+  };
   const { currentSettings } = useSettings();
   // Adult rows show when adult content is on, the viewer is out of safe mode
   // and the edited user may see it
@@ -273,6 +283,9 @@ const UserGeneralSettings = () => {
             revalidateUser();
             // The filters take their defaults from the signed-in user
             mutate('/api/v1/auth/me');
+            if (currentUser?.id === user?.id) {
+              forgetAdultLists();
+            }
           }
         }}
       >

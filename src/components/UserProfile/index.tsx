@@ -77,10 +77,9 @@ const UserProfile = () => {
       ? `/api/v1/user/${user.id}/quota`
       : null
   );
-  // Adult quotas only get a card when a limit applies and adult content is
-  // visible
-  const showSceneQuota = canViewAdult && !!quota?.scene?.limit;
-  const showAdultMovieQuota = canViewAdult && !!quota?.adultMovie?.limit;
+  // Like the movie and series ones, while adult content is visible
+  const showSceneQuota = canViewAdult && !!quota?.scene;
+  const showAdultMovieQuota = canViewAdult && !!quota?.adultMovie;
   const quotaCards = 3 + Number(showSceneQuota) + Number(showAdultMovieQuota);
   const { data: watchData, error: watchDataError } =
     useSWR<UserWatchDataResponse>(

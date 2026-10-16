@@ -118,7 +118,7 @@ type SceneFilters = z.infer<typeof sceneFilters>;
 
 const discoverQuery = sceneFilters.extend({
   page: pageParam,
-  sort: z.enum(sortValues).default('trending'),
+  sort: z.enum(sortValues).default('popularity'),
 });
 
 const sceneId = z.string().uuid();
@@ -397,6 +397,71 @@ const mapSceneList = async (
   };
 };
 
+// The Scenes tab's list: the picked filters, the viewer's sexual
+// preferences and the order, as far as stash-box can ask for them
+const discoverScenes = async (
+  api: StashDbAPI,
+  user: User | undefined,
+  filters: SceneFilters,
+  page: number,
+  sort: keyof typeof sceneSorts
+): Promise<SceneListResponse> => {
+  const tagIds = await orientationIds(api);
+  const plan = planScenes(user, filters, tagIds);
+  const perPage = plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE;
+  // Upcoming rows want the soonest first
+  const [order, direction] = filters.upcoming
+    ? (['DATE', 'ASC'] as const)
+    : sceneSorts[sort];
+  const query = { page, sort: order, direction, timeout: LIST_TIMEOUT };
+  const joined = joinedPlan(plan, (narrow) =>
+    planScenes(user, filters, tagIds, narrow)
+  );
+  // Tagged ones keep pace with the rest
+  const joinedPerPage = joined?.unidentified ? DENSE_PAGE_SIZE : perPage;
+  const [list, extra] = await Promise.all([
+    api.queryScenes({ ...plan.query, ...query, perPage }),
+    joined
+      ? api.queryScenes({
+          ...joined.plan.query,
+          ...query,
+          perPage: joinedPerPage,
+        })
+      : undefined,
+  ]);
+  const [main, rest] = await Promise.all([
+    mapSceneList(api, list, page, user, {
+      filter: plan.filter,
+      perPage,
+      tagIds,
+    }),
+    joined && extra
+      ? mapSceneList(api, extra, page, user, {
+          filter: joined.unidentified
+            ? onlyUnidentified(joined.plan.filter)
+            : joined.plan.filter,
+          perPage: joinedPerPage,
+          tagIds,
+        })
+      : undefined,
+  ]);
+
+  if (!rest) {
+    return main;
+  }
+
+  return {
+    ...main,
+    totalPages: Math.max(main.totalPages, rest.totalPages),
+    results: mergeByDate(
+      main.results,
+      withoutSeen(rest.results, main.results),
+      (scene) => scene.releaseDate,
+      order === 'DATE' ? direction : undefined
+    ),
+  };
+};
+
 sceneRoutes.get('/discover', async (req, res, next) => {
   const parsed = discoverQuery.safeParse(req.query);
 
@@ -407,61 +472,17 @@ sceneRoutes.get('/discover', async (req, res, next) => {
   const { page, sort, ...filters } = parsed.data;
 
   try {
-    const api = StashDbAPI.fromSettings();
-    const tagIds = await orientationIds(api);
-    const plan = planScenes(req.user, filters, tagIds);
-    const perPage = plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE;
-    // Upcoming rows want the soonest first
-    const [order, direction] = filters.upcoming
-      ? (['DATE', 'ASC'] as const)
-      : sceneSorts[sort];
-    const query = { page, sort: order, direction, timeout: LIST_TIMEOUT };
-    const joined = joinedPlan(plan, (narrow) =>
-      planScenes(req.user, filters, tagIds, narrow)
-    );
-    // Tagged ones keep pace with the rest
-    const joinedPerPage = joined?.unidentified ? DENSE_PAGE_SIZE : perPage;
-    const [list, extra] = await Promise.all([
-      api.queryScenes({ ...plan.query, ...query, perPage }),
-      joined
-        ? api.queryScenes({
-            ...joined.plan.query,
-            ...query,
-            perPage: joinedPerPage,
-          })
-        : undefined,
-    ]);
-    const [main, rest] = await Promise.all([
-      mapSceneList(api, list, page, req.user, {
-        filter: plan.filter,
-        perPage,
-        tagIds,
-      }),
-      joined && extra
-        ? mapSceneList(api, extra, page, req.user, {
-            filter: joined.unidentified
-              ? onlyUnidentified(joined.plan.filter)
-              : joined.plan.filter,
-            perPage: joinedPerPage,
-            tagIds,
-          })
-        : undefined,
-    ]);
-
-    if (!rest) {
-      return res.status(200).json(main);
-    }
-
-    return res.status(200).json({
-      ...main,
-      totalPages: Math.max(main.totalPages, rest.totalPages),
-      results: mergeByDate(
-        main.results,
-        withoutSeen(rest.results, main.results),
-        (scene) => scene.releaseDate,
-        order === 'DATE' ? direction : undefined
-      ),
-    });
+    return res
+      .status(200)
+      .json(
+        await discoverScenes(
+          StashDbAPI.fromSettings(),
+          req.user,
+          filters,
+          page,
+          sort
+        )
+      );
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve scenes.', {
       query: req.query,
@@ -749,28 +770,29 @@ sceneRoutes.get<{ sceneId: string }>(
       const performerIds = scene.performers.map(
         ({ performer }) => performer.id
       );
-      const list = performerIds.length
-        ? await stashDb.queryScenes({
-            page: query.data.page,
-            perPage: PAGE_SIZE,
-            sort: 'POPULARITY',
-            performerIds,
-            any: { performers: true },
-          })
-        : emptyList;
-      const others = list.scenes.filter((s) => s.id !== scene.id);
 
-      return res.status(200).json(
-        await mapSceneList(
-          stashDb,
-          {
-            count: Math.max(list.count - 1, 0),
-            scenes: others,
-          },
-          query.data.page,
-          req.user
-        )
+      if (performerIds.length === 0) {
+        return res
+          .status(200)
+          .json(await mapSceneList(stashDb, emptyList, 1, req.user));
+      }
+
+      // The Scenes tab's list of them, so sexual preferences narrow it the
+      // same way
+      const list = await discoverScenes(
+        stashDb,
+        req.user,
+        { performer: performerIds, performerMode: 'or' },
+        query.data.page,
+        'popularity'
       );
+
+      // It has its own performers, so it is among them
+      return res.status(200).json({
+        ...list,
+        totalResults: Math.max(list.totalResults - 1, 0),
+        results: list.results.filter((result) => result.id !== scene.id),
+      });
     } catch (e) {
       return handleError(e, next, 'Unable to retrieve recommendations.', {
         sceneId: id.data,
@@ -799,21 +821,44 @@ sceneRoutes.get<{ sceneId: string }>(
       }
 
       const tagIds = new Set(scene.tags.map((tag) => tag.id));
-      const pool = tagIds.size
-        ? await stashDb.queryScenes({
-            perPage: SIMILAR_POOL,
-            sort: 'POPULARITY',
-            tagIds: [...tagIds],
-            any: { tags: true },
-            // StashDB sorts most of its catalogue by popularity when a scene
-            // has many tags, which takes 10-20s
-            timeout: SIMILAR_TIMEOUT,
-          })
-        : emptyList;
+      const orientationTags = await orientationIds(stashDb);
+      const plan = planScenes(req.user, {}, orientationTags);
+      const popular = (ids: string[]) =>
+        stashDb.queryScenes({
+          perPage: SIMILAR_POOL,
+          sort: 'POPULARITY',
+          tagIds: ids,
+          any: { tags: true },
+          // StashDB sorts most of its catalogue by popularity when a scene
+          // has many tags, which takes 10-20s
+          timeout: SIMILAR_TIMEOUT,
+        });
+      // Without straight, the popular ones are mostly hidden, so popular
+      // scenes tagged with a shown orientation are ranked too
+      const pools = tagIds.size
+        ? await Promise.all([
+            popular([...tagIds]),
+            plan.narrowed ? popular(plan.query.tagIds ?? []) : emptyList,
+          ])
+        : [];
+      const candidates = [
+        ...new Map(
+          pools.flatMap(({ scenes }) => scenes).map((s) => [s.id, s])
+        ).values(),
+      ];
       const shared = (candidate: { tags?: { id: string }[] }) =>
         (candidate.tags ?? []).filter((tag) => tagIds.has(tag.id)).length;
+      // Hidden sexual preferences go before the top ones are picked, so they
+      // don't take their places
+      const shown = await filterScenes(
+        stashDb,
+        candidates,
+        plan.filter,
+        orientationTags
+      );
       // Array.sort is stable, so popularity breaks ties
-      const ranked = pool.scenes
+      const ranked = shown
+        .map(({ scene: candidate }) => candidate)
         .filter((candidate) => candidate.id !== scene.id)
         .sort((a, b) => shared(b) - shared(a))
         .slice(0, SIMILAR_LIMIT);

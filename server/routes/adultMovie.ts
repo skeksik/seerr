@@ -660,7 +660,9 @@ adultMovieRoutes.get('/:id', async (req, res, next) => {
       Media.getAdultMedia(MediaType.ADULT_MOVIE, movie.id),
       isOnWatchlist(MediaType.ADULT_MOVIE, movie.id, req.user),
       // Linked performers and studios open their StashDB page
-      linkedStashDbPerformers(moviePerformers(movie)),
+      linkedStashDbPerformers(
+        moviePerformers(movie).filter((performer) => performer.hasProfile)
+      ),
       linkedStashDbStudios(
         movie.site
           ? [movie.site, ...(movie.site.network ? [movie.site.network] : [])]

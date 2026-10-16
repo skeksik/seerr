@@ -41,7 +41,7 @@ export interface SliderPerformer {
   personId: string;
   name: string;
   subName?: string;
-  href: string;
+  href: string | null;
   image?: { src: string; type: 'stashdb' | 'tpdb' };
 }
 
@@ -77,10 +77,14 @@ export const toSliderPerformer = (
     personId: performer.id,
     name: performer.name,
     subName: performer.as ?? performer.disambiguation,
-    href: creditHref(
-      'performer',
-      performer.stashDbId ?? performer.tpdbId ?? performer.id
-    ),
+    // ThePornDB performers have a page by their numeric id only
+    href:
+      mediaType === 'adultmovie' && !performer.stashDbId && !performer.tpdbId
+        ? null
+        : creditHref(
+            'performer',
+            performer.stashDbId ?? performer.tpdbId ?? performer.id
+          ),
     image: src ? { src, type: imageType } : undefined,
   };
 };

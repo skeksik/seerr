@@ -76,6 +76,31 @@ describe('classifyScene', () => {
     assert.deepStrictEqual(classifyScene(named, tagIds), ['straight']);
   });
 
+  it('reads the cast from body tags', () => {
+    const named = (genders: StashDbGender[], names: string[]) => ({
+      ...scene(genders),
+      tags: names.map((name, i) => ({ id: `t${i}`, name })),
+    });
+
+    // A man listed without a gender, and a woman not listed at all
+    assert.deepStrictEqual(
+      classifyScene(
+        named(['NON_BINARY' as StashDbGender], ['Big Dick', 'Big Tits']),
+        tagIds
+      ),
+      ['straight']
+    );
+    // Trans performers have either
+    assert.deepStrictEqual(
+      classifyScene(named(['TRANSGENDER_FEMALE'], ['Big Dick']), tagIds),
+      ['trans']
+    );
+    assert.deepStrictEqual(
+      classifyScene(named(['MALE'], ['Big Tits', 'Trans Woman']), tagIds),
+      ['gay']
+    );
+  });
+
   it('fills in the cast from group tags', () => {
     const withGroups = {
       ...tagIds,
@@ -143,8 +168,10 @@ describe('tagHint', () => {
     assert.deepStrictEqual(tagHint('Asian Woman')?.cast?.female, 1);
     assert.deepStrictEqual(tagHint('Long Hair (Female)')?.cast?.female, 1);
     assert.deepStrictEqual(tagHint('Step Brother')?.cast?.male, 1);
-    assert.strictEqual(tagHint('Trans Woman'), undefined);
-    assert.strictEqual(tagHint('Big Tits'), undefined);
+    assert.deepStrictEqual(tagHint('Trans Woman'), { trans: true });
+    assert.deepStrictEqual(tagHint('Big Tits')?.cast?.female, 1);
+    assert.deepStrictEqual(tagHint('Big Dick')?.cast?.male, 1);
+    assert.strictEqual(tagHint('Strap-On Cock'), undefined);
   });
 
   it('reads the performer behind the camera from point of view tags', () => {

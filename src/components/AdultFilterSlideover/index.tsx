@@ -60,7 +60,6 @@ const countedParams = [
   'performerExclude',
   'tags',
   'tagsExclude',
-  'tag',
 ] as const;
 
 // The filter params the browse APIs take
@@ -84,7 +83,7 @@ type Option = { value: string; label: string };
 // Each field and its Exclude twin
 const studioParams = ['studio', 'studioExclude'];
 const performerParams = ['performer', 'performerExclude'];
-const tagParams = ['tags', 'tag', 'tagsExclude'];
+const tagParams = ['tags', 'tagsExclude'];
 
 // The date picker drops leading zeros (2026-10-7); the API wants YYYY-MM-DD
 const toIsoDate = (value: Date | string) =>
@@ -338,14 +337,8 @@ const AdultFilterSlideover = ({
   const { options: orientationOptions, defaults: orientationDefaults } =
     useOrientationDefaults();
 
-  // How the release date compares; older links say after or before
-  const releasedParam = param(router.query.released);
-  const released =
-    releasedParam === 'after'
-      ? 'gte'
-      : releasedParam === 'before'
-        ? 'lt'
-        : (releasedParam ?? 'gte');
+  // How the release date compares
+  const released = param(router.query.released) ?? 'gte';
   const releaseDate = param(router.query.releaseDate);
   const orientationParam = param(router.query.orientation);
   const orientations: Orientation[] = orientationParam

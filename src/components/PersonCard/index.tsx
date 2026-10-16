@@ -8,8 +8,9 @@ interface PersonCardProps {
   name: string;
   subName?: string;
   profilePath?: string;
-  // Performers live outside TMDB, on their own pages and image hosts
-  href?: string;
+  // Performers live outside TMDB, on their own pages and image hosts; null
+  // for those without a page, whose card links nowhere
+  href?: string | null;
   image?: { src: string; type: 'stashdb' | 'tpdb' };
   canExpand?: boolean;
 }
@@ -25,11 +26,84 @@ const PersonCard = ({
 }: PersonCardProps) => {
   const [isHovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const width = canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44';
+  const renderBody = (hovered: boolean) => (
+    <div style={{ paddingBottom: '150%' }}>
+      <div className="absolute inset-0 flex h-full w-full flex-col items-center p-2">
+        <div className="relative mb-4 mt-2 flex h-1/2 w-full justify-center">
+          {image && !imageFailed ? (
+            <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
+              <CachedImage
+                type={image.type}
+                src={image.src}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'top',
+                }}
+                fill
+                onError={() => setImageFailed(true)}
+              />
+            </div>
+          ) : profilePath ? (
+            <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
+              <CachedImage
+                type="tmdb"
+                src={`https://image.tmdb.org/t/p/w600_and_h900_bestv2${profilePath}`}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+                fill
+              />
+            </div>
+          ) : (
+            <UserCircleIcon className="h-full" />
+          )}
+        </div>
+        <div className="w-full truncate text-center font-bold">{name}</div>
+        {subName && (
+          <div
+            className="overflow-hidden whitespace-normal text-center text-sm text-gray-300"
+            style={{
+              WebkitLineClamp: 2,
+              display: '-webkit-box',
+              overflow: 'hidden',
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
+            {subName}
+          </div>
+        )}
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-12 rounded-b-xl bg-gradient-to-t ${
+            hovered ? 'from-gray-800' : 'from-gray-900'
+          }`}
+        />
+      </div>
+    </div>
+  );
+
+  if (href === null) {
+    return (
+      <div className={width}>
+        <div
+          className={`relative ${width} rounded-xl bg-gray-800 text-white shadow ring-1 ring-gray-700`}
+        >
+          {renderBody(false)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Link
       href={href ?? `/person/${personId}`}
-      className={`group ${canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}`}
+      className={`group ${width}`}
       onMouseEnter={() => {
         setHovered(true);
       }}
@@ -49,72 +123,13 @@ const PersonCard = ({
       tabIndex={0}
     >
       <div
-        className={`relative ${
-          canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'
-        } transform-gpu cursor-pointer rounded-xl text-white shadow ring-1 transition duration-150 ease-in-out ${
+        className={`relative ${width} transform-gpu cursor-pointer rounded-xl text-white shadow ring-1 transition duration-150 ease-in-out ${
           isHovered
             ? 'scale-105 bg-gray-700 ring-gray-500'
             : 'scale-100 bg-gray-800 ring-gray-700'
         }`}
       >
-        <div style={{ paddingBottom: '150%' }}>
-          <div className="absolute inset-0 flex h-full w-full flex-col items-center p-2">
-            <div className="relative mb-4 mt-2 flex h-1/2 w-full justify-center">
-              {image && !imageFailed ? (
-                <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
-                  <CachedImage
-                    type={image.type}
-                    src={image.src}
-                    alt=""
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      objectPosition: 'top',
-                    }}
-                    fill
-                    onError={() => setImageFailed(true)}
-                  />
-                </div>
-              ) : profilePath ? (
-                <div className="relative h-full w-3/4 overflow-hidden rounded-full ring-1 ring-gray-700">
-                  <CachedImage
-                    type="tmdb"
-                    src={`https://image.tmdb.org/t/p/w600_and_h900_bestv2${profilePath}`}
-                    alt=""
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                    }}
-                    fill
-                  />
-                </div>
-              ) : (
-                <UserCircleIcon className="h-full" />
-              )}
-            </div>
-            <div className="w-full truncate text-center font-bold">{name}</div>
-            {subName && (
-              <div
-                className="overflow-hidden whitespace-normal text-center text-sm text-gray-300"
-                style={{
-                  WebkitLineClamp: 2,
-                  display: '-webkit-box',
-                  overflow: 'hidden',
-                  WebkitBoxOrient: 'vertical',
-                }}
-              >
-                {subName}
-              </div>
-            )}
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-12 rounded-b-xl bg-gradient-to-t ${
-                isHovered ? 'from-gray-800' : 'from-gray-900'
-              }`}
-            />
-          </div>
-        </div>
+        {renderBody(isHovered)}
       </div>
     </Link>
   );

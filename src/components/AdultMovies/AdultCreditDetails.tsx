@@ -134,7 +134,6 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
           title={intl.formatMessage(globalMessages.adultMovies)}
           url={moviesUrl}
           linkUrl={creditBrowseHref('adultmovie', type, data.id)}
-          hideWhenEmpty
         />
       </div>
     </>

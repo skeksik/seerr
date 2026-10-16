@@ -59,7 +59,9 @@ const AdultMovieDetails = () => {
         },
         directors: data.directors,
         tags: data.tags,
-        tagHref: (id) => `/discover/adultmovies?sort=released&tags=${id}`,
+        // ThePornDB cannot look tags up by id, so the filter takes the name along
+        tagHref: ({ id, name }) =>
+          `/discover/adultmovies?tags=${id}&tagNames=${encodeURIComponent(name)}`,
         links: data.url ? [{ url: data.url, site: linkLabel(data.url) }] : [],
         imageType: 'tpdb',
         backdrop: backdrop
@@ -82,7 +84,6 @@ const AdultMovieDetails = () => {
         sliderKey="adult-movie-scenes"
         title={intl.formatMessage(globalMessages.scenes)}
         url={`/api/v1/scene/movie/${data.id}`}
-        hideWhenEmpty
       />
     </AdultTitleDetails>
   );

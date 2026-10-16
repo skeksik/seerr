@@ -451,7 +451,6 @@ const Discover = () => {
                 title={intl.formatMessage(sliderTitles.upcomingScenes)}
                 url="/api/v1/scene/discover?upcoming=true&page=1"
                 linkUrl={`/discover/scenes?sort=oldest&releaseDate=${upcomingDate}`}
-                hideWhenEmpty
               />
             );
             break;
@@ -490,7 +489,6 @@ const Discover = () => {
                 title={intl.formatMessage(sliderTitles.upcomingAdultMovies)}
                 url="/api/v1/adultmovie/discover?upcoming=true&page=1"
                 linkUrl={`/discover/adultmovies?sort=oldest&releaseDate=${upcomingDate}`}
-                hideWhenEmpty
               />
             );
             break;

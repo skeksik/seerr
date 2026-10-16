@@ -62,7 +62,7 @@ const SceneDetails = ({ scene }: SceneDetailsProps) => {
         code: data.code,
         directors: data.director ? [data.director] : [],
         tags: data.tags,
-        tagHref: (id) => `/discover/scenes?sort=date&tags=${id}`,
+        tagHref: ({ id }) => `/discover/scenes?tags=${id}`,
         links: data.urls.map((url) => ({
           url: url.url,
           site: linkLabel(url.url),

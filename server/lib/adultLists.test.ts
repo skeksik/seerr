@@ -125,7 +125,7 @@ describe('list helpers', () => {
 
   it('does not count how fields combine as a pick', () => {
     assert.strictEqual(
-      hasPickedFilters({ tagMode: 'or', released: 'after', tags: undefined }),
+      hasPickedFilters({ tagMode: 'or', released: 'gt', tags: undefined }),
       false
     );
     assert.strictEqual(hasPickedFilters({ orientation: 'gay' }), true);

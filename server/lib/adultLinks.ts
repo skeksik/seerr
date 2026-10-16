@@ -282,7 +282,15 @@ export const tpdbSiteFor = async (
 
   return ids.length === 0
     ? null
-    : cached(`link:studio:${studio.id}`, () =>
-        firstFound(ids, (id) => tpdb.getSite(id))
-      );
+    : cached(`link:studio:${studio.id}`, async () => {
+        const site = await firstFound(ids, (id) => tpdb.getSite(id));
+        if (!site) {
+          return null;
+        }
+        // Several studios can link one site, like Blacked and Adult Time x
+        // Blacked; it belongs to the one its own links lead to, so its
+        // movies show on one page only
+        const owner = (await linkedStashDbStudios([site])).get(site.id);
+        return !owner || owner === studio.id ? site : null;
+      });
 };

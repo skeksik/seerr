@@ -7949,7 +7949,7 @@ paths:
           description: How the release date compares to releaseDate (gte when unset; after and before are older names for gte and lt)
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:
@@ -8025,7 +8025,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:
@@ -8104,7 +8104,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:
@@ -8183,7 +8183,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:
@@ -8518,7 +8518,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:
@@ -8643,7 +8643,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [eq, gt, gte, lt, lte, after, before]
+            enum: [eq, gt, gte, lt, lte]
         - in: query
           name: releaseDate
           schema:

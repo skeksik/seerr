@@ -81,7 +81,7 @@ export interface AdultTitle {
   directors: string[];
   tags: { id: string | number; name: string }[];
   // The browse tab filtered to the tag
-  tagHref: (id: string | number) => string;
+  tagHref: (tag: { id: string | number; name: string }) => string;
   // Outside pages, like the studio's
   links: ProfileLink[];
   imageType: 'stashdb' | 'tpdb';
@@ -395,7 +395,7 @@ const AdultTitleDetails = ({
               {(showAllTags ? data.tags : data.tags.slice(0, TAG_LIMIT)).map(
                 (tag) => (
                   <Link
-                    href={data.tagHref(tag.id)}
+                    href={data.tagHref(tag)}
                     key={`tag-${tag.id}`}
                     className="mb-2 mr-2 inline-flex last:mr-0"
                   >
@@ -513,7 +513,6 @@ const AdultTitleDetails = ({
         title={intl.formatMessage(messages.recommendations)}
         url={`/api/v1/${data.mediaType}/${data.id}/recommendations?page=1`}
         linkUrl={`/${data.mediaType}/${data.id}/recommendations`}
-        hideWhenEmpty
       />
       <AdultTitleSlider
         mediaType={data.mediaType}
@@ -521,7 +520,6 @@ const AdultTitleDetails = ({
         title={intl.formatMessage(messages.similar)}
         url={`/api/v1/${data.mediaType}/${data.id}/similar?page=1`}
         linkUrl={`/${data.mediaType}/${data.id}/similar`}
-        hideWhenEmpty
       />
       <div className="extra-bottom-space relative" />
     </div>

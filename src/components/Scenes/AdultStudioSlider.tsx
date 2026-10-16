@@ -24,6 +24,7 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
       title={title}
       // Every studio or network, beyond the trending ones
       linkUrl={`/discover/scenes/${type}`}
+      hasMore
       mediaType="scene"
       studios={data}
     />

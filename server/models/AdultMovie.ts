@@ -39,8 +39,9 @@ export interface AdultMovieDetails extends AdultMovieResult {
   network?: AdultMovieStudio;
   performers: {
     id: string;
-    // Numeric id ThePornDB filters take
-    tpdbId: number;
+    // Numeric id ThePornDB filters and pages take, for performers with a
+    // page
+    tpdbId?: number;
     // The StashDB performer it is linked to, which has its page
     stashDbId?: string;
     name: string;
@@ -107,6 +108,8 @@ export const moviePerformers = (movie: TpdbMovie) =>
     extras: performer.parent ? performer.parent.extras : performer.extras,
     name: performer.parent?.name ?? performer.name,
     image: performer.parent ? performer.parent.image : performer.image,
+    // Site performers without a performer behind them have no page
+    hasProfile: !!performer.parent,
   }));
 
 export const mapAdultMovieDetails = (
@@ -134,8 +137,10 @@ export const mapAdultMovieDetails = (
       : undefined,
   performers: moviePerformers(movie).map((performer) => ({
     id: performer.id,
-    tpdbId: performer._id,
-    stashDbId: links.performers.get(performer._id),
+    tpdbId: performer.hasProfile ? performer._id : undefined,
+    stashDbId: performer.hasProfile
+      ? links.performers.get(performer._id)
+      : undefined,
     name: performer.name,
     imageUrl: performer.image ?? undefined,
   })),

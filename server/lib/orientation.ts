@@ -56,6 +56,11 @@ interface Cast {
 interface TagHint {
   cast?: Cast;
   orientation?: Orientation;
+  // Body tags, like "Big Tits" or "Big Dick", which trans and futanari
+  // performers share, so they only count without either in the title
+  body?: true;
+  // Tags naming trans performers, which say nothing of the cast's count
+  trans?: true;
 }
 
 const TRANS_WORDS = /trans|shemale|t-?girl|ladyboy|futa/i;
@@ -63,6 +68,8 @@ const FEMALE_WORDS =
   /\b(woman|women|girl|girls|milf|wife|girlfriend|step ?(sister|mom|mother|daughter)|vaginal|pussy|cunnilingus)\b|\(female\)/i;
 const MALE_WORDS =
   /\b(man|men|husband|boyfriend|step ?(brother|dad|father|son))\b|\(male\)/i;
+const BREAST_WORDS = /\b(tits|titties|titty|boobs|breasts)\b/i;
+const PENIS_WORDS = /\b(dicks?|cocks?|penis)\b/i;
 
 export const tagHint = (name: string): TagHint | undefined => {
   const group = name.match(/\(([BGT]{2,})\)\s*$/);
@@ -105,13 +112,21 @@ export const tagHint = (name: string): TagHint | undefined => {
   // Tags about someone's looks or role name their gender, like "Asian
   // Woman", "Long Hair (Female)" or "Step Brother", for performers the
   // cast lists without one; trans tags are left to the cast
-  if (!TRANS_WORDS.test(name)) {
-    if (FEMALE_WORDS.test(name)) {
-      return { cast: { male: 0, female: 1, trans: 0 } };
-    }
-    if (MALE_WORDS.test(name)) {
-      return { cast: { male: 1, female: 0, trans: 0 } };
-    }
+  if (TRANS_WORDS.test(name)) {
+    return { trans: true };
+  }
+  if (FEMALE_WORDS.test(name)) {
+    return { cast: { male: 0, female: 1, trans: 0 } };
+  }
+  if (MALE_WORDS.test(name)) {
+    return { cast: { male: 1, female: 0, trans: 0 } };
+  }
+  if (BREAST_WORDS.test(name)) {
+    return { cast: { male: 0, female: 1, trans: 0 }, body: true };
+  }
+  // Strap-ons are worn in lesbian titles too
+  if (PENIS_WORDS.test(name) && !/strap/i.test(name)) {
+    return { cast: { male: 1, female: 0, trans: 0 }, body: true };
   }
   return undefined;
 };
@@ -174,8 +189,21 @@ const classify = (
 ): Orientation[] => {
   const cast = { ...listed };
   const fromTags = new Set(tagged);
+  const hasTrans = (hint: TagHint) =>
+    hint.trans ||
+    (hint.cast?.trans ?? 0) > 0 ||
+    hint.orientation === 'trans' ||
+    hint.orientation === 'futa';
+  const bodyCounts =
+    listed.trans === 0 &&
+    !fromTags.has('trans') &&
+    !fromTags.has('futa') &&
+    !hints.some(hasTrans);
 
   for (const hint of hints) {
+    if (hint.body && !bodyCounts) {
+      continue;
+    }
     if (hint.cast) {
       cast.female = Math.max(cast.female, hint.cast.female);
       cast.male = Math.max(cast.male, hint.cast.male);
