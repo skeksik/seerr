@@ -25,10 +25,13 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
   studios: 'Studios',
   networks: 'Networks',
   search: 'Search by name',
-  sortName: 'Name (A-Z)',
-  sortNewest: 'Newest on StashDB',
   sortTrending: 'Trending',
-  sortPopular: 'Popularity',
+  sortPopularityDesc: 'Popularity Descending',
+  sortPopularityAsc: 'Popularity Ascending',
+  sortAddedDesc: 'Date Added Descending',
+  sortAddedAsc: 'Date Added Ascending',
+  sortTitleAsc: 'Title (A-Z) Ascending',
+  sortTitleDesc: 'Title (Z-A) Descending',
 });
 
 interface StudioPage {
@@ -43,9 +46,12 @@ interface AdultStudioListProps {
 
 const sortOptions = [
   ['trending', messages.sortTrending],
-  ['popular', messages.sortPopular],
-  ['name', messages.sortName],
-  ['newest', messages.sortNewest],
+  ['popular', messages.sortPopularityDesc],
+  ['popular_asc', messages.sortPopularityAsc],
+  ['newest', messages.sortAddedDesc],
+  ['newest_asc', messages.sortAddedAsc],
+  ['name', messages.sortTitleAsc],
+  ['name_desc', messages.sortTitleDesc],
 ] as const;
 
 type StudioSort = (typeof sortOptions)[number][0];

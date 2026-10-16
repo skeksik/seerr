@@ -511,12 +511,14 @@ class StashDbAPI extends ExternalAPI {
     page = 1,
     perPage = 40,
     sort = 'NAME',
+    direction = sort === 'NAME' ? 'ASC' : 'DESC',
     name,
     topLevel = false,
   }: {
     page?: number;
     perPage?: number;
     sort?: 'NAME' | 'CREATED_AT';
+    direction?: 'ASC' | 'DESC';
     name?: string;
     topLevel?: boolean;
   }): Promise<{
@@ -546,7 +548,7 @@ class StashDbAPI extends ExternalAPI {
           page,
           per_page: perPage,
           sort,
-          direction: sort === 'NAME' ? 'ASC' : 'DESC',
+          direction,
           name: name || undefined,
           has_parent: topLevel ? false : undefined,
         },

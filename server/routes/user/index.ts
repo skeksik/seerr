@@ -17,7 +17,7 @@ import type {
   UserResultsResponse,
   UserWatchDataResponse,
 } from '@server/interfaces/api/userInterfaces';
-import { adultWatchlistWhere } from '@server/lib/adult';
+import { adultWatchlistWhere, canViewAdult } from '@server/lib/adult';
 import { Permission, hasPermission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -473,7 +473,7 @@ router.get<{ id: string }, UserRequestsResponse>(
         });
       }
 
-      const [requests, requestCount] = await getRepository(MediaRequest)
+      let query = getRepository(MediaRequest)
         .createQueryBuilder('request')
         .leftJoinAndSelect('request.media', 'media')
         .leftJoinAndSelect('request.seasons', 'seasons')
@@ -481,7 +481,17 @@ router.get<{ id: string }, UserRequestsResponse>(
         .leftJoinAndSelect('request.requestedBy', 'requestedBy')
         .andWhere('requestedBy.id = :id', {
           id: user.id,
-        })
+        });
+
+      // Like the request list, for viewers without adult access or in safe
+      // mode
+      if (!canViewAdult(req.user)) {
+        query = query.andWhere('request.type NOT IN (:...adultTypes)', {
+          adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
+        });
+      }
+
+      const [requests, requestCount] = await query
         .orderBy('request.id', 'DESC')
         .take(pageSize)
         .skip(skip)

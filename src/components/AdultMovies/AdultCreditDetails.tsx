@@ -10,6 +10,8 @@ import AdultCreditHeader, {
 } from '@app/components/Scenes/AdultCreditHeader';
 import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
+import NoResults from '@app/components/Scenes/NoResults';
+import useEmptyRows from '@app/components/Scenes/useEmptyRows';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -50,6 +52,9 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
   // The slider's own request, so both share it; a linked page's StashDB page
   // shows the same list
   const moviesUrl = creditTitlesUrl('adultmovie', type, id);
+  const { allEmpty: allRowsEmpty, report: reportRow } = useEmptyRows([
+    'movies',
+  ]);
   const { data: movies } = useSWR<AdultMovieListResponse>(
     id ? moviesUrl : null
   );
@@ -77,6 +82,7 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
     return <ErrorPage statusCode={404} />;
   }
 
+  const hasStudios = !isPerformer(data) && data.sites.length > 0;
   const links = isPerformer(data)
     ? data.links
     : data.url
@@ -118,7 +124,7 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
-        {!isPerformer(data) && data.sites.length > 0 && (
+        {hasStudios && (
           <AdultStudioRow
             sliderKey={`tpdb-sites-${data.id}`}
             title={intl.formatMessage(messages.sites)}
@@ -134,7 +140,9 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
           title={intl.formatMessage(globalMessages.adultMovies)}
           url={moviesUrl}
           linkUrl={creditBrowseHref('adultmovie', type, data.id)}
+          onSettled={(empty) => reportRow('movies', empty)}
         />
+        {allRowsEmpty && !hasStudios && <NoResults />}
       </div>
     </>
   );

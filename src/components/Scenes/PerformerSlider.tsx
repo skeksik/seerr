@@ -27,7 +27,7 @@ const PerformerSlider = ({
       <PersonCard key={`${sliderKey}-${performer.personId}`} {...performer} />
     ));
   const more = performers.slice(SLIDER_LIMIT, SLIDER_LIMIT + 4);
-  // Like the other rows, the full cast is only linked past what fits
+  // Like the other rows, See More only shows past what fits
   const fullCastUrl = more.length > 0 ? linkUrl : undefined;
 
   if (fullCastUrl) {
@@ -43,7 +43,7 @@ const PerformerSlider = ({
 
   return (
     <>
-      <SliderHeader title={title} linkUrl={fullCastUrl} />
+      <SliderHeader title={title} linkUrl={linkUrl} />
       <Slider
         sliderKey={sliderKey}
         isLoading={false}

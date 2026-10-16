@@ -476,14 +476,15 @@ const AdultTitleDetails = ({
                 <span className="media-fact-value">{data.code}</span>
               </div>
             )}
+            {/* Laid out like a movie's Currently Streaming On */}
             {data.links.length > 0 && (
-              <div className="media-fact">
+              <div className="media-fact flex-col gap-1">
                 <span>{intl.formatMessage(messages.links)}</span>
                 <span className="media-fact-value">
                   <AdultProfileLinks
                     links={data.links}
-                    align="end"
-                    className="gap-2"
+                    align="start"
+                    className="gap-x-5 gap-y-2"
                   />
                 </span>
               </div>

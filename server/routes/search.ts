@@ -100,9 +100,9 @@ const searchAdult = async (
           }
         : {
             id: String(performer._id),
+            tpdbId: performer._id,
             mediaType: 'performer',
             name: performer.name,
-            disambiguation: 'ThePornDB',
             imageUrl: performer.image ?? undefined,
             source: 'tpdb',
             imageType: 'tpdb',

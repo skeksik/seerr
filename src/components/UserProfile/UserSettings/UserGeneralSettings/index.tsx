@@ -7,7 +7,7 @@ import OrientationSelector from '@app/components/OrientationSelector';
 import QuotaSelector from '@app/components/QuotaSelector';
 import RegionSelector from '@app/components/RegionSelector';
 import { availableLanguages } from '@app/context/LanguageContext';
-import { useSafeMode } from '@app/hooks/useAdult';
+import useAdult from '@app/hooks/useAdult';
 import useLocale from '@app/hooks/useLocale';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
@@ -85,7 +85,6 @@ const messages = defineMessages(
 
 const UserGeneralSettings = () => {
   const intl = useIntl();
-  const safeMode = useSafeMode();
   const { addToast } = useToasts();
   const { locale, setLocale } = useLocale();
   const [movieQuotaEnabled, setMovieQuotaEnabled] = useState(false);
@@ -112,10 +111,10 @@ const UserGeneralSettings = () => {
     }
   };
   const { currentSettings } = useSettings();
-  // Adult rows show when adult content is on, the viewer is out of safe mode
-  // and the edited user may see it
-  const showAdult =
-    currentSettings.enableAdult && !safeMode && hasPermission(Permission.ADULT);
+  // Adult rows show when the viewer may see adult content and is out of safe
+  // mode, whatever the edited user's permissions, so admins can set them up
+  // ahead
+  const showAdult = useAdult();
   const {
     data,
     error,

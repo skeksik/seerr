@@ -34,8 +34,9 @@ export interface PerformerResult {
   // StashDB id, or ThePornDB's numeric one for its own performers
   id: string;
   mediaType: 'performer';
-  // The page is on ThePornDB
+  // The page is on ThePornDB, by its numeric id
   source?: 'tpdb';
+  tpdbId?: number;
   // The image is ThePornDB's, which StashDB-linked performers also keep
   imageType?: 'tpdb';
   name: string;

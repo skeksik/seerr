@@ -11,6 +11,8 @@ import AdultCreditHeader, {
 import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import MonitorControls from '@app/components/Scenes/MonitorControls';
+import NoResults from '@app/components/Scenes/NoResults';
+import useEmptyRows from '@app/components/Scenes/useEmptyRows';
 import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -53,9 +55,15 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
     id ? `/api/v1/scene/${type}/${id}` : null
   );
   // Movies come from ThePornDB, where performers and studios have own ids
-  const { data: tpdbMatch } = useSWR<{ id: number; url?: string }>(
-    id ? `/api/v1/adultmovie/match/${type}/${id}` : null,
-    { shouldRetryOnError: false }
+  const { data: tpdbMatch, error: matchError } = useSWR<{
+    id: number;
+    url?: string;
+  }>(id ? `/api/v1/adultmovie/match/${type}/${id}` : null, {
+    shouldRetryOnError: false,
+  });
+  // Until the match is known, its movies may still come
+  const { allEmpty: allRowsEmpty, report: reportRow } = useEmptyRows(
+    matchError ? ['scenes'] : ['scenes', 'movies']
   );
   // The slider's own request, so both share it
   const scenesUrl = creditTitlesUrl('scene', type, id);
@@ -77,6 +85,8 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   if (!data) {
     return <ErrorPage statusCode={404} />;
   }
+
+  const hasStudios = !isPerformer(data) && data.studios.length > 0;
 
   return (
     <>
@@ -136,7 +146,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
-        {!isPerformer(data) && data.studios.length > 0 && (
+        {hasStudios && (
           <AdultStudioRow
             sliderKey={`network-studios-${data.id}`}
             title={intl.formatMessage(messages.studios)}
@@ -152,6 +162,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
           title={intl.formatMessage(globalMessages.scenes)}
           url={scenesUrl}
           linkUrl={creditBrowseHref('scene', type, data.id)}
+          onSettled={(empty) => reportRow('scenes', empty)}
         />
         {tpdbMatch && (
           <AdultTitleSlider
@@ -160,8 +171,10 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
             title={intl.formatMessage(globalMessages.adultMovies)}
             url={creditTitlesUrl('adultmovie', type, tpdbMatch.id)}
             linkUrl={creditBrowseHref('adultmovie', type, tpdbMatch.id)}
+            onSettled={(empty) => reportRow('movies', empty)}
           />
         )}
+        {allRowsEmpty && !hasStudios && <NoResults />}
       </div>
     </>
   );

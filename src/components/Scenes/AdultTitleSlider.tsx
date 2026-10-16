@@ -12,7 +12,7 @@ import type {
   AdultMovieResult,
 } from '@server/models/AdultMovie';
 import type { SceneListResponse, SceneResult } from '@server/models/Scene';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useSWRInfinite from 'swr/infinite';
 
 export interface AdultTitleSliderProps {
@@ -23,9 +23,14 @@ export interface AdultTitleSliderProps {
   // are read while the row isn't full
   url: string;
   linkUrl?: string;
+  // Told whether the row has titles, once it knows
+  onSettled?: (empty: boolean) => void;
 }
 
-const SLIDER_LIMIT = 20;
+// Landscape scene cards are wider, so fewer make a row as long as the
+// poster rows
+const POSTER_LIMIT = 20;
+const SCENE_LIMIT = 13;
 // Like MediaSlider, a row reads at most this many pages to fill itself
 const MAX_PAGES = 5;
 
@@ -37,18 +42,20 @@ const pageUrl = (url: string, page: number): string => {
 };
 
 // MediaSlider for scenes and adult movies, whose lists are not TMDB's. Rows
-// without titles are left out, and the full list is only linked past what
-// fits in the row
+// without titles are left out, and like MediaSlider the See More card only
+// shows when there is more than fits
 const AdultTitleSlider = ({
   mediaType,
   sliderKey,
   title,
   url,
   linkUrl,
+  onSettled,
 }: AdultTitleSliderProps) => {
   const settings = useSettings();
   const { hasPermission } = useUser();
   const paged = /[?&]page=/.test(url);
+  const limit = mediaType === 'scene' ? SCENE_LIMIT : POSTER_LIMIT;
   const { data, error, size, setSize, isValidating } = useSWRInfinite<
     SceneListResponse | AdultMovieListResponse
   >(
@@ -82,7 +89,7 @@ const AdultTitleSlider = ({
     !!data &&
     data.length === size &&
     !readAll &&
-    results.length <= SLIDER_LIMIT &&
+    results.length <= limit &&
     size < MAX_PAGES;
 
   useEffect(() => {
@@ -91,16 +98,25 @@ const AdultTitleSlider = ({
     }
   }, [wantsMore, setSize, size]);
 
-  if (error || (results.length === 0 && !reading && !wantsMore)) {
+  const settled = !!error || (!reading && !wantsMore);
+  const isEmpty = !!error || results.length === 0;
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  useEffect(() => {
+    if (settled) {
+      onSettledRef.current?.(isEmpty);
+    }
+  }, [settled, isEmpty]);
+
+  if (settled && isEmpty) {
     return null;
   }
 
-  const hasMore =
-    results.length > SLIDER_LIMIT || (!readAll && size >= MAX_PAGES);
-  const fullListUrl = hasMore ? linkUrl : undefined;
+  const hasMore = results.length > limit || (!readAll && size >= MAX_PAGES);
+  const moreUrl = hasMore ? linkUrl : undefined;
   const isScene = mediaType === 'scene';
   const items = results
-    .slice(0, SLIDER_LIMIT)
+    .slice(0, limit)
     .map((result) =>
       result.mediaType === 'scene' ? (
         <SceneCard key={`${sliderKey}-${result.id}`} scene={result} />
@@ -109,15 +125,15 @@ const AdultTitleSlider = ({
       )
     );
 
-  if (fullListUrl) {
+  if (moreUrl) {
     items.push(
       <ShowMoreCard
         key={`${sliderKey}-more`}
-        url={fullListUrl}
+        url={moreUrl}
         imageType={isScene ? 'stashdb' : 'tpdb'}
         landscape={isScene}
-        posters={(results.length > SLIDER_LIMIT
-          ? results.slice(SLIDER_LIMIT, SLIDER_LIMIT + 4)
+        posters={(results.length > limit
+          ? results.slice(limit, limit + 4)
           : results.slice(-4)
         ).map((result) =>
           result.mediaType === 'scene'
@@ -130,7 +146,7 @@ const AdultTitleSlider = ({
 
   return (
     <>
-      <SliderHeader title={title} linkUrl={fullListUrl} />
+      <SliderHeader title={title} linkUrl={linkUrl} />
       <Slider
         sliderKey={sliderKey}
         isLoading={results.length === 0}

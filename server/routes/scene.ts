@@ -602,7 +602,17 @@ const withMatches = async <T extends { id: string }>(
 const studioListQuery = z.object({
   type: z.enum(['studios', 'networks']).default('studios'),
   page: pageParam,
-  sort: z.enum(['name', 'newest', 'trending', 'popular']).default('name'),
+  sort: z
+    .enum([
+      'name',
+      'name_desc',
+      'newest',
+      'newest_asc',
+      'trending',
+      'popular',
+      'popular_asc',
+    ])
+    .default('name'),
   query: z.string().trim().optional(),
 });
 
@@ -624,13 +634,14 @@ sceneRoutes.get('/studios', async (req, res, next) => {
   try {
     const api = StashDbAPI.fromSettings();
 
-    if (sort === 'trending' || sort === 'popular') {
-      const ranked = rankStudios(
+    if (sort === 'trending' || sort.startsWith('popular')) {
+      const rank = rankStudios(
         await api.getSceneStudios(
           sort === 'trending' ? 'TRENDING' : 'POPULARITY'
         ),
         type
-      ).filter(
+      );
+      const ranked = (sort === 'popular_asc' ? rank.reverse() : rank).filter(
         (studio) =>
           !query || studio.name.toLowerCase().includes(query.toLowerCase())
       );
@@ -671,7 +682,8 @@ sceneRoutes.get('/studios', async (req, res, next) => {
         api.queryStudios({
           page: read,
           perPage: type === 'networks' ? NETWORK_READ_SIZE : STUDIO_PAGE_SIZE,
-          sort: sort === 'newest' ? 'CREATED_AT' : 'NAME',
+          sort: sort.startsWith('newest') ? 'CREATED_AT' : 'NAME',
+          direction: sort === 'name_desc' || sort === 'newest' ? 'DESC' : 'ASC',
           name: query,
           topLevel: type === 'networks',
         })

@@ -165,9 +165,9 @@ describe('GET /search', () => {
       },
       {
         id: '3',
+        tpdbId: 3,
         mediaType: 'performer',
         name: 'Molly Moe',
-        disambiguation: 'ThePornDB',
         source: 'tpdb',
         imageType: 'tpdb',
       },

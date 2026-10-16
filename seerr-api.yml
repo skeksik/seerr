@@ -8717,7 +8717,16 @@ paths:
           name: sort
           schema:
             type: string
-            enum: [name, newest, trending, popular]
+            enum:
+              [
+                name,
+                name_desc,
+                newest,
+                newest_asc,
+                trending,
+                popular,
+                popular_asc,
+              ]
             default: name
         - in: query
           name: query

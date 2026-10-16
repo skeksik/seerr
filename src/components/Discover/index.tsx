@@ -428,7 +428,7 @@ const Discover = () => {
                 sliderKey="popular-scenes"
                 title={intl.formatMessage(sliderTitles.popularScenes)}
                 url="/api/v1/scene/discover?sort=popularity&page=1"
-                linkUrl="/discover/scenes?sort=popularity"
+                linkUrl="/discover/scenes"
               />
             );
             break;
@@ -477,7 +477,7 @@ const Discover = () => {
                 sliderKey="new-adult-movies"
                 title={intl.formatMessage(sliderTitles.newAdultMovies)}
                 url="/api/v1/adultmovie/discover?sort=released&page=1"
-                linkUrl="/discover/adultmovies?sort=released"
+                linkUrl="/discover/adultmovies"
               />
             );
             break;

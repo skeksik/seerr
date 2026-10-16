@@ -8,7 +8,7 @@ import { stashImageUrl } from '@app/utils/stashImage';
 interface AdultStudioRowProps {
   sliderKey: string;
   title: string;
-  // Every studio of the row, also behind its last card
+  // Every studio of the row, also behind its last card when there are more
   linkUrl: string;
   // Whether the list behind the row holds more than it shows; by default
   // when there are more studios than fit
@@ -24,7 +24,8 @@ interface AdultStudioRowProps {
   }[];
 }
 
-const SLIDER_LIMIT = 20;
+// Studio cards are wide, like scene cards
+const SLIDER_LIMIT = 13;
 
 // The studio row of the Discover page, for StashDB and ThePornDB studios
 const AdultStudioRow = ({
@@ -36,7 +37,7 @@ const AdultStudioRow = ({
   hasMore = (studios?.length ?? 0) > SLIDER_LIMIT,
 }: AdultStudioRowProps) => (
   <>
-    <SliderHeader title={title} linkUrl={hasMore ? linkUrl : undefined} />
+    <SliderHeader title={title} linkUrl={linkUrl} />
     <Slider
       sliderKey={sliderKey}
       isLoading={!studios}
