@@ -1,4 +1,4 @@
-import { stashDbPerformerId, tpdbUrl } from '@server/api/tpdb';
+import { tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
 import type { Orientation } from '@server/lib/orientation';
@@ -27,6 +27,8 @@ export interface AdultMovieResult {
 export interface AdultMovieStudio {
   id: number;
   name: string;
+  // The StashDB studio it is linked to, which has its page
+  stashDbId?: string;
 }
 
 export interface AdultMovieDetails extends AdultMovieResult {
@@ -39,7 +41,7 @@ export interface AdultMovieDetails extends AdultMovieResult {
     id: string;
     // Numeric id ThePornDB filters take
     tpdbId: number;
-    // StashDB performer, which has the performer page
+    // The StashDB performer it is linked to, which has its page
     stashDbId?: string;
     name: string;
     imageUrl?: string;
@@ -89,24 +91,53 @@ export const mapAdultMovieResult = (
   mediaInfo: media,
 });
 
+// The StashDB performers and studios a movie's ThePornDB ones are linked
+// to, by ThePornDB id
+export interface AdultMovieLinks {
+  performers: Map<number, string>;
+  studios: Map<number, string>;
+}
+
+// Site performers point to the performer across all sites
+export const moviePerformers = (movie: TpdbMovie) =>
+  (movie.performers ?? []).map((performer) => ({
+    id: performer.parent?.id ?? performer.id,
+    _id: performer.parent?._id ?? performer._id,
+    slug: performer.parent ? performer.parent.slug : performer.slug,
+    extras: performer.parent ? performer.parent.extras : performer.extras,
+    name: performer.parent?.name ?? performer.name,
+    image: performer.parent ? performer.parent.image : performer.image,
+  }));
+
 export const mapAdultMovieDetails = (
   movie: TpdbMovie,
-  media?: Media
+  media?: Media,
+  links: AdultMovieLinks = { performers: new Map(), studios: new Map() }
 ): AdultMovieDetails => ({
   ...mapAdultMovieResult(movie, media),
+  studio: movie.site
+    ? {
+        id: movie.site.id,
+        name: movie.site.name,
+        stashDbId: links.studios.get(movie.site.id),
+      }
+    : undefined,
   orientations: classifyMovie(movie),
   backCoverUrl: movie.back_image ?? undefined,
   network:
     movie.site?.network && movie.site.network.id !== movie.site.id
-      ? { id: movie.site.network.id, name: movie.site.network.name }
+      ? {
+          id: movie.site.network.id,
+          name: movie.site.network.name,
+          stashDbId: links.studios.get(movie.site.network.id),
+        }
       : undefined,
-  // Site performers point to the performer across all sites
-  performers: (movie.performers ?? []).map((performer) => ({
-    id: performer.parent?.id ?? performer.id,
-    tpdbId: performer.parent?._id ?? performer._id,
-    stashDbId: stashDbPerformerId(performer.parent?.extras ?? performer.extras),
-    name: performer.parent?.name ?? performer.name,
-    imageUrl: performer.parent?.image ?? performer.image ?? undefined,
+  performers: moviePerformers(movie).map((performer) => ({
+    id: performer.id,
+    tpdbId: performer._id,
+    stashDbId: links.performers.get(performer._id),
+    name: performer.name,
+    imageUrl: performer.image ?? undefined,
   })),
   tags: (movie.tags ?? []).map(({ id, name }) => ({ id, name })),
   directors: (movie.directors ?? []).map((director) => director.name),

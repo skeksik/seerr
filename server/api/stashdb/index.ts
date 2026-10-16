@@ -53,6 +53,10 @@ const LIST_TTL = 3600;
 // Scenes read to rank studios by; one request takes a few seconds
 const RANKED_SCENES = 5000;
 
+// Address lookups asked in one request; StashDB answers 150 in under a
+// second
+const URL_BATCH = 150;
+
 export class StashDbNotConfiguredError extends Error {
   constructor() {
     super('StashDB is not configured');
@@ -369,6 +373,39 @@ class StashDbAPI extends ExternalAPI {
     return urls.map((_, i) => data[`u${i}`]?.scenes[0]);
   }
 
+  // The performer or studio holding each address among its links. StashDB
+  // only finds exact addresses, so callers ask for every form they know,
+  // many at once
+  public async findIdsByUrls(
+    type: 'performer' | 'studio',
+    urls: string[]
+  ): Promise<(string | undefined)[]> {
+    const field = type === 'performer' ? 'queryPerformers' : 'queryStudios';
+    const items = type === 'performer' ? 'performers' : 'studios';
+    const found: (string | undefined)[] = [];
+
+    for (let start = 0; start < urls.length; start += URL_BATCH) {
+      const batch = urls.slice(start, start + URL_BATCH);
+      const data = await this.query<
+        Record<string, Record<string, { id: string }[]>>
+      >(
+        `query (${batch.map((_, i) => `$u${i}: String!`).join(', ')}) {
+          ${batch
+            .map(
+              (_, i) =>
+                `u${i}: ${field}(input: { url: $u${i}, per_page: 1 }) { ${items} { id } }`
+            )
+            .join('\n')}
+        }`,
+        Object.fromEntries(batch.map((url, i) => [`u${i}`, url])),
+        DETAILS_TTL
+      );
+      found.push(...batch.map((_, i) => data[`u${i}`]?.[items]?.[0]?.id));
+    }
+
+    return found;
+  }
+
   // Tag ids by name or alias; names StashDB does not know are left out
   public async getTagIds(names: string[]): Promise<Record<string, string>> {
     const data = await this.query<Record<string, { id: string } | null>>(
@@ -547,15 +584,6 @@ class StashDbAPI extends ExternalAPI {
     );
 
     return data.querySites.sites;
-  }
-
-  // The studio with exactly this name, like ThePornDB's findSiteByName
-  public async findStudioByName(name: string): Promise<StashDbLookup | null> {
-    const studios = (await this.searchStudios(name)).filter(
-      (studio) => studio.name.toLowerCase() === name.toLowerCase()
-    );
-
-    return studios.find((studio) => studio.name === name) ?? studios[0] ?? null;
   }
 
   public async searchStudios(term: string): Promise<StashDbLookup[]> {

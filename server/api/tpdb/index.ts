@@ -24,20 +24,27 @@ export class TpdbNotConfiguredError extends Error {
 
 const DEFAULT_URL = 'https://api.theporndb.net';
 
-// A movie, performer or site page on the ThePornDB site
+// A movie, performer or site page on the ThePornDB site; older site pages
+// are under studios
 export const tpdbUrl = (
-  kind: 'movies' | 'performers' | 'sites',
+  kind: 'movies' | 'performers' | 'sites' | 'studios',
   id: string
 ): string => `https://theporndb.net/${kind}/${id}`;
 
 const STASHDB_PERFORMER =
-  /^https:\/\/stashdb\.org\/performers\/([0-9a-f-]{36})\/?$/i;
+  /^https?:\/\/(?:www\.)?([^/]+)\/performers\/([0-9a-f-]{36})\/?$/i;
 
-// Performers link their StashDB profile; there is no lookup by StashDB id
+// Performers link their StashDB profile; there is no lookup by StashDB id.
+// Only links to the stash-box instance Seerr uses count
 export const stashDbPerformerId = (
-  extras?: TpdbPerformerExtras | null
-): string | undefined =>
-  extras?.links?.StashDB?.match(STASHDB_PERFORMER)?.[1]?.toLowerCase();
+  extras: TpdbPerformerExtras | null | undefined,
+  stashDbHost: string
+): string | undefined => {
+  const match = extras?.links?.StashDB?.match(STASHDB_PERFORMER);
+  return match && match[1].toLowerCase() === stashDbHost
+    ? match[2].toLowerCase()
+    : undefined;
+};
 
 export interface TpdbMovieQuery {
   page?: number;
@@ -192,7 +199,8 @@ class TpdbAPI extends ExternalAPI {
     );
   }
 
-  public async getSite(id: number): Promise<TpdbSiteSummary | null> {
+  // By id, uuid or slug, like performers
+  public async getSite(id: number | string): Promise<TpdbSiteSummary | null> {
     try {
       const response = await this.get<{ data: TpdbSiteSummary }>(
         `/sites/${id}`,
@@ -245,28 +253,6 @@ class TpdbAPI extends ExternalAPI {
       }
       throw e;
     }
-  }
-
-  public async findPerformerByStashDbId(
-    stashDbId: string,
-    name: string
-  ): Promise<TpdbPerformerSummary | null> {
-    const performers = await this.searchPerformers(name);
-
-    return (
-      performers.find(
-        (performer) => stashDbPerformerId(performer.extras) === stashDbId
-      ) ?? null
-    );
-  }
-
-  // Sites hold no StashDB links, so studios are matched on their name
-  public async findSiteByName(name: string): Promise<TpdbSiteSummary | null> {
-    const sites = (await this.searchSites(name)).filter(
-      (site) => site.name.toLowerCase() === name.toLowerCase()
-    );
-
-    return sites.find((site) => site.name === name) ?? sites[0] ?? null;
   }
 
   public async searchTags(query: string): Promise<TpdbTag[]> {

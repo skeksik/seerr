@@ -5,6 +5,12 @@ import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
+import {
+  linkedStashDbPerformers,
+  linkedStashDbStudios,
+  tpdbPerformerFor,
+  tpdbSiteFor,
+} from '@server/lib/adultLinks';
 import type { SuggestionType } from '@server/lib/adultLists';
 import {
   handleError,
@@ -36,11 +42,12 @@ import {
   mapAdultPerformerDetails,
   mapAdultStudioDetails,
 } from '@server/models/AdultCredit';
-import type {
-  AdultMovieListResponse,
-  AdultMovieStudio,
+import type { AdultMovieListResponse } from '@server/models/AdultMovie';
+import {
+  MAX_DURATION,
+  mapAdultMovieDetails,
+  moviePerformers,
 } from '@server/models/AdultMovie';
-import { MAX_DURATION, mapAdultMovieDetails } from '@server/models/AdultMovie';
 import type { SiteLink } from '@server/models/Scene';
 import { today } from '@server/utils/dateHelpers';
 import { Router } from 'express';
@@ -439,7 +446,8 @@ for (const [path, lookup] of Object.entries(lookups)) {
   });
 }
 
-// The ThePornDB performer or site behind a StashDB performer or studio
+// The ThePornDB performer or site linked to a StashDB performer or studio,
+// whose movies its page adds
 adultMovieRoutes.get<{ type: string; id: string }>(
   '/match/:type/:id',
   async (req, res, next) => {
@@ -451,14 +459,11 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 
     try {
       const stashDb = StashDbAPI.fromSettings();
-      const tpdb = TpdbAPI.fromSettings();
-      let match: { id: number; name: string; url?: string } | null = null;
+      let match: { id: number; name: string; url: string } | null = null;
 
       if (req.params.type === 'performer') {
         const performer = await stashDb.getPerformer(id.data);
-        const found =
-          performer &&
-          (await tpdb.findPerformerByStashDbId(performer.id, performer.name));
+        const found = performer && (await tpdbPerformerFor(performer));
         match = found
           ? {
               id: found._id,
@@ -468,7 +473,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
           : null;
       } else {
         const studio = await stashDb.getStudio(id.data);
-        const found = studio && (await tpdb.findSiteByName(studio.name));
+        const found = studio && (await tpdbSiteFor(studio));
         match = found
           ? {
               id: found.id,
@@ -595,7 +600,11 @@ adultMovieRoutes.get<{ type: string; id: string }>(
           return next({ status: 404, message: 'Not found.' });
         }
 
-        const details = mapAdultPerformerDetails(performer);
+        const links = await linkedStashDbPerformers([performer]);
+        const details = mapAdultPerformerDetails(
+          performer,
+          links.get(performer._id)
+        );
 
         return res.status(200).json({
           ...details,
@@ -612,10 +621,13 @@ adultMovieRoutes.get<{ type: string; id: string }>(
         return next({ status: 404, message: 'Not found.' });
       }
 
-      const details = mapAdultStudioDetails(site, sites);
-      return res
-        .status(200)
-        .json({ ...details, stashDbId: await stashDbStudioId(details) });
+      // The site, its network and its sites may each have a StashDB studio
+      const links = await linkedStashDbStudios([
+        site,
+        ...(site.network ? [site.network] : []),
+        ...sites,
+      ]);
+      return res.status(200).json(mapAdultStudioDetails(site, sites, links));
     } catch (e) {
       return handleError(e, next, 'Unable to retrieve filter.', {
         type: req.params.type,
@@ -624,23 +636,6 @@ adultMovieRoutes.get<{ type: string; id: string }>(
     }
   }
 );
-
-// The StashDB studio of the same name, for the studio page's scenes
-const stashDbStudioId = async (
-  studio: AdultMovieStudio
-): Promise<string | undefined> => {
-  try {
-    const match = await StashDbAPI.fromSettings().findStudioByName(studio.name);
-    return match?.id;
-  } catch (e) {
-    logger.debug('No StashDB studio for ThePornDB site.', {
-      label: 'API',
-      site: studio.name,
-      errorMessage: e.message,
-    });
-    return undefined;
-  }
-};
 
 const siteHost = (url: string): string => {
   try {
@@ -695,13 +690,23 @@ adultMovieRoutes.get('/:id', async (req, res, next) => {
       return next({ status: 404, message: 'Movie not found.' });
     }
 
-    const [media, onUserWatchlist] = await Promise.all([
+    const [media, onUserWatchlist, performers, studios] = await Promise.all([
       Media.getAdultMedia(MediaType.ADULT_MOVIE, movie.id),
       isOnWatchlist(MediaType.ADULT_MOVIE, movie.id, req.user),
+      // Linked performers and studios open their StashDB page
+      linkedStashDbPerformers(moviePerformers(movie)),
+      linkedStashDbStudios(
+        movie.site
+          ? [movie.site, ...(movie.site.network ? [movie.site.network] : [])]
+          : []
+      ),
     ]);
 
     return res.status(200).json({
-      ...mapAdultMovieDetails(movie, media?.filter(req.user)),
+      ...mapAdultMovieDetails(movie, media?.filter(req.user), {
+        performers,
+        studios,
+      }),
       onUserWatchlist,
     });
   } catch (e) {

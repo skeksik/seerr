@@ -168,6 +168,30 @@ describe('StashDbAPI', () => {
     });
   });
 
+  it('finds the holders of many addresses in batches', async () => {
+    const urls = Array.from(
+      { length: 151 },
+      (_, i) => `https://theporndb.net/sites/site-${i}`
+    );
+    const api = new TestStashDbAPI([
+      { data: { u1: { studios: [{ id: 'studio' }] } } },
+      { data: { u0: { studios: [] } } },
+    ]);
+
+    const ids = await api.findIdsByUrls('studio', urls);
+
+    assert.strictEqual(api.requests.length, 2);
+    assert.strictEqual(ids.length, 151);
+    assert.strictEqual(ids[1], 'studio');
+    assert.strictEqual(ids.filter(Boolean).length, 1);
+    const first = JSON.parse(api.requests[0].data);
+    assert.match(first.query, /u149: queryStudios\(input: \{ url: \$u149/);
+    assert.strictEqual(first.variables.u1, urls[1]);
+    assert.deepStrictEqual(JSON.parse(api.requests[1].data).variables, {
+      u0: urls[150],
+    });
+  });
+
   it('keeps one client per endpoint and key', () => {
     const settings = getSettings();
     const previous = settings.stashdb;

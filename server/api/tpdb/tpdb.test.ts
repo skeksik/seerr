@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
 import ExternalAPI from '@server/api/externalapi';
-import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
+import TpdbAPI, {
+  TpdbNotConfiguredError,
+  stashDbPerformerId,
+} from '@server/api/tpdb';
 import { getSettings } from '@server/lib/settings';
 
 type Get = (
@@ -73,47 +76,23 @@ describe('TpdbAPI', () => {
     );
   });
 
-  it('matches performers on their StashDB link', async () => {
-    stubGet({
-      data: [
-        { id: 'a', _id: 1, name: 'Molly Little', extras: { links: {} } },
-        {
-          id: 'b',
-          _id: 2,
-          name: 'Molly Little',
-          extras: {
-            links: {
-              StashDB:
-                'https://stashdb.org/performers/BCB98A6E-08F3-48A9-90D5-F223901A56A5',
-            },
-          },
-        },
-      ],
-    });
+  it('reads StashDB links to the configured instance only', () => {
+    const extras = {
+      links: {
+        StashDB:
+          'https://stashdb.org/performers/BCB98A6E-08F3-48A9-90D5-F223901A56A5/',
+      },
+    };
 
-    const performer = await new TpdbAPI({
-      apiKey: 'key',
-    }).findPerformerByStashDbId(
-      'bcb98a6e-08f3-48a9-90d5-f223901a56a5',
-      'Molly Little'
+    assert.strictEqual(
+      stashDbPerformerId(extras, 'stashdb.org'),
+      'bcb98a6e-08f3-48a9-90d5-f223901a56a5'
     );
-
-    assert.strictEqual(performer?._id, 2);
-  });
-
-  it('matches sites on their name, exact case first', async () => {
-    stubGet({
-      data: [
-        { id: 103841, uuid: 'jav', name: 'VIXEN' },
-        { id: 64571, uuid: 'clips', name: 'I Want Clips: Tattoovixen' },
-        { id: 3372, uuid: 'vixen', name: 'Vixen' },
-      ],
-    });
-    const api = new TpdbAPI({ apiKey: 'key' });
-
-    assert.strictEqual((await api.findSiteByName('Vixen'))?.id, 3372);
-    assert.strictEqual((await api.findSiteByName('vixen'))?.id, 103841);
-    assert.strictEqual(await api.findSiteByName('Vix'), null);
+    assert.strictEqual(stashDbPerformerId(extras, 'fansdb.cc'), undefined);
+    assert.strictEqual(
+      stashDbPerformerId({ links: {} }, 'stashdb.org'),
+      undefined
+    );
   });
 
   it('returns null for unknown movies', async () => {
