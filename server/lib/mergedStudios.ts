@@ -66,6 +66,11 @@ export class MergedStudioList {
     private readonly query?: string
   ) {}
 
+  // Clients are kept per address and key, so other ones mean other settings
+  public readsFrom(stashDbApi: StashDbAPI, tpdbApi: TpdbAPI): boolean {
+    return this.stashDbApi === stashDbApi && this.tpdbApi === tpdbApi;
+  }
+
   public get done(): boolean {
     return (
       this.stashDb.done &&
@@ -175,7 +180,8 @@ export const mergedStudioList = (
   const now = Date.now();
   const kept = lists.get(key);
 
-  if (kept && kept.expires > now) {
+  // A list read with other settings is read again
+  if (kept && kept.expires > now && kept.list.readsFrom(stashDbApi, tpdbApi)) {
     return kept.list;
   }
 
@@ -184,6 +190,7 @@ export const mergedStudioList = (
       lists.delete(listKey);
     }
   }
+  lists.delete(key);
   if (lists.size >= MAX_LISTS) {
     lists.delete(lists.keys().next().value as string);
   }
