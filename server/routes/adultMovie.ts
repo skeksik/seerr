@@ -14,6 +14,7 @@ import {
   pageQuery,
   searchQuery,
   sharedFilters,
+  tpdbDateOperations,
   withSuggestion,
   withoutSeen,
 } from '@server/lib/adultLists';
@@ -167,10 +168,13 @@ const planMovies = (
   let date: TpdbMovieQuery['date'];
   if (filters.upcoming) {
     date = { value: today(), operation: '>' };
-  } else if (filters.releaseDate && filters.released !== 'before') {
-    date = { value: filters.releaseDate, operation: '>=' };
+  } else if (filters.releaseDate) {
+    date = {
+      value: filters.releaseDate,
+      operation: tpdbDateOperations[filters.released ?? 'gte'],
+    };
   } else {
-    date = { value: filters.releaseDate ?? today(), operation: '<=' };
+    date = { value: today(), operation: '<=' };
   }
 
   return {

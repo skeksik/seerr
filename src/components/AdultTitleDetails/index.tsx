@@ -41,7 +41,7 @@ const messages = defineMessages('components.AdultTitleDetails', {
   director: 'Director',
   links: 'Links',
   recommendations: 'Recommendations',
-  similar: 'Similar',
+  similar: 'Similar Titles',
   minutes: '{minutes} min',
   showalltags: 'Show all {count} tags',
   playonstash: 'Play on Stash',
@@ -149,10 +149,6 @@ const AdultTitleDetails = ({
         ))}
       </span>
     );
-  }
-
-  if (data.studio) {
-    attributes.push(<Link href={data.studio.href}>{data.studio.name}</Link>);
   }
 
   if (minutes) {

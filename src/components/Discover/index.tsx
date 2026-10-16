@@ -438,8 +438,8 @@ const Discover = () => {
                 mediaType="scene"
                 sliderKey="new-scenes"
                 title={intl.formatMessage(sliderTitles.newScenes)}
-                url={`/api/v1/scene/discover?sort=date&released=before&releaseDate=${upcomingDate}&page=1`}
-                linkUrl={`/discover/scenes?sort=date&released=before&releaseDate=${upcomingDate}`}
+                url={`/api/v1/scene/discover?sort=date&released=lt&releaseDate=${upcomingDate}&page=1`}
+                linkUrl={`/discover/scenes?sort=date&released=lt&releaseDate=${upcomingDate}`}
               />
             );
             break;

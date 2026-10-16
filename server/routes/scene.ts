@@ -20,6 +20,7 @@ import {
   pageQuery,
   searchQuery,
   sharedFilters,
+  stashDbDate,
   withSuggestion,
   withoutSeen,
 } from '@server/lib/adultLists';
@@ -315,11 +316,7 @@ const planScenes = (
       date: filters.upcoming
         ? { value: today(), modifier: 'GREATER_THAN' }
         : filters.releaseDate
-          ? {
-              value: filters.releaseDate,
-              modifier:
-                filters.released === 'before' ? 'LESS_THAN' : 'GREATER_THAN',
-            }
+          ? stashDbDate(filters.releaseDate, filters.released)
           : undefined,
     },
     filter: { hidden, exclude },

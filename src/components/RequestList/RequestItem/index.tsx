@@ -463,24 +463,38 @@ const RequestItem = ({ request, revalidateList }: RequestItemProps) => {
         )}
         <div className="relative flex w-full flex-col justify-between overflow-hidden sm:flex-row">
           <div className="relative z-10 flex w-full items-center overflow-hidden pl-4 pr-4 sm:pr-0 xl:w-7/12 2xl:w-2/3">
-            {/* Scene stills are landscape, so their thumbnail is wider */}
+            {/* Scene stills fill a poster's box, so every row is alike */}
             <Link
               href={title.href}
-              className={`relative h-auto flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105 ${
-                title.portrait ? 'w-12' : 'w-32 bg-gray-700'
+              className={`relative h-auto w-12 flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105 ${
+                title.portrait ? '' : 'bg-gray-700'
               }`}
-              style={title.portrait ? undefined : { aspectRatio: '16 / 9' }}
+              style={title.portrait ? undefined : { aspectRatio: '2 / 3' }}
             >
-              {(title.portrait || title.posterUrl) && (
+              {title.portrait ? (
                 <CachedImage
                   type={title.posterUrl ? title.imageType : 'tmdb'}
                   src={title.posterUrl ?? '/images/seerr_poster_not_found.png'}
                   alt=""
                   sizes="100vw"
                   style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-                  width={title.portrait ? 600 : 640}
-                  height={title.portrait ? 900 : 360}
+                  width={600}
+                  height={900}
                 />
+              ) : (
+                title.posterUrl && (
+                  <CachedImage
+                    type={title.imageType}
+                    src={title.posterUrl}
+                    alt=""
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                    fill
+                  />
+                )
               )}
             </Link>
             <div className="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">

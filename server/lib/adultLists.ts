@@ -18,6 +18,9 @@ export const searchQuery = z.object({
 
 const filterMode = z.enum(['and', 'or']).optional();
 
+export const dateComparisons = ['eq', 'gt', 'gte', 'lt', 'lte'] as const;
+export type DateComparison = (typeof dateComparisons)[number];
+
 // Filters panel fields both sources take
 export const sharedFilters = {
   // Whether a title needs all of the performers or tags, or any
@@ -25,8 +28,12 @@ export const sharedFilters = {
   tagMode: filterMode,
   // Comma-separated sexual preferences to show; the user's defaults if unset
   orientation: z.string().optional(),
-  // Both sources take one date bound
-  released: z.enum(['after', 'before']).optional(),
+  // How the release date compares; both sources take one date bound.
+  // 'after' and 'before' are older links' values
+  released: z.preprocess(
+    (value) => (value === 'after' ? 'gte' : value === 'before' ? 'lt' : value),
+    z.enum(dateComparisons).optional()
+  ),
   releaseDate: isoDate.optional(),
   upcoming: z
     .enum(['true', 'false'])
@@ -120,3 +127,33 @@ export const handleError = (
   logger.debug(message, { label: 'API', errorMessage: e.message, ...meta });
   return next({ status: 500, message });
 };
+
+const shiftDay = (date: string, days: number): string => {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+};
+
+// StashDB compares dates strictly, so "or equal" moves the bound a day
+export const stashDbDate = (
+  value: string,
+  comparison: DateComparison = 'gte'
+): { value: string; modifier: 'EQUALS' | 'GREATER_THAN' | 'LESS_THAN' } => {
+  switch (comparison) {
+    case 'eq':
+      return { value, modifier: 'EQUALS' };
+    case 'gt':
+      return { value, modifier: 'GREATER_THAN' };
+    case 'gte':
+      return { value: shiftDay(value, -1), modifier: 'GREATER_THAN' };
+    case 'lt':
+      return { value, modifier: 'LESS_THAN' };
+    case 'lte':
+      return { value: shiftDay(value, 1), modifier: 'LESS_THAN' };
+  }
+};
+
+export const tpdbDateOperations: Record<
+  DateComparison,
+  '=' | '>' | '>=' | '<' | '<='
+> = { eq: '=', gt: '>', gte: '>=', lt: '<', lte: '<=' };

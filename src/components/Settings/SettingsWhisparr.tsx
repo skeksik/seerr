@@ -1,3 +1,4 @@
+import WhisparrLogo from '@app/assets/services/whisparr.svg';
 import Alert from '@app/components/Common/Alert';
 import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -7,7 +8,6 @@ import { ServerInstance } from '@app/components/Settings/SettingsServices';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
-import { VideoCameraIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import type { WhisparrSettings } from '@server/lib/settings';
 import axios from 'axios';
@@ -103,9 +103,7 @@ const SettingsWhisparr = () => {
                   isDefault={whisparr.isDefault}
                   is4k={whisparr.is4k}
                   externalUrl={whisparr.externalUrl}
-                  logo={
-                    <VideoCameraIcon className="h-10 w-10 flex-shrink-0 text-pink-400" />
-                  }
+                  logo={<WhisparrLogo className="h-10 w-10 flex-shrink-0" />}
                   onEdit={() => setEditModal({ open: true, whisparr })}
                   onDelete={() => setDeleteServerId(whisparr.id)}
                 />

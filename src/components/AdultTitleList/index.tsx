@@ -17,7 +17,7 @@ import useSWR from 'swr';
 
 const messages = defineMessages('components.AdultTitleList', {
   recommendations: 'Recommendations',
-  similar: 'Similar',
+  similar: 'Similar Titles',
 });
 
 interface AdultTitleListProps {

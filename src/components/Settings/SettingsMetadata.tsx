@@ -45,16 +45,13 @@ const messages = defineMessages('components.Settings', {
   failedToSaveMetadataSettings: 'Failed to save metadata provider settings',
   metadataSettingsSaved: 'Metadata provider settings saved',
   adultProviders: 'Adult Content',
-  adultProvidersDescription:
-    'Scenes come from StashDB or another stash-box instance, adult movies from ThePornDB. Both are only used while adult content is enabled.',
+  adultProvidersDescription: 'Metadata providers for scenes and adult movies',
   stashdbEndpoint: 'StashDB GraphQL Endpoint',
   stashdbApiKey: 'StashDB API Key',
-  stashdbApiKeyTip: 'Create one on your StashDB profile page',
+  stashdbApiKeyTip: 'Found on your StashDB profile page',
   tpdbUrl: 'ThePornDB API URL',
-  tpdbUrlTip:
-    "ThePornDB's REST API. Its GraphQL endpoint is made for Stash's scrapers: it finds movies but can't list or filter them.",
   tpdbApiKey: 'ThePornDB API Key',
-  tpdbApiKeyTip: 'Create one under your profile on theporndb.net',
+  tpdbApiKeyTip: 'Found on your ThePornDB profile page',
   validationUrl: 'You must provide a valid URL',
   providerDoesNotWork: '{provider} does not work, check its settings',
 });
@@ -575,9 +572,6 @@ const SettingsMetadata = () => {
                         <div className="form-row">
                           <label htmlFor="tpdbUrl" className="text-label">
                             {intl.formatMessage(messages.tpdbUrl)}
-                            <span className="label-tip">
-                              {intl.formatMessage(messages.tpdbUrlTip)}
-                            </span>
                           </label>
                           <div className="form-input-area">
                             <div className="form-input-field">

@@ -7920,10 +7920,10 @@ paths:
             type: number
         - in: query
           name: released
-          description: Whether releaseDate is a lower or upper bound
+          description: How the release date compares to releaseDate (gte when unset; after and before are older names for gte and lt)
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:
@@ -8022,7 +8022,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:
@@ -8105,7 +8105,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:
@@ -8188,7 +8188,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:
@@ -8513,7 +8513,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:
@@ -8638,7 +8638,7 @@ paths:
           name: released
           schema:
             type: string
-            enum: [after, before]
+            enum: [eq, gt, gte, lt, lte, after, before]
         - in: query
           name: releaseDate
           schema:

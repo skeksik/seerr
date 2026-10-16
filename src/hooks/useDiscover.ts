@@ -53,6 +53,40 @@ export const encodeURIExtraParams = (string: string): string => {
   return finalString;
 };
 
+// Titles the hide-available, hide-blocklisted and hide-requested settings
+// leave out of lists; scenes and adult movies too, by their media status
+export const isTitleShown =
+  (
+    settings: {
+      hideAvailable?: boolean;
+      hideBlocklisted?: boolean;
+      hideRequested?: boolean;
+    },
+    wanted: {
+      hideAvailable: boolean;
+      hideBlocklisted: boolean;
+      hideRequested: boolean;
+    }
+  ) =>
+  (title: BaseMedia): boolean => {
+    if (!['movie', 'tv', 'scene', 'adultmovie'].includes(title.mediaType)) {
+      return true;
+    }
+    const status = title.mediaInfo?.status;
+    return !(
+      (settings.hideAvailable &&
+        wanted.hideAvailable &&
+        (status === MediaStatus.AVAILABLE ||
+          status === MediaStatus.PARTIALLY_AVAILABLE)) ||
+      (settings.hideBlocklisted &&
+        wanted.hideBlocklisted &&
+        status === MediaStatus.BLOCKLISTED) ||
+      (settings.hideRequested &&
+        wanted.hideRequested &&
+        title.mediaInfo?.hasActiveRequest)
+    );
+  };
+
 const useDiscover = <
   T extends BaseMedia,
   S = Record<string, never>,
@@ -130,36 +164,14 @@ const useDiscover = <
     return [...a, ...results];
   }, [] as T[]);
 
-  if (settings.currentSettings.hideAvailable && hideAvailable) {
-    titles = titles.filter(
-      (i) =>
-        !(i.mediaType === 'movie' || i.mediaType === 'tv') ||
-        (i.mediaInfo?.status !== MediaStatus.AVAILABLE &&
-          i.mediaInfo?.status !== MediaStatus.PARTIALLY_AVAILABLE)
-    );
-  }
-
-  if (
-    settings.currentSettings.hideBlocklisted &&
-    hideBlocklisted &&
-    hasPermission(Permission.MANAGE_BLOCKLIST)
-  ) {
-    titles = titles.filter(
-      (i) =>
-        !(i.mediaType === 'movie' || i.mediaType === 'tv') ||
-        i.mediaInfo?.status !== MediaStatus.BLOCKLISTED
-    );
-  }
-
-  if (settings.currentSettings.hideRequested && hideRequested) {
-    titles = titles.filter((i) => {
-      if (i.mediaType !== 'movie' && i.mediaType !== 'tv') {
-        return true;
-      }
-
-      return !i.mediaInfo?.hasActiveRequest;
-    });
-  }
+  titles = titles.filter(
+    isTitleShown(settings.currentSettings, {
+      hideAvailable,
+      hideBlocklisted:
+        hideBlocklisted && hasPermission(Permission.MANAGE_BLOCKLIST),
+      hideRequested,
+    })
+  );
 
   const lastPage = data?.[data.length - 1];
   const pagesDone = !!lastPage && lastPage.page >= lastPage.totalPages;

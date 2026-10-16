@@ -72,7 +72,7 @@ export interface StashDbSceneQuery {
   tagIds?: string[];
   any?: { performers?: boolean; tags?: boolean };
   // stash-box takes a single date bound
-  date?: { value: string; modifier: 'GREATER_THAN' | 'LESS_THAN' };
+  date?: { value: string; modifier: 'EQUALS' | 'GREATER_THAN' | 'LESS_THAN' };
   // Left out, as far as stash-box allows; see sceneInput
   exclude?: {
     studioIds?: string[];

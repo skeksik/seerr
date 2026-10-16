@@ -451,7 +451,7 @@ const TitleCard = ({
               >
                 <div className="flex h-full w-full items-end">
                   <div
-                    className={`px-2 text-white ${
+                    className={`w-full min-w-0 px-2 text-white ${
                       !showRequestButton ||
                       (currentStatus &&
                         currentStatus !== MediaStatus.UNKNOWN &&

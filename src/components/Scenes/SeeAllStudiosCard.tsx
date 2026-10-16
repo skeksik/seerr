@@ -3,8 +3,9 @@ import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useIntl } from 'react-intl';
 
-const messages = defineMessages('components.Scenes.SeeAllStudiosCard', {
-  seeAll: 'See All',
+// The text of the other rows' last card, under its id
+const messages = defineMessages('components.MediaSlider.ShowMoreCard', {
+  seemore: 'See More',
 });
 
 // The last card of a studio row, sized like CompanyCard
@@ -18,7 +19,7 @@ const SeeAllStudiosCard = ({ url }: { url: string }) => {
     >
       <ArrowRightCircleIcon className="w-12" />
       <span className="mt-2 font-extrabold">
-        {intl.formatMessage(messages.seeAll)}
+        {intl.formatMessage(messages.seemore)}
       </span>
     </Link>
   );

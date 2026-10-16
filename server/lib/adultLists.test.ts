@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
   hasPickedFilters,
   mergeByDate,
+  stashDbDate,
+  tpdbDateOperations,
   withSuggestion,
   withoutSeen,
 } from '@server/lib/adultLists';
@@ -127,5 +129,23 @@ describe('list helpers', () => {
       false
     );
     assert.strictEqual(hasPickedFilters({ orientation: 'gay' }), true);
+  });
+});
+
+describe('release date comparisons', () => {
+  it('moves StashDB bounds a day for or-equal comparisons', () => {
+    assert.deepStrictEqual(stashDbDate('2025-03-01', 'gte'), {
+      value: '2025-02-28',
+      modifier: 'GREATER_THAN',
+    });
+    assert.deepStrictEqual(stashDbDate('2025-02-28', 'lte'), {
+      value: '2025-03-01',
+      modifier: 'LESS_THAN',
+    });
+    assert.deepStrictEqual(stashDbDate('2025-02-28', 'eq'), {
+      value: '2025-02-28',
+      modifier: 'EQUALS',
+    });
+    assert.strictEqual(tpdbDateOperations.lte, '<=');
   });
 });

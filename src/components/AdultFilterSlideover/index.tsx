@@ -22,8 +22,11 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   activefilters:
     '{count, plural, one {# Active Filter} other {# Active Filters}}',
   releaseDate: 'Release Date',
-  releasedAfter: 'Released after',
-  releasedBefore: 'Released before',
+  releasedEq: 'Equal',
+  releasedGt: 'Greater',
+  releasedGte: 'Greater or Equal',
+  releasedLt: 'Less',
+  releasedLte: 'Less or Equal',
   sexualPreferences: 'Sexual Preferences',
   studios: 'Studios',
   studio: 'Studio',
@@ -335,7 +338,14 @@ const AdultFilterSlideover = ({
   const { options: orientationOptions, defaults: orientationDefaults } =
     useOrientationDefaults();
 
-  const released = param(router.query.released) ?? 'after';
+  // How the release date compares; older links say after or before
+  const releasedParam = param(router.query.released);
+  const released =
+    releasedParam === 'after'
+      ? 'gte'
+      : releasedParam === 'before'
+        ? 'lt'
+        : (releasedParam ?? 'gte');
   const releaseDate = param(router.query.releaseDate);
   const orientationParam = param(router.query.orientation);
   const orientations: Orientation[] = orientationParam
@@ -394,16 +404,24 @@ const AdultFilterSlideover = ({
               value={released}
               onChange={(e) =>
                 batchUpdate({
-                  released: e.target.value === 'after' ? undefined : 'before',
+                  released:
+                    e.target.value === 'gte' ? undefined : e.target.value,
                 })
               }
             >
-              <option value="after">
-                {intl.formatMessage(messages.releasedAfter)}
-              </option>
-              <option value="before">
-                {intl.formatMessage(messages.releasedBefore)}
-              </option>
+              {(
+                [
+                  ['eq', messages.releasedEq],
+                  ['gt', messages.releasedGt],
+                  ['gte', messages.releasedGte],
+                  ['lt', messages.releasedLt],
+                  ['lte', messages.releasedLte],
+                ] as const
+              ).map(([value, message]) => (
+                <option key={value} value={value}>
+                  {intl.formatMessage(message)}
+                </option>
+              ))}
             </select>
             <Datepicker
               primaryColor="indigo"

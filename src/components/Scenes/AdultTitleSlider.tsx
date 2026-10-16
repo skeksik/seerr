@@ -3,9 +3,15 @@ import SliderHeader from '@app/components/Common/SliderHeader';
 import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import SceneCard from '@app/components/SceneCard';
 import Slider from '@app/components/Slider';
+import { isTitleShown } from '@app/hooks/useDiscover';
+import useSettings from '@app/hooks/useSettings';
+import { Permission, useUser } from '@app/hooks/useUser';
 import { stashImageUrl } from '@app/utils/stashImage';
-import type { AdultMovieListResponse } from '@server/models/AdultMovie';
-import type { SceneListResponse } from '@server/models/Scene';
+import type {
+  AdultMovieListResponse,
+  AdultMovieResult,
+} from '@server/models/AdultMovie';
+import type { SceneListResponse, SceneResult } from '@server/models/Scene';
 import useSWR from 'swr';
 
 export interface AdultTitleSliderProps {
@@ -26,10 +32,21 @@ const AdultTitleSlider = ({
   linkUrl,
   hideWhenEmpty = false,
 }: AdultTitleSliderProps) => {
+  const settings = useSettings();
+  const { hasPermission } = useUser();
   const { data, error } = useSWR<SceneListResponse | AdultMovieListResponse>(
     url
   );
-  const results = data?.results;
+  // Like MediaSlider, the hide settings apply to the row
+  const results = (
+    data?.results as (SceneResult | AdultMovieResult)[] | undefined
+  )?.filter(
+    isTitleShown(settings.currentSettings, {
+      hideAvailable: true,
+      hideBlocklisted: hasPermission(Permission.MANAGE_BLOCKLIST),
+      hideRequested: true,
+    })
+  );
 
   if (hideWhenEmpty && (error || results?.length === 0)) {
     return null;

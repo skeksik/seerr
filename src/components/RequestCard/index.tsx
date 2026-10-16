@@ -347,12 +347,8 @@ const RequestCard = ({ request, onTitleData }: RequestCardProps) => {
           }}
         />
       )}
-      {/* A landscape still is shorter than a poster, so the card keeps the
-          poster card's height */}
       <div
-        className={`relative flex w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:w-96 ${
-          title.portrait ? '' : 'min-h-[9.5rem] sm:min-h-[12.5rem]'
-        }`}
+        className="relative flex w-72 overflow-hidden rounded-xl bg-gray-800 bg-cover bg-center p-4 text-gray-400 shadow ring-1 ring-gray-700 sm:w-96"
         data-testid="request-card"
       >
         {title.backdropUrl && (
@@ -613,12 +609,11 @@ const RequestCard = ({ request, onTitleData }: RequestCardProps) => {
         </div>
         <Link
           href={title.href}
-          className={`flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md shadow-sm transition duration-300 hover:scale-105 hover:shadow-md ${
-            title.portrait
-              ? 'w-20 sm:w-28'
-              : 'relative w-28 self-center bg-gray-700 sm:w-40'
+          // Scene stills fill a poster's box, so every card is the same size
+          className={`w-20 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md shadow-sm transition duration-300 hover:scale-105 hover:shadow-md sm:w-28 ${
+            title.portrait ? '' : 'relative bg-gray-700'
           }`}
-          style={title.portrait ? undefined : { aspectRatio: '16 / 9' }}
+          style={title.portrait ? undefined : { aspectRatio: '2 / 3' }}
         >
           {title.portrait ? (
             <CachedImage
