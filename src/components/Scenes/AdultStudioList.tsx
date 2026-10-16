@@ -149,23 +149,17 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
             {studios.map((studio) => (
               <li key={`${type}-${studio.id}`}>
                 {/* ThePornDB sites StashDB has no studio for open their page */}
-                {studio.source === 'tpdb' ? (
-                  <CompanyCard
-                    fullWidth
-                    name={studio.name}
-                    image={studio.imageUrl}
-                    imageType="tpdb"
-                    url={creditHref('adultmovie', 'studio', studio.id)}
-                  />
-                ) : (
-                  <CompanyCard
-                    fullWidth
-                    name={studio.name}
-                    image={stashImageUrl(studio.imageUrl, 300)}
-                    imageType="stashdb"
-                    url={creditHref('scene', 'studio', studio.id)}
-                  />
-                )}
+                <CompanyCard
+                  fullWidth
+                  name={studio.name}
+                  image={
+                    studio.source === 'tpdb'
+                      ? studio.imageUrl
+                      : stashImageUrl(studio.imageUrl, 300)
+                  }
+                  imageType={studio.source === 'tpdb' ? 'tpdb' : 'stashdb'}
+                  url={creditHref('studio', studio.id)}
+                />
               </li>
             ))}
           </ul>

@@ -10,10 +10,15 @@ interface AdultStudioRowProps {
   title: string;
   // Every studio of the row, also behind its last card
   linkUrl: string;
-  // StashDB studios open the scenes' pages, ThePornDB sites the movies'
+  // StashDB studios or ThePornDB sites, for their images
   mediaType: 'scene' | 'adultmovie';
-  // Until they load
-  studios?: { id: string | number; name: string; imageUrl?: string }[];
+  // Until they load. Sites linked to a StashDB studio open its page
+  studios?: {
+    id: string | number;
+    name: string;
+    imageUrl?: string;
+    stashDbId?: string;
+  }[];
 }
 
 // The studio row of the Discover page, for StashDB and ThePornDB studios
@@ -41,7 +46,7 @@ const AdultStudioRow = ({
                 : studio.imageUrl
             }
             imageType={mediaType === 'scene' ? 'stashdb' : 'tpdb'}
-            url={creditHref(mediaType, 'studio', studio.id)}
+            url={creditHref('studio', studio.stashDbId ?? studio.id)}
           />
         )),
         <SeeAllStudiosCard key={`${sliderKey}-all`} url={linkUrl} />,

@@ -53,11 +53,11 @@ const SceneDetails = ({ scene }: SceneDetailsProps) => {
         studio: data.studio && {
           id: data.studio.id,
           name: data.studio.name,
-          href: creditHref('scene', 'studio', data.studio.id),
+          href: creditHref('studio', data.studio.id),
         },
         network: data.studio?.parent && {
           name: data.studio.parent.name,
-          href: creditHref('scene', 'studio', data.studio.parent.id),
+          href: creditHref('studio', data.studio.parent.id),
         },
         code: data.code,
         directors: data.director ? [data.director] : [],

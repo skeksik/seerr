@@ -1,5 +1,4 @@
 import withAdultGate from '@app/components/Common/AdultGate';
-import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import {
   creditBrowseHref,
@@ -16,13 +15,11 @@ import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import { stashImageUrl } from '@app/utils/stashImage';
-import { FilmIcon } from '@heroicons/react/24/outline';
 import type {
   SceneListResponse,
   ScenePerformerDetails,
   SceneStudioDetails,
 } from '@server/models/Scene';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
@@ -43,7 +40,11 @@ interface SceneCreditDetailsProps {
   type: CreditType;
 }
 
-// Pages for StashDB performers and studios
+const isTpdbLink = (url: string): boolean =>
+  /^https?:\/\/(www\.)?theporndb\.net\//i.test(url);
+
+// Pages for StashDB performers and studios. Linked to a ThePornDB one, by a
+// link on either side, they are its page too and add its movies
 const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   const intl = useIntl();
   const router = useRouter();
@@ -87,8 +88,8 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
         backdrops={backdrops}
         links={[
           { url: data.stashDbUrl, site: 'StashDB' },
-          // Performers ThePornDB links to this one, studios by name
-          ...(tpdbMatch?.url
+          // The linked ThePornDB profile, unless StashDB lists it already
+          ...(tpdbMatch?.url && !data.urls.some(({ url }) => isTpdbLink(url))
             ? [{ url: tpdbMatch.url, site: 'ThePornDB' }]
             : []),
           ...data.urls,
@@ -116,35 +117,20 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
           !isPerformer(data) && data.parent
             ? {
                 name: data.parent.name,
-                href: creditHref('scene', 'studio', data.parent.id),
+                href: creditHref('studio', data.parent.id),
               }
             : undefined
         }
         aliases={data.aliases}
         actions={
-          (data.whisparr || tpdbMatch) && (
-            <>
-              {tpdbMatch && (
-                // Their ThePornDB page, with bio and movies
-                <Link href={creditHref('adultmovie', type, tpdbMatch.id)}>
-                  <Button buttonType="ghost">
-                    <FilmIcon />
-                    <span>
-                      {intl.formatMessage(globalMessages.adultMovies)}
-                    </span>
-                  </Button>
-                </Link>
-              )}
-              {data.whisparr && (
-                <MonitorControls
-                  type={type}
-                  id={data.id}
-                  name={data.name}
-                  status={data.whisparr}
-                  onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
-                />
-              )}
-            </>
+          data.whisparr && (
+            <MonitorControls
+              type={type}
+              id={data.id}
+              name={data.name}
+              status={data.whisparr}
+              onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
+            />
           )
         }
       />
@@ -154,7 +140,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
           <AdultStudioRow
             sliderKey={`network-studios-${data.id}`}
             title={intl.formatMessage(messages.studios)}
-            linkUrl={`/discover/scenes/studio/${data.id}/studios`}
+            linkUrl={`${creditHref('studio', data.id)}/studios`}
             mediaType="scene"
             studios={data.studios}
           />
