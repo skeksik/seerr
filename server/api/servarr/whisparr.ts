@@ -51,11 +51,27 @@ export type WhisparrCreditType = 'performer' | 'studio';
 export interface WhisparrCredit {
   id: number;
   foreignId: string;
+  // Their scenes, from StashDB
   monitored: boolean;
+  // Their movies, from Whisparr's movie metadata source
+  moviesMonitored: boolean;
+  // Links StashDB lists for them; Whisparr adds their movies by the one to
+  // its movie metadata source
+  tmdbId?: number;
+  tpdbId?: string | null;
   qualityProfileId: number;
   rootFolderPath?: string | null;
   searchOnAdd: boolean;
   tags: number[];
+}
+
+// Where Whisparr takes movies from (Settings, General)
+export type WhisparrMovieMetadataSource = 'none' | 'tmdb' | 'tpdb';
+
+interface WhisparrCommand {
+  name: string;
+  status: string;
+  body?: { performerIds?: number[]; studioIds?: number[] };
 }
 
 export interface WhisparrMonitorOptions {
@@ -74,10 +90,22 @@ interface WhisparrPage {
 
 const SCAN_PAGE_SIZE = 1000;
 
+// The metadata source rarely changes and is read on every credit page
+const METADATA_SOURCE_TTL = 300;
+
+const refreshCommand = (type: WhisparrCreditType) =>
+  type === 'performer'
+    ? { name: 'RefreshPerformers', idsKey: 'performerIds' as const }
+    : { name: 'RefreshStudios', idsKey: 'studioIds' as const };
+
 // A lookup Whisparr answered without results, unlike a failed one
 export class WhisparrItemNotFoundError extends Error {}
 
 class WhisparrAPI extends ServarrBase<{ movieId: number }> {
+  // How long monitoring a new performer or studio waits for Whisparr to
+  // finish refreshing it before turning on its movies
+  protected refreshWait = { interval: 1000, timeout: 15000 };
+
   constructor({ url, apiKey }: { url: string; apiKey: string }) {
     super({ url, apiKey, cacheName: 'whisparr', apiName: 'Whisparr' });
   }
@@ -300,8 +328,43 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
   }
 
+  public async getMovieMetadataSource(): Promise<WhisparrMovieMetadataSource> {
+    try {
+      const config = await this.get<{ whisparrMovieMetadataSource?: string }>(
+        '/config/host',
+        undefined,
+        METADATA_SOURCE_TTL
+      );
+      const source = config.whisparrMovieMetadataSource?.toLowerCase();
+
+      return source === 'tmdb' || source === 'tpdb' ? source : 'none';
+    } catch (e) {
+      throw new Error(
+        `[Whisparr] Failed to retrieve the movie metadata source: ${e.message}`,
+        { cause: e }
+      );
+    }
+  }
+
+  // Whisparr takes moviesMonitored only for performers and studios StashDB
+  // links to its movie metadata source, and adds their movies by that link
+  public static canMonitorMovies(
+    credit: Pick<WhisparrCredit, 'tmdbId' | 'tpdbId'>,
+    source: WhisparrMovieMetadataSource
+  ): boolean {
+    switch (source) {
+      case 'tmdb':
+        return (credit.tmdbId ?? 0) > 0;
+      case 'tpdb':
+        return !!credit.tpdbId;
+      default:
+        return false;
+    }
+  }
+
   // Monitoring a performer or studio makes Whisparr add all of their scenes,
-  // and search for them when searchOnAdd is set
+  // and their movies where it can, and search for them when searchOnAdd is
+  // set. Unmonitoring turns off both.
   public async setCreditMonitored(
     type: WhisparrCreditType,
     foreignId: string,
@@ -310,49 +373,147 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   ): Promise<WhisparrCredit | null> {
     const existing = await this.getCredit(type, foreignId);
 
+    if (!existing && !monitored) {
+      return null;
+    }
+
+    let source: WhisparrMovieMetadataSource = 'none';
+
+    if (monitored) {
+      try {
+        source = await this.getMovieMetadataSource();
+      } catch (e) {
+        logger.warn(`[Whisparr] Monitoring ${type} ${foreignId} scenes only`, {
+          errorMessage: e.message,
+        });
+      }
+    }
+
     try {
       if (!existing) {
-        if (!monitored) {
-          return null;
-        }
-
-        const response = await this.axios.post<WhisparrCredit>(`/${type}`, {
-          foreignId,
-          monitored: true,
-          ...options,
-        });
-        logger.info(`[Whisparr] Added and monitored ${type} ${foreignId}`);
-        return response.data;
+        return await this.addCredit(type, foreignId, source, options);
       }
 
-      const response = await this.axios.put<WhisparrCredit>(
-        `/${type}/${existing.id}`,
-        {
-          ...existing,
-          monitored,
-          searchOnAdd: monitored ? options.searchOnAdd : existing.searchOnAdd,
-          rootFolderPath: existing.rootFolderPath || options.rootFolderPath,
-        }
-      );
+      const credit = await this.updateCredit(type, existing, {
+        monitored,
+        moviesMonitored:
+          monitored && WhisparrAPI.canMonitorMovies(existing, source),
+        searchOnAdd: monitored ? options.searchOnAdd : existing.searchOnAdd,
+        rootFolderPath: existing.rootFolderPath || options.rootFolderPath,
+      });
 
-      // Whisparr only syncs scenes on add or on its scheduled refresh
+      // Whisparr only syncs scenes and movies on add or on its scheduled
+      // refresh
       if (monitored) {
-        await this.runCommand(
-          type === 'performer' ? 'RefreshPerformers' : 'RefreshStudios',
-          type === 'performer'
-            ? { performerIds: [existing.id] }
-            : { studioIds: [existing.id] }
-        );
+        await this.refreshCredit(type, existing.id);
       }
 
       logger.info(
-        `[Whisparr] ${monitored ? 'Monitored' : 'Unmonitored'} ${type} ${foreignId}`
+        `[Whisparr] ${monitored ? 'Monitored' : 'Unmonitored'} ${type} ${foreignId}`,
+        { moviesMonitored: credit.moviesMonitored }
       );
-      return response.data;
+      return credit;
     } catch (e) {
       throw new Error(`[Whisparr] Failed to update ${type}: ${e.message}`, {
         cause: e,
       });
+    }
+  }
+
+  // Whisparr learns a performer's or studio's links from StashDB when it adds
+  // them, so their movies are turned on after the add
+  private async addCredit(
+    type: WhisparrCreditType,
+    foreignId: string,
+    source: WhisparrMovieMetadataSource,
+    options: WhisparrMonitorOptions
+  ): Promise<WhisparrCredit> {
+    const { data: added } = await this.axios.post<WhisparrCredit>(`/${type}`, {
+      foreignId,
+      monitored: true,
+      moviesMonitored: false,
+      ...options,
+    });
+    logger.info(`[Whisparr] Added and monitored ${type} ${foreignId}`);
+
+    if (!added?.id || !WhisparrAPI.canMonitorMovies(added, source)) {
+      return added;
+    }
+
+    // The add queues a refresh, which saves the performer or studio as it
+    // read it when it started and would undo moviesMonitored set meanwhile
+    await this.waitForRefresh(type, added.id);
+
+    const current = (await this.getCredit(type, foreignId)) ?? added;
+    const credit = await this.updateCredit(type, current, {
+      moviesMonitored: true,
+    });
+    await this.refreshCredit(type, added.id);
+    logger.info(`[Whisparr] Monitored the movies of ${type} ${foreignId}`);
+
+    return credit;
+  }
+
+  private async updateCredit(
+    type: WhisparrCreditType,
+    credit: WhisparrCredit,
+    changes: Partial<WhisparrCredit>
+  ): Promise<WhisparrCredit> {
+    const response = await this.axios.put<WhisparrCredit>(
+      `/${type}/${credit.id}`,
+      { ...credit, ...changes }
+    );
+
+    return response.data;
+  }
+
+  private refreshCredit(type: WhisparrCreditType, id: number): Promise<void> {
+    const { name, idsKey } = refreshCommand(type);
+
+    return this.runCommand(name, { [idsKey]: [id] });
+  }
+
+  // Waits, up to a limit, while Whisparr has a refresh of the performer or
+  // studio queued or running
+  private async waitForRefresh(
+    type: WhisparrCreditType,
+    id: number
+  ): Promise<void> {
+    const { name, idsKey } = refreshCommand(type);
+    const deadline = Date.now() + this.refreshWait.timeout;
+
+    for (;;) {
+      let refreshing: boolean;
+
+      try {
+        const { data } = await this.axios.get<WhisparrCommand[]>('/command');
+        refreshing = data.some(
+          (command) =>
+            command.name === name &&
+            (command.status === 'queued' || command.status === 'started') &&
+            !!command.body?.[idsKey]?.includes(id)
+        );
+      } catch (e) {
+        logger.debug('[Whisparr] Unable to check for a running refresh', {
+          errorMessage: e.message,
+        });
+        return;
+      }
+
+      if (!refreshing) {
+        return;
+      }
+
+      if (Date.now() >= deadline) {
+        logger.warn(
+          `[Whisparr] ${name} of ${type} ${id} is still running; its movies may only be added on Whisparr's next refresh`
+        );
+        return;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.refreshWait.interval)
+      );
     }
   }
 

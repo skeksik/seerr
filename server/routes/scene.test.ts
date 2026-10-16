@@ -733,10 +733,17 @@ describe('GET /scene/:type/:id', () => {
       id: 1,
       foreignId: SCENE_ID,
       monitored: true,
+      moviesMonitored: false,
+      tpdbId: 'f1b2c3d4-0000-4000-8000-000000000000',
       qualityProfileId: 1,
       searchOnAdd: false,
       tags: [],
     }));
+    mock.method(
+      WhisparrAPI.prototype,
+      'getMovieMetadataSource',
+      async () => 'tpdb'
+    );
     const admin = await loginAs('admin@seerr.dev');
 
     const res = await admin.get(`/scene/performer/${SCENE_ID}`);
@@ -745,6 +752,8 @@ describe('GET /scene/:type/:id', () => {
     assert.strictEqual(res.body.careerStart, 2010);
     assert.deepStrictEqual(res.body.whisparr, {
       monitored: true,
+      moviesMonitored: false,
+      moviesAvailable: true,
       serviceUrl: `http://whisparr.test:6969/performer/${SCENE_ID}`,
     });
 
@@ -777,10 +786,17 @@ describe('POST /scene/:type/:id/monitor', () => {
         id: 1,
         foreignId: SCENE_ID,
         monitored: true,
+        moviesMonitored: true,
+        tmdbId: 97187,
         qualityProfileId: 4,
         searchOnAdd: false,
         tags: [2],
       })
+    );
+    mock.method(
+      WhisparrAPI.prototype,
+      'getMovieMetadataSource',
+      async () => 'tmdb'
     );
     const admin = await loginAs('admin@seerr.dev');
 
@@ -789,7 +805,12 @@ describe('POST /scene/:type/:id/monitor', () => {
       .send({ monitored: true });
 
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.body.monitored, true);
+    assert.deepStrictEqual(res.body, {
+      monitored: true,
+      moviesMonitored: true,
+      moviesAvailable: true,
+      serviceUrl: `http://whisparr.test:6969/studio/${SCENE_ID}`,
+    });
     assert.deepStrictEqual(monitor.mock.calls[0].arguments, [
       'studio',
       SCENE_ID,
@@ -815,6 +836,28 @@ describe('POST /scene/:type/:id/monitor', () => {
       .send({ monitored: true });
 
     assert.strictEqual(res.status, 403);
+  });
+
+  it('reports nothing monitored after unmonitoring', async () => {
+    getSettings().whisparr = [whisparrServer];
+    const monitor = mock.method(
+      WhisparrAPI.prototype,
+      'setCreditMonitored',
+      async () => null
+    );
+    const admin = await loginAs('admin@seerr.dev');
+
+    const res = await admin
+      .post(`/scene/performer/${SCENE_ID}/monitor`)
+      .send({ monitored: false });
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, {
+      monitored: false,
+      moviesMonitored: false,
+      serviceUrl: `http://whisparr.test:6969/performer/${SCENE_ID}`,
+    });
+    assert.strictEqual(monitor.mock.calls[0].arguments[2], false);
   });
 
   it('returns 409 without a default Whisparr server', async () => {

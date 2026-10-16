@@ -83,7 +83,13 @@ export interface SceneFilterDetails {
 
 // Present for request managers when a default Whisparr server is set up
 export interface WhisparrMonitorStatus {
+  // Their scenes
   monitored: boolean;
+  // Their movies
+  moviesMonitored: boolean;
+  // Whether Whisparr can monitor their movies, which takes a StashDB link to
+  // its movie metadata source; unknown until Whisparr follows them
+  moviesAvailable?: boolean;
   serviceUrl: string;
 }
 

@@ -39,6 +39,12 @@ Go to **Settings &rarr; Services &rarr; Whisparr Settings** and add a server. Th
 
 Request managers see **Monitor in Whisparr** on StashDB performer and studio pages when a default Whisparr server is set up. ThePornDB performers and studios linked to StashDB ones share their page, and with it the button; see [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
 
-Monitoring a performer or studio makes Whisparr add every one of their scenes and download new scenes as they are released. It uses the default server's quality profile, root folder and tags. **Search for existing scenes now** is off by default, because it can queue a large number of downloads at once.
+Monitoring a performer or studio makes Whisparr add every one of their scenes and download new scenes as they are released. It uses the default server's quality profile, root folder and tags. **Search for existing titles now** is off by default, because it can queue a large number of downloads at once.
 
-**Stop Monitoring** turns monitoring off in Whisparr. Scenes that were already added stay in Whisparr.
+Their movies are monitored too where Whisparr can add them. Whisparr takes movies from the movie metadata source in its general settings (ThePornDB or TMDB), and adds a performer's or studio's movies only when StashDB links them to that source. The confirmation says which applies once Whisparr follows the performer or studio; for one it does not follow yet, Seerr adds them first and then turns on their movies if Whisparr found the link. Whisparr adds the movies on the refresh Seerr starts, or, if it is still busy adding a large back catalog, on its next daily refresh.
+
+The button shows what Whisparr monitors: **Monitored in Whisparr** for scenes and, where possible, movies. **Scenes Monitored** or **Movies Monitored** means only one of them is, for example after monitoring in Whisparr itself or before this option existed; **Monitor Movies** or **Monitor Scenes** next to it turns on the other.
+
+**Stop Monitoring** turns off monitoring of both scenes and movies in Whisparr. Titles that were already added stay in Whisparr.
+
+ThePornDB performers and studios without a StashDB link have no button: Whisparr follows performers and studios by their StashDB id only, and cannot add one from ThePornDB.
