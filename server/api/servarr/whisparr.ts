@@ -90,8 +90,10 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   }
 
   // Whisparr also holds every scene of the performers and studios it follows,
-  // usually tens of thousands of unmonitored entries. Only monitored items can
-  // belong to Seerr requests, so the scan pages through those alone.
+  // usually tens of thousands of unmonitored entries. Like the Radarr scan
+  // skips unmonitored movies without a file, the scan pages through monitored
+  // items alone; titles unmonitored after their download are looked up one by
+  // one where Seerr tracks them.
   public async getMonitoredItems(): Promise<WhisparrItem[]> {
     const items: WhisparrItem[] = [];
     let page = 1;

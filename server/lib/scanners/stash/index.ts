@@ -10,8 +10,9 @@ import type {
 import BaseScanner from '@server/lib/scanners/baseScanner';
 import { getSettings } from '@server/lib/settings';
 
-// Marks scenes that Stash has matched to the configured stash-box as
-// available and links them to their Stash page. Scenes Stash has not
+// Stash plays the part Jellyfin plays for movies: it marks every scene it
+// has matched to the configured stash-box as available, whoever added it,
+// and links it to its Stash page for playback. Scenes Stash has not
 // identified yet match on the StashDB id Whisparr puts in their folder name.
 
 // Whisparr names scene folders "... [<StashDB id>]"
@@ -116,9 +117,14 @@ class StashScanner
             (await mediaRepository.findOne({ where: { id: known.id } }))) ||
           new Media({ mediaType: MediaType.SCENE, stashId, tmdbId: null });
 
+        // Dated like Jellyfin dates movies: anew when it becomes available,
+        // otherwise only when nothing dated it yet
+        if (media.status !== MediaStatus.AVAILABLE || !media.mediaAddedAt) {
+          media.mediaAddedAt = new Date(scene.created_at);
+        }
+
         media.stashMediaId = scene.id;
         media.status = MediaStatus.AVAILABLE;
-        media.mediaAddedAt ??= new Date(scene.created_at);
 
         this.existing.set(stashId, await mediaRepository.save(media));
         this.log(`Scene available in Stash: ${scene.title || stashId}`);

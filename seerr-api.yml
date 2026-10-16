@@ -9218,12 +9218,6 @@ paths:
                 deleted,
               ]
         - in: query
-          name: adultRequested
-          description: Only include adult titles that were requested through Seerr
-          schema:
-            type: string
-            enum: ['true', 'false']
-        - in: query
           name: mediaType
           description: Comma-separated media types to include
           schema:

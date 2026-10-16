@@ -37,24 +37,6 @@ const item = (overrides: Partial<WhisparrItem>): WhisparrItem => ({
 
 setupTestDb();
 
-// A media row with a Seerr request, the only kind the scan tracks
-const requested = async (init: Partial<Media>): Promise<Media> => {
-  const media = await getRepository(Media).save(
-    new Media({ tmdbId: null, status: MediaStatus.PENDING, ...init })
-  );
-  await getRepository(MediaRequest).save(
-    new MediaRequest({
-      type: init.mediaType,
-      // Any request counts; a declined one never goes to Whisparr
-      status: MediaRequestStatus.DECLINED,
-      media,
-      requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
-      is4k: false,
-    })
-  );
-  return media;
-};
-
 beforeEach(() => {
   getSettings().whisparr = [
     {
@@ -84,18 +66,25 @@ afterEach(() => {
 });
 
 describe('WhisparrScanner', () => {
-  it('marks scenes with files available and links them to Whisparr', async () => {
-    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
-    await requested({ mediaType: MediaType.SCENE, stashId: SCENE_ID });
-    await requested({ mediaType: MediaType.SCENE, stashId: OTHER_ID });
+  const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
+  const TPDB_ID = '02b1383e-b871-4fd6-a731-2119a3aa93a7';
+  const movieItem = (overrides: Partial<WhisparrItem>) =>
+    item({ itemType: 'movie', stashId: null, tpdbId: TPDB_ID, ...overrides });
+
+  const save = (init: Partial<Media>) =>
+    getRepository(Media).save(new Media({ tmdbId: null, ...init }));
+
+  it('tracks every monitored title like the Radarr scan, requested or not', async () => {
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      item({ id: 26592 }),
       item({
-        id: 7,
-        foreignId: 'b',
-        stashId: '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10',
-        hasFile: false,
+        id: 26592,
+        movieFile: {
+          id: 1,
+          size: 1,
+          dateAdded: '2026-10-01T10:00:00Z',
+        },
       }),
+      item({ id: 7, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
     ]);
 
     await whisparrScanner.run();
@@ -104,49 +93,90 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(available?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(available?.serviceId, 3);
     assert.strictEqual(available?.externalServiceId, 26592);
-    const processing = await Media.getAdultMedia(
-      MediaType.SCENE,
-      '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'
+    // Dated for Recently Added by the Whisparr file
+    assert.strictEqual(
+      available?.mediaAddedAt?.toISOString(),
+      '2026-10-01T10:00:00.000Z'
     );
+    const processing = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
     assert.strictEqual(processing?.status, MediaStatus.PROCESSING);
+    assert.strictEqual(processing?.externalServiceId, 7);
+    assert.strictEqual(await getRepository(MediaRequest).count(), 0);
   });
 
-  it('tracks the 4K versions on 4K servers', async () => {
-    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
-    getSettings().whisparr[0].is4k = true;
-    const media = await getRepository(Media).save(
-      new Media({ mediaType: MediaType.SCENE, stashId: OTHER_ID, tmdbId: null })
-    );
-    await getRepository(MediaRequest).save(
-      new MediaRequest({
-        type: MediaType.SCENE,
-        status: MediaRequestStatus.DECLINED,
-        media,
-        requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
-        is4k: true,
-      })
-    );
-    // Only the non-4K version was requested
-    await requested({ mediaType: MediaType.SCENE, stashId: SCENE_ID });
+  it('keeps available and deleted titles as the Radarr scan does', async () => {
+    await save({
+      mediaType: MediaType.SCENE,
+      stashId: SCENE_ID,
+      status: MediaStatus.AVAILABLE,
+    });
+    await save({
+      mediaType: MediaType.SCENE,
+      stashId: OTHER_ID,
+      status: MediaStatus.DELETED,
+    });
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      item({ id: 21, hasFile: false }),
-      item({ id: 22, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
+      item({ id: 14, hasFile: false }),
+      item({ id: 15, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
     ]);
 
     await whisparrScanner.run();
 
-    const unrequested4k = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
-    assert.strictEqual(unrequested4k?.status4k, MediaStatus.UNKNOWN);
-    assert.strictEqual(unrequested4k?.serviceId4k, 3);
-    assert.strictEqual(unrequested4k?.externalServiceId4k, 21);
-    assert.strictEqual(unrequested4k?.externalServiceId, null);
-    const requested4k = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
-    assert.strictEqual(requested4k?.status4k, MediaStatus.PROCESSING);
-    assert.strictEqual(requested4k?.status, MediaStatus.UNKNOWN);
+    const available = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(available?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(available?.externalServiceId, 14);
+    // Searched for again, but deleted until the file is back
+    const deleted = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
+    assert.strictEqual(deleted?.status, MediaStatus.DELETED);
+    assert.strictEqual(deleted?.externalServiceId, 15);
+  });
+
+  it('dates titles anew when their file comes back', async () => {
+    await save({
+      mediaType: MediaType.SCENE,
+      stashId: SCENE_ID,
+      status: MediaStatus.DELETED,
+      mediaAddedAt: new Date('2025-01-01T00:00:00Z'),
+    });
+    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
+      item({
+        id: 14,
+        movieFile: { id: 1, size: 1, dateAdded: '2026-10-01T10:00:00Z' },
+      }),
+    ]);
+
+    await whisparrScanner.run();
+
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(media?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(
+      media?.mediaAddedAt?.toISOString(),
+      '2026-10-01T10:00:00.000Z'
+    );
+  });
+
+  it('tracks the 4K versions on 4K servers', async () => {
+    getSettings().whisparr[0].is4k = true;
+    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
+      item({ id: 21, hasFile: false }),
+      item({ id: 22, foreignId: OTHER_ID, stashId: OTHER_ID }),
+    ]);
+
+    await whisparrScanner.run();
+
+    const processing4k = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(processing4k?.status4k, MediaStatus.PROCESSING);
+    assert.strictEqual(processing4k?.status, MediaStatus.UNKNOWN);
+    assert.strictEqual(processing4k?.serviceId4k, 3);
+    assert.strictEqual(processing4k?.externalServiceId4k, 21);
+    assert.strictEqual(processing4k?.externalServiceId, null);
+    const available4k = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
+    assert.strictEqual(available4k?.status4k, MediaStatus.AVAILABLE);
+    assert.strictEqual(available4k?.status, MediaStatus.UNKNOWN);
   });
 
   it('leaves TMDB movies to Radarr', async () => {
-    await requested({
+    await save({
       mediaType: MediaType.MOVIE,
       tmdbId: 555,
       serviceId: 0,
@@ -155,7 +185,13 @@ describe('WhisparrScanner', () => {
     });
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
       item({ id: 10, itemType: 'movie', stashId: null, tmdbId: 555 }),
-      item({ id: 9, itemType: 'movie', stashId: null, tmdbId: 1288332 }),
+      item({
+        id: 9,
+        itemType: 'movie',
+        stashId: null,
+        tmdbId: 1288332,
+        hasFile: false,
+      }),
     ]);
 
     await whisparrScanner.run();
@@ -166,17 +202,10 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(movies.length, 1);
     assert.strictEqual(movies[0].serviceId, 0);
     assert.strictEqual(movies[0].externalServiceId, 99);
+    assert.strictEqual(movies[0].status, MediaStatus.PROCESSING);
   });
 
-  const TPDB_ID = '02b1383e-b871-4fd6-a731-2119a3aa93a7';
-  const movieItem = (overrides: Partial<WhisparrItem>) =>
-    item({ itemType: 'movie', stashId: null, tpdbId: TPDB_ID, ...overrides });
-
   it('tracks ThePornDB movies as adult movies', async () => {
-    await requested({
-      mediaType: MediaType.ADULT_MOVIE,
-      tpdbId: TPDB_ID,
-    });
     mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
       movieItem({ id: 11, tmdbId: 0 }),
     ]);
@@ -188,53 +217,13 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(movie?.externalServiceId, 11);
   });
-
-  it('links titles nobody requested without marking them requested', async () => {
-    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
-    // An earlier scan marked this one processing
-    await getRepository(Media).save(
-      new Media({
-        mediaType: MediaType.SCENE,
-        stashId: OTHER_ID,
-        tmdbId: null,
-        status: MediaStatus.PROCESSING,
-      })
-    );
-    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
-      item({ id: 14, hasFile: false }),
-      item({ id: 15, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
-      movieItem({ id: 16, tmdbId: 0 }),
-      item({
-        id: 17,
-        itemType: 'movie',
-        stashId: null,
-        tmdbId: 777,
-        hasFile: false,
-      }),
-    ]);
-
-    await whisparrScanner.run();
-
-    const monitored = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
-    assert.strictEqual(monitored?.status, MediaStatus.UNKNOWN);
-    assert.strictEqual(monitored?.externalServiceId, 14);
-    const stale = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
-    assert.strictEqual(stale?.status, MediaStatus.UNKNOWN);
-    // Downloaded titles are available whoever asked for them
-    assert.strictEqual(
-      (await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID))?.status,
-      MediaStatus.AVAILABLE
-    );
-    // TMDB movies belong to Radarr
-    assert.strictEqual(await Media.getMedia(777, MediaType.MOVIE), undefined);
-  });
 });
 
 describe('WhisparrScanner orphan cleanup', () => {
   const ORPHAN_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
 
-  // A requested scene Whisparr was asked for: processing, request approved.
-  // Written directly, so no request is sent to Whisparr
+  // A scene Whisparr was asked for: processing, request approved. Written
+  // directly, so no request is sent to Whisparr
   const approved = async (is4k = false): Promise<Media> => {
     const media = await getRepository(Media).save(
       new Media({
@@ -286,7 +275,7 @@ describe('WhisparrScanner orphan cleanup', () => {
     throw new Error('404', { cause: { response: { status: 404 } } });
   };
 
-  it('resets requested titles Whisparr removed', async () => {
+  it('resets processing titles Whisparr removed', async () => {
     await approved();
     monitored();
     mock.method(WhisparrAPI.prototype, 'getItem', notFound);
@@ -304,7 +293,31 @@ describe('WhisparrScanner orphan cleanup', () => {
     });
   });
 
-  it('resets requested titles left unmonitored without a file', async () => {
+  it('resets processing titles nobody requested', async () => {
+    // Monitored in Whisparr by an earlier scan, never requested
+    await getRepository(Media).save(
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId: ORPHAN_ID,
+        tmdbId: null,
+        status: MediaStatus.PROCESSING,
+        serviceId: 3,
+        externalServiceId: 30,
+      })
+    );
+    monitored();
+    mock.method(WhisparrAPI.prototype, 'getItem', notFound);
+    mock.method(WhisparrAPI.prototype, 'lookupScene', async () =>
+      item({ id: undefined, stashId: ORPHAN_ID, monitored: false })
+    );
+
+    await whisparrScanner.run();
+
+    const media = await Media.getAdultMedia(MediaType.SCENE, ORPHAN_ID);
+    assert.strictEqual(media?.status, MediaStatus.UNKNOWN);
+  });
+
+  it('resets processing titles left unmonitored without a file', async () => {
     await approved();
     monitored();
     mock.method(WhisparrAPI.prototype, 'getItem', async () =>

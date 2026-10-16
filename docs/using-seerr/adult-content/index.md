@@ -17,6 +17,8 @@ These integrations work together:
 | [Whisparr](./whisparr)          | Service           | Downloads requested scenes and adult movies (Whisparr v3 only).                       |
 | [Stash](./stash) (optional)     | Companion library | Marks scenes available once Stash has them, and links to them for playback.         |
 
+Whisparr and Stash work like Radarr and Jellyfin do for movies, whether a title was requested through Seerr or added in Whisparr directly. A title Whisparr monitors shows as requested; once Whisparr has its file, or Stash has the scene, it is available and joins Recently Added. **Play on Stash** shows once Stash has the scene; until then, and always for adult movies, the **Available** badge opens the **Manage** panel for request managers. Available titles that neither Whisparr nor Stash still has are marked deleted by the availability sync.
+
 ## Enabling Adult Content
 
 1. In **Settings &rarr; General**, turn on **Enable Adult Content**.

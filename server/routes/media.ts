@@ -26,7 +26,7 @@ import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
 import type { FindOneOptions, FindOptionsWhere } from 'typeorm';
-import { EntityNotFoundError, In, IsNull, Not, Raw } from 'typeorm';
+import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
 
 const mediaRoutes = Router();
 
@@ -92,35 +92,14 @@ mediaRoutes.get('/', async (req, res, next) => {
         })
       : [];
 
-  // Each clause is one media type group; a row matches any of them
-  const base = (whereClause ?? {}) as FindOptionsWhere<Media>;
+  // Adult titles are listed like movies, whoever added them, for users who
+  // can see them
   const allowAdult = canViewAdult(req.user);
-  // Recently Added only lists adult titles someone requested through Seerr
-  const requestedAdultOnly = req.query.adultRequested === 'true';
-  const wanted = mediaTypes.length > 0 ? mediaTypes : Object.values(MediaType);
-  const tmdbTypes = wanted.filter(
-    (type) => type === MediaType.MOVIE || type === MediaType.TV
-  );
-  const adultTypes = allowAdult ? wanted.filter(isAdultMediaType) : [];
-  // A subquery: joining requests in one clause would filter every clause
-  const requested = {
-    id: Raw((alias) => `${alias} IN (SELECT "mediaId" FROM media_request)`),
-  };
-  const clauses: FindOptionsWhere<Media>[] = [];
+  const wanted = (
+    mediaTypes.length > 0 ? mediaTypes : Object.values(MediaType)
+  ).filter((type) => allowAdult || !isAdultMediaType(type));
 
-  if (tmdbTypes.length > 0) {
-    clauses.push({ ...base, mediaType: In(tmdbTypes) });
-  }
-
-  if (adultTypes.length > 0) {
-    clauses.push({
-      ...base,
-      mediaType: In(adultTypes),
-      ...(requestedAdultOnly ? requested : {}),
-    });
-  }
-
-  if (clauses.length === 0) {
+  if (wanted.length === 0) {
     return res.status(200).json({
       pageInfo: { pages: 0, pageSize, results: 0, page: 1 },
       results: [],
@@ -130,7 +109,10 @@ mediaRoutes.get('/', async (req, res, next) => {
   try {
     const [media, mediaCount] = await mediaRepository.findAndCount({
       order: sortFilter,
-      where: clauses,
+      where: {
+        ...(whereClause as FindOptionsWhere<Media> | undefined),
+        mediaType: In(wanted),
+      },
       take: pageSize,
       skip,
     });
