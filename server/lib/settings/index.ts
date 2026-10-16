@@ -166,8 +166,9 @@ export interface MainSettings {
   defaultQuotas: {
     movie: Quota;
     tv: Quota;
-    // Optional so settings files from before scenes still type-check
+    // Optional so settings files from before adult content still type-check
     scene?: Quota;
+    adultMovie?: Quota;
   };
   hideAvailable: boolean;
   hideBlocklisted: boolean;
@@ -455,6 +456,7 @@ class Settings {
           movie: {},
           tv: {},
           scene: {},
+          adultMovie: {},
         },
         hideAvailable: false,
         hideBlocklisted: false,

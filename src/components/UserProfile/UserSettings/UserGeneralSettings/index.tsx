@@ -62,6 +62,7 @@ const messages = defineMessages(
     movierequestlimit: 'Movie Request Limit',
     seriesrequestlimit: 'Series Request Limit',
     scenerequestlimit: 'Scene Request Limit',
+    adultmovierequestlimit: 'Adult Movie Request Limit',
     sexualPreferences: 'Sexual Preferences',
     sexualPreferencesTip:
       'Picked by default in the Scenes and Adult Movies filters; the others show only when picked there',
@@ -90,6 +91,7 @@ const UserGeneralSettings = () => {
   const [movieQuotaEnabled, setMovieQuotaEnabled] = useState(false);
   const [tvQuotaEnabled, setTvQuotaEnabled] = useState(false);
   const [sceneQuotaEnabled, setSceneQuotaEnabled] = useState(false);
+  const [adultMovieQuotaEnabled, setAdultMovieQuotaEnabled] = useState(false);
   const router = useRouter();
   const {
     user,
@@ -143,6 +145,10 @@ const UserGeneralSettings = () => {
     setSceneQuotaEnabled(
       data?.sceneQuotaLimit != undefined && data?.sceneQuotaDays != undefined
     );
+    setAdultMovieQuotaEnabled(
+      data?.adultMovieQuotaLimit != undefined &&
+        data?.adultMovieQuotaDays != undefined
+    );
   }, [data]);
 
   if (!data && !error) {
@@ -180,6 +186,8 @@ const UserGeneralSettings = () => {
           tvQuotaDays: data?.tvQuotaDays,
           sceneQuotaLimit: data?.sceneQuotaLimit,
           sceneQuotaDays: data?.sceneQuotaDays,
+          adultMovieQuotaLimit: data?.adultMovieQuotaLimit,
+          adultMovieQuotaDays: data?.adultMovieQuotaDays,
           watchlistSyncMovies: data?.watchlistSyncMovies,
           watchlistSyncTv: data?.watchlistSyncTv,
           disabledOrientations: (data?.disabledOrientations ?? []).filter(
@@ -211,6 +219,12 @@ const UserGeneralSettings = () => {
                 ? values.sceneQuotaLimit
                 : null,
               sceneQuotaDays: sceneQuotaEnabled ? values.sceneQuotaDays : null,
+              adultMovieQuotaLimit: adultMovieQuotaEnabled
+                ? values.adultMovieQuotaLimit
+                : null,
+              adultMovieQuotaDays: adultMovieQuotaEnabled
+                ? values.adultMovieQuotaDays
+                : null,
               watchlistSyncMovies: values.watchlistSyncMovies,
               watchlistSyncTv: values.watchlistSyncTv,
               disabledOrientations: values.disabledOrientations,
@@ -599,46 +613,100 @@ const UserGeneralSettings = () => {
                       </div>
                     </div>
                     {showAdult && (
-                      <div className="form-row">
-                        <label htmlFor="sceneQuotaLimit" className="text-label">
-                          <span>
-                            {intl.formatMessage(messages.scenerequestlimit)}
-                          </span>
-                        </label>
-                        <div className="form-input-area">
-                          <div className="flex flex-col">
-                            <div className="mb-4 flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={sceneQuotaEnabled}
-                                onChange={() => setSceneQuotaEnabled((s) => !s)}
+                      <>
+                        <div className="form-row">
+                          <label
+                            htmlFor="sceneQuotaLimit"
+                            className="text-label"
+                          >
+                            <span>
+                              {intl.formatMessage(messages.scenerequestlimit)}
+                            </span>
+                          </label>
+                          <div className="form-input-area">
+                            <div className="flex flex-col">
+                              <div className="mb-4 flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={sceneQuotaEnabled}
+                                  onChange={() =>
+                                    setSceneQuotaEnabled((s) => !s)
+                                  }
+                                />
+                                <span className="ml-2 text-gray-300">
+                                  {intl.formatMessage(messages.enableOverride)}
+                                </span>
+                              </div>
+                              <QuotaSelector
+                                isDisabled={!sceneQuotaEnabled}
+                                dayFieldName="sceneQuotaDays"
+                                limitFieldName="sceneQuotaLimit"
+                                mediaType="scene"
+                                onChange={setFieldValue}
+                                defaultDays={values.sceneQuotaDays}
+                                defaultLimit={values.sceneQuotaLimit}
+                                dayOverride={
+                                  !sceneQuotaEnabled
+                                    ? data?.globalSceneQuotaDays
+                                    : undefined
+                                }
+                                limitOverride={
+                                  !sceneQuotaEnabled
+                                    ? data?.globalSceneQuotaLimit
+                                    : undefined
+                                }
                               />
-                              <span className="ml-2 text-gray-300">
-                                {intl.formatMessage(messages.enableOverride)}
-                              </span>
                             </div>
-                            <QuotaSelector
-                              isDisabled={!sceneQuotaEnabled}
-                              dayFieldName="sceneQuotaDays"
-                              limitFieldName="sceneQuotaLimit"
-                              mediaType="scene"
-                              onChange={setFieldValue}
-                              defaultDays={values.sceneQuotaDays}
-                              defaultLimit={values.sceneQuotaLimit}
-                              dayOverride={
-                                !sceneQuotaEnabled
-                                  ? data?.globalSceneQuotaDays
-                                  : undefined
-                              }
-                              limitOverride={
-                                !sceneQuotaEnabled
-                                  ? data?.globalSceneQuotaLimit
-                                  : undefined
-                              }
-                            />
                           </div>
                         </div>
-                      </div>
+                        <div className="form-row">
+                          <label
+                            htmlFor="adultMovieQuotaLimit"
+                            className="text-label"
+                          >
+                            <span>
+                              {intl.formatMessage(
+                                messages.adultmovierequestlimit
+                              )}
+                            </span>
+                          </label>
+                          <div className="form-input-area">
+                            <div className="flex flex-col">
+                              <div className="mb-4 flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={adultMovieQuotaEnabled}
+                                  onChange={() =>
+                                    setAdultMovieQuotaEnabled((s) => !s)
+                                  }
+                                />
+                                <span className="ml-2 text-gray-300">
+                                  {intl.formatMessage(messages.enableOverride)}
+                                </span>
+                              </div>
+                              <QuotaSelector
+                                isDisabled={!adultMovieQuotaEnabled}
+                                dayFieldName="adultMovieQuotaDays"
+                                limitFieldName="adultMovieQuotaLimit"
+                                mediaType="adultmovie"
+                                onChange={setFieldValue}
+                                defaultDays={values.adultMovieQuotaDays}
+                                defaultLimit={values.adultMovieQuotaLimit}
+                                dayOverride={
+                                  !adultMovieQuotaEnabled
+                                    ? data?.globalAdultMovieQuotaDays
+                                    : undefined
+                                }
+                                limitOverride={
+                                  !adultMovieQuotaEnabled
+                                    ? data?.globalAdultMovieQuotaLimit
+                                    : undefined
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </>
                 )}

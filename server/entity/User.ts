@@ -143,6 +143,12 @@ export class User {
   @Column({ nullable: true })
   public sceneQuotaDays?: number;
 
+  @Column({ nullable: true })
+  public adultMovieQuotaLimit?: number;
+
+  @Column({ nullable: true })
+  public adultMovieQuotaDays?: number;
+
   @OneToOne(() => UserSettings, (settings) => settings.user, {
     cascade: true,
     eager: true,
@@ -298,8 +304,8 @@ export class User {
       type: 'or',
     });
 
-    // Movies and scenes count one per request; series count seasons below.
-    // Adult movies share the movie quota.
+    // Movies, scenes and adult movies count one per request; series count
+    // seasons below
     const countRequests = async (
       types: MediaType[],
       limit: number | undefined,
@@ -332,7 +338,7 @@ export class User {
       : 0;
     const movieQuotaDays = this.movieQuotaDays ?? defaultQuotas.movie.quotaDays;
     const movieQuotaUsed = await countRequests(
-      [MediaType.MOVIE, MediaType.ADULT_MOVIE],
+      [MediaType.MOVIE],
       movieQuotaLimit,
       movieQuotaDays
     );
@@ -346,6 +352,17 @@ export class User {
       [MediaType.SCENE],
       sceneQuotaLimit,
       sceneQuotaDays
+    );
+
+    const adultMovieQuotaLimit = !canBypass
+      ? (this.adultMovieQuotaLimit ?? defaultQuotas.adultMovie?.quotaLimit)
+      : 0;
+    const adultMovieQuotaDays =
+      this.adultMovieQuotaDays ?? defaultQuotas.adultMovie?.quotaDays;
+    const adultMovieQuotaUsed = await countRequests(
+      [MediaType.ADULT_MOVIE],
+      adultMovieQuotaLimit,
+      adultMovieQuotaDays
     );
 
     const tvQuotaLimit = !canBypass
@@ -425,6 +442,18 @@ export class User {
           : undefined,
         restricted: !!(
           sceneQuotaLimit && sceneQuotaLimit - sceneQuotaUsed <= 0
+        ),
+      },
+      adultMovie: {
+        days: adultMovieQuotaDays,
+        limit: adultMovieQuotaLimit,
+        used: adultMovieQuotaUsed,
+        remaining: adultMovieQuotaLimit
+          ? Math.max(0, adultMovieQuotaLimit - adultMovieQuotaUsed)
+          : undefined,
+        restricted: !!(
+          adultMovieQuotaLimit &&
+          adultMovieQuotaLimit - adultMovieQuotaUsed <= 0
         ),
       },
     };

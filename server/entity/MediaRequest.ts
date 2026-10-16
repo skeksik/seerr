@@ -143,9 +143,8 @@ export class MediaRequest {
       );
     }
 
-    // Adult movies share the movie quota
     const quotas = await requestUser.getQuota();
-    const quota = isScene ? quotas.scene : quotas.movie;
+    const quota = isScene ? quotas.scene : quotas.adultMovie;
     const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
     const ignoreQuota =
       requestBody.ignoreQuota === true &&
@@ -158,7 +157,7 @@ export class MediaRequest {
       );
     } else if (!ignoreQuota && quota.restricted) {
       throw new QuotaRestrictedError(
-        `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`
+        `${isScene ? 'Scene' : 'Adult Movie'} Quota exceeded.`
       );
     }
 

@@ -55,8 +55,7 @@ const AdultRequestModal = ({
       ? `/api/v1/user/${overrides?.user?.id ?? user.id}/quota`
       : null
   );
-  // Adult movies share the movie quota
-  const itemQuota = type === 'scene' ? quota?.scene : quota?.movie;
+  const itemQuota = type === 'scene' ? quota?.scene : quota?.adultMovie;
   const artwork = data && adultArtwork(data);
 
   const hasAutoApprove = hasPermission(
@@ -145,7 +144,7 @@ const AdultRequestModal = ({
       )}
       {(itemQuota?.limit ?? 0) > 0 && (
         <QuotaDisplay
-          mediaType={type === 'scene' ? 'scene' : 'movie'}
+          mediaType={type}
           quota={itemQuota}
           userOverride={
             overrides?.user && overrides.user.id !== user?.id

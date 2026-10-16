@@ -419,18 +419,22 @@ describe('Adult movie requests', () => {
     await assert.rejects(() => requestAdultMovie(user), RequestPermissionError);
   });
 
-  it('counts adult movies against the movie quota', async () => {
+  it('counts adult movies against the adult movie quota', async () => {
     const user = await createUser(
       'xxxquota@seerr.dev',
       Permission.REQUEST | Permission.ADULT
     );
+    user.adultMovieQuotaLimit = 1;
     user.movieQuotaLimit = 1;
     await getRepository(User).save(user);
 
     await requestAdultMovie(user);
 
     const quota = await user.getQuota();
-    assert.strictEqual(quota.movie.used, 1);
+    assert.strictEqual(quota.adultMovie.used, 1);
+    assert.strictEqual(quota.adultMovie.restricted, true);
+    assert.strictEqual(quota.movie.used, 0);
+    assert.strictEqual(quota.movie.restricted, false);
     assert.strictEqual(quota.scene.used, 0);
     await assert.rejects(
       () =>
@@ -443,5 +447,27 @@ describe('Adult movie requests', () => {
         ),
       QuotaRestrictedError
     );
+  });
+
+  it('applies the default adult movie quota', async () => {
+    getSettings().main.defaultQuotas.adultMovie = {
+      quotaLimit: 1,
+      quotaDays: 7,
+    };
+    const user = await createUser(
+      'xxxdefault@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    try {
+      await requestAdultMovie(user);
+
+      const quota = await user.getQuota();
+      assert.strictEqual(quota.adultMovie.limit, 1);
+      assert.strictEqual(quota.adultMovie.days, 7);
+      assert.strictEqual(quota.adultMovie.restricted, true);
+    } finally {
+      getSettings().main.defaultQuotas.adultMovie = {};
+    }
   });
 });

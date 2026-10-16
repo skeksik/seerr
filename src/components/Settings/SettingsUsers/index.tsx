@@ -40,6 +40,7 @@ const messages = defineMessages('components.Settings.SettingsUsers', {
   movieRequestLimitLabel: 'Global Movie Request Limit',
   tvRequestLimitLabel: 'Global Series Request Limit',
   sceneRequestLimitLabel: 'Global Scene Request Limit',
+  adultMovieRequestLimitLabel: 'Global Adult Movie Request Limit',
   defaultPermissions: 'Default Permissions',
   defaultPermissionsTip: 'Initial permissions assigned to new users',
   disabledMediaServerLoginWarning:
@@ -119,6 +120,9 @@ const SettingsUsers = () => {
             tvQuotaDays: data?.defaultQuotas.tv.quotaDays ?? 7,
             sceneQuotaLimit: data?.defaultQuotas.scene?.quotaLimit ?? 0,
             sceneQuotaDays: data?.defaultQuotas.scene?.quotaDays ?? 7,
+            adultMovieQuotaLimit:
+              data?.defaultQuotas.adultMovie?.quotaLimit ?? 0,
+            adultMovieQuotaDays: data?.defaultQuotas.adultMovie?.quotaDays ?? 7,
             defaultPermissions: data?.defaultPermissions ?? 0,
           }}
           validationSchema={schema}
@@ -141,6 +145,10 @@ const SettingsUsers = () => {
                   scene: {
                     quotaLimit: values.sceneQuotaLimit,
                     quotaDays: values.sceneQuotaDays,
+                  },
+                  adultMovie: {
+                    quotaLimit: values.adultMovieQuotaLimit,
+                    quotaDays: values.adultMovieQuotaDays,
                   },
                 },
                 defaultPermissions: values.defaultPermissions,
@@ -286,21 +294,40 @@ const SettingsUsers = () => {
                   </div>
                 </div>
                 {data?.enableAdult && !safeMode && (
-                  <div className="form-row">
-                    <label htmlFor="applicationTitle" className="text-label">
-                      {intl.formatMessage(messages.sceneRequestLimitLabel)}
-                    </label>
-                    <div className="form-input-area">
-                      <QuotaSelector
-                        onChange={setFieldValue}
-                        dayFieldName="sceneQuotaDays"
-                        limitFieldName="sceneQuotaLimit"
-                        mediaType="scene"
-                        defaultDays={values.sceneQuotaDays}
-                        defaultLimit={values.sceneQuotaLimit}
-                      />
+                  <>
+                    <div className="form-row">
+                      <label htmlFor="applicationTitle" className="text-label">
+                        {intl.formatMessage(messages.sceneRequestLimitLabel)}
+                      </label>
+                      <div className="form-input-area">
+                        <QuotaSelector
+                          onChange={setFieldValue}
+                          dayFieldName="sceneQuotaDays"
+                          limitFieldName="sceneQuotaLimit"
+                          mediaType="scene"
+                          defaultDays={values.sceneQuotaDays}
+                          defaultLimit={values.sceneQuotaLimit}
+                        />
+                      </div>
                     </div>
-                  </div>
+                    <div className="form-row">
+                      <label htmlFor="applicationTitle" className="text-label">
+                        {intl.formatMessage(
+                          messages.adultMovieRequestLimitLabel
+                        )}
+                      </label>
+                      <div className="form-input-area">
+                        <QuotaSelector
+                          onChange={setFieldValue}
+                          dayFieldName="adultMovieQuotaDays"
+                          limitFieldName="adultMovieQuotaLimit"
+                          mediaType="adultmovie"
+                          defaultDays={values.adultMovieQuotaDays}
+                          defaultLimit={values.adultMovieQuotaLimit}
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
                 <div
                   role="group"

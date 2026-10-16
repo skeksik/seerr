@@ -35,6 +35,7 @@ const messages = defineMessages('components.UserProfile', {
   movierequests: 'Movie Requests',
   seriesrequest: 'Series Requests',
   scenerequests: 'Scene Requests',
+  adultmovierequests: 'Adult Movie Requests',
   recentlywatched: 'Recently Watched',
   plexwatchlist: 'Plex Watchlist',
   localWatchlist: "{username}'s Watchlist",
@@ -76,7 +77,11 @@ const UserProfile = () => {
       ? `/api/v1/user/${user.id}/quota`
       : null
   );
+  // Adult quotas only get a card when a limit applies and adult content is
+  // visible
   const showSceneQuota = canViewAdult && !!quota?.scene?.limit;
+  const showAdultMovieQuota = canViewAdult && !!quota?.adultMovie?.limit;
+  const quotaCards = 3 + Number(showSceneQuota) + Number(showAdultMovieQuota);
   const { data: watchData, error: watchDataError } =
     useSWR<UserWatchDataResponse>(
       user?.userType === UserType.PLEX &&
@@ -158,7 +163,11 @@ const UserProfile = () => {
           <div className="relative z-40">
             <dl
               className={`mt-5 grid grid-cols-1 gap-5 ${
-                showSceneQuota ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
+                quotaCards === 5
+                  ? 'lg:grid-cols-5'
+                  : quotaCards === 4
+                    ? 'lg:grid-cols-4'
+                    : 'lg:grid-cols-3'
               }`}
             >
               <div className="overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ring-gray-700 sm:p-6">
@@ -184,10 +193,11 @@ const UserProfile = () => {
                 [
                   ['movie', messages.movierequests],
                   ['tv', messages.seriesrequest],
-                  // Only worth a card when a scene limit applies and scenes
-                  // are visible
                   ...(showSceneQuota
                     ? [['scene', messages.scenerequests] as const]
+                    : []),
+                  ...(showAdultMovieQuota
+                    ? [['adultMovie', messages.adultmovierequests] as const]
                     : []),
                 ] as const
               ).map(([type, title]) => {

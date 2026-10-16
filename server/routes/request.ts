@@ -618,12 +618,17 @@ requestRoutes.put<{ requestId: string }>(
           ) {
             if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();
-              const isScene = req.body.mediaType === MediaType.SCENE;
+              const [quota, label] =
+                req.body.mediaType === MediaType.SCENE
+                  ? [quotas.scene, 'Scene']
+                  : req.body.mediaType === MediaType.ADULT_MOVIE
+                    ? [quotas.adultMovie, 'Adult Movie']
+                    : [quotas.movie, 'Movie'];
 
-              if ((isScene ? quotas.scene : quotas.movie).restricted) {
+              if (quota.restricted) {
                 return next({
                   status: 403,
-                  message: `${isScene ? 'Scene' : 'Movie'} Quota exceeded.`,
+                  message: `${label} Quota exceeded.`,
                 });
               }
             }

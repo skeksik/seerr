@@ -214,6 +214,16 @@ components:
           nullable: true
           description: 'Time period in days for scene quota'
           example: 7
+        adultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Maximum number of adult movie requests allowed'
+          example: 5
+        adultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Time period in days for adult movie quota'
+          example: 7
         globalMovieQuotaDays:
           type: number
           nullable: true
@@ -243,6 +253,16 @@ components:
           type: number
           nullable: true
           description: 'Global scene quota days setting'
+          example: 7
+        globalAdultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota limit setting'
+          example: 5
+        globalAdultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota days setting'
           example: 7
         watchlistSyncMovies:
           type: boolean
@@ -5486,6 +5506,24 @@ paths:
                         type: boolean
                         example: false
                   scene:
+                    type: object
+                    properties:
+                      days:
+                        type: number
+                        example: 7
+                      limit:
+                        type: number
+                        example: 10
+                      used:
+                        type: number
+                        example: 6
+                      remaining:
+                        type: number
+                        example: 4
+                      restricted:
+                        type: boolean
+                        example: false
+                  adultMovie:
                     type: object
                     properties:
                       days:
