@@ -3,7 +3,7 @@ import { toSliderPerformer } from '@app/components/Common/adultRoutes';
 import PersonCard from '@app/components/PersonCard';
 import SceneCard from '@app/components/SceneCard';
 import TitleCard from '@app/components/TitleCard';
-import MediaTitleCard from '@app/components/TitleCard/MediaTitleCard';
+import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import { Permission, useUser } from '@app/hooks/useUser';
 import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
@@ -69,11 +69,11 @@ const ListView = ({
         {plexItems?.map((title, index) => {
           return (
             <li key={`${title.ratingKey}-${index}`}>
-              <MediaTitleCard
+              <TmdbTitleCard
                 id={title.tmdbId ?? title.id}
                 tmdbId={title.tmdbId}
                 externalId={title.externalId}
-                mediaType={title.mediaType}
+                type={title.mediaType}
                 isAddedToWatchlist={true}
                 canExpand
                 mutateParent={mutateParent}

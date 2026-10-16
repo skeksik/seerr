@@ -11,7 +11,7 @@ import PageTitle from '@app/components/Common/PageTitle';
 import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
 import { orientationMessages } from '@app/components/OrientationSelector';
-import SceneRequestModal from '@app/components/RequestModal/SceneRequestModal';
+import RequestModal from '@app/components/RequestModal';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
@@ -20,7 +20,6 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { refreshIntervalHelper } from '@app/utils/refreshIntervalHelper';
-import { Transition } from '@headlessui/react';
 import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type Media from '@server/entity/Media';
@@ -88,8 +87,6 @@ export interface AdultTitle {
   backdrop?: { src: string; blur?: boolean };
   // Scene stills are landscape; covers are left as a blank poster
   poster: { src?: string; landscape: boolean };
-  // For the request modal
-  requestBackdrop?: string;
   performers: SliderPerformer[];
   mediaInfo?: Media;
   onUserWatchlist?: boolean;
@@ -286,31 +283,16 @@ const AdultTitleDetails = ({
           />
           <AdultManageButton {...manage} />
         </div>
-        <Transition
-          as="div"
+        <RequestModal
           show={showRequestModal}
-          enter="transition-opacity duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition-opacity duration-300"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <SceneRequestModal
-            item={{
-              mediaType: data.mediaType,
-              id: data.id,
-              title: data.title,
-              backdrop: data.requestBackdrop,
-              backdropType: data.imageType,
-            }}
-            onCancel={() => setShowRequestModal(false)}
-            onComplete={() => {
-              setShowRequestModal(false);
-              revalidate();
-            }}
-          />
-        </Transition>
+          type={data.mediaType}
+          externalId={data.id}
+          onCancel={() => setShowRequestModal(false)}
+          onComplete={() => {
+            setShowRequestModal(false);
+            revalidate();
+          }}
+        />
       </div>
       <div className="media-overview">
         <div className="media-overview-left">

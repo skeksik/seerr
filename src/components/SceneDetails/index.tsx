@@ -71,7 +71,6 @@ const SceneDetails = ({ scene }: SceneDetailsProps) => {
         imageType: 'stashdb',
         backdrop: backdrop ? { src: backdrop } : undefined,
         poster: { src: stashImageUrl(data.imageUrl, 600), landscape: true },
-        requestBackdrop: backdrop,
         performers: data.performers.map((performer) =>
           toSliderPerformer('scene', performer)
         ),

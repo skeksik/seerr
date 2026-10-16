@@ -65,7 +65,6 @@ const AdultMovieDetails = () => {
           ? { src: backdrop, blur: !data.backdropUrl }
           : undefined,
         poster: { src: data.posterUrl, landscape: false },
-        requestBackdrop: data.posterUrl,
         performers: data.performers.map((performer) =>
           toSliderPerformer('adultmovie', performer)
         ),

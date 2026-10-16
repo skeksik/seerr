@@ -1,7 +1,7 @@
 import Header from '@app/components/Common/Header';
 import ListView from '@app/components/Common/ListView';
 import PageTitle from '@app/components/Common/PageTitle';
-import SceneSlider from '@app/components/Scenes/SceneSlider';
+import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import useAdult from '@app/hooks/useAdult';
 import useDiscover, { encodeURIExtraParams } from '@app/hooks/useDiscover';
 import globalMessages from '@app/i18n/globalMessages';
@@ -55,7 +55,8 @@ const Search = () => {
       </div>
       {canViewAdult && query && (
         <div className="mb-6">
-          <SceneSlider
+          <AdultTitleSlider
+            mediaType="scene"
             sliderKey="search-scenes"
             title={intl.formatMessage(globalMessages.scenes)}
             url={`/api/v1/scene/search?query=${encodeURIExtraParams(query)}&page=1`}

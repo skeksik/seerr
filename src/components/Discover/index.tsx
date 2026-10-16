@@ -1,4 +1,3 @@
-import AdultMovieSlider from '@app/components/AdultMovies/AdultMovieSlider';
 import Button from '@app/components/Common/Button';
 import ConfirmButton from '@app/components/Common/ConfirmButton';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
@@ -16,7 +15,7 @@ import TvGenreSlider from '@app/components/Discover/TvGenreSlider';
 import { sliderTitles } from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
 import AdultStudioSlider from '@app/components/Scenes/AdultStudioSlider';
-import SceneSlider from '@app/components/Scenes/SceneSlider';
+import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
 import useToasts from '@app/hooks/useToasts';
@@ -413,7 +412,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.TRENDING_SCENES:
             sliderComponent = (
-              <SceneSlider
+              <AdultTitleSlider
+                mediaType="scene"
                 sliderKey="trending-scenes"
                 title={intl.formatMessage(sliderTitles.trendingScenes)}
                 url="/api/v1/scene/discover?sort=trending&page=1"
@@ -423,7 +423,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.POPULAR_SCENES:
             sliderComponent = (
-              <SceneSlider
+              <AdultTitleSlider
+                mediaType="scene"
                 sliderKey="popular-scenes"
                 title={intl.formatMessage(sliderTitles.popularScenes)}
                 url="/api/v1/scene/discover?sort=popularity&page=1"
@@ -433,7 +434,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.NEW_SCENES:
             sliderComponent = (
-              <SceneSlider
+              <AdultTitleSlider
+                mediaType="scene"
                 sliderKey="new-scenes"
                 title={intl.formatMessage(sliderTitles.newScenes)}
                 url={`/api/v1/scene/discover?sort=date&released=before&releaseDate=${upcomingDate}&page=1`}
@@ -443,7 +445,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.UPCOMING_SCENES:
             sliderComponent = (
-              <SceneSlider
+              <AdultTitleSlider
+                mediaType="scene"
                 sliderKey="upcoming-scenes"
                 title={intl.formatMessage(sliderTitles.upcomingScenes)}
                 url="/api/v1/scene/discover?upcoming=true&page=1"
@@ -470,7 +473,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.NEW_ADULT_MOVIES:
             sliderComponent = (
-              <AdultMovieSlider
+              <AdultTitleSlider
+                mediaType="adultmovie"
                 sliderKey="new-adult-movies"
                 title={intl.formatMessage(sliderTitles.newAdultMovies)}
                 url="/api/v1/adultmovie/discover?sort=released&page=1"
@@ -480,7 +484,8 @@ const Discover = () => {
             break;
           case DiscoverSliderType.UPCOMING_ADULT_MOVIES:
             sliderComponent = (
-              <AdultMovieSlider
+              <AdultTitleSlider
+                mediaType="adultmovie"
                 sliderKey="upcoming-adult-movies"
                 title={intl.formatMessage(sliderTitles.upcomingAdultMovies)}
                 url="/api/v1/adultmovie/discover?upcoming=true&page=1"
