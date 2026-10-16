@@ -101,7 +101,15 @@ const PermissionOption = ({
     // Request 4K Series and Auto-Approve 4K Series require 4K series requests to be enabled
     ((option.permission === Permission.REQUEST_4K_TV ||
       option.permission === Permission.AUTO_APPROVE_4K_TV) &&
-      !settings.currentSettings.series4kEnabled)
+      !settings.currentSettings.series4kEnabled) ||
+    // 4K scene and adult movie permissions require a default 4K Whisparr server
+    ([
+      Permission.REQUEST_4K_SCENE,
+      Permission.REQUEST_4K_ADULT_MOVIE,
+      Permission.AUTO_APPROVE_4K_SCENE,
+      Permission.AUTO_APPROVE_4K_ADULT_MOVIE,
+    ].includes(option.permission) &&
+      !settings.currentSettings.adult4kEnabled)
   ) {
     disabled = true;
     checked = false;

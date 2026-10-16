@@ -77,11 +77,20 @@ class DownloadTracker {
     this.updateWhisparrDownloads();
   }
 
+  // Like Radarr: each Whisparr instance is read once, and its queue shared
+  // with the other entries for it, e.g. its 4K and non-4K ones
   private async updateWhisparrDownloads() {
     const settings = getSettings();
+    const filteredServers = uniqWith(
+      settings.whisparr,
+      (a, b) =>
+        a.hostname === b.hostname &&
+        a.port === b.port &&
+        a.baseUrl === b.baseUrl
+    );
 
     await Promise.all(
-      settings.whisparr
+      filteredServers
         .filter((server) => server.syncEnabled)
         .map(async (server) => {
           const whisparr = WhisparrAPI.forServer(server);
@@ -108,6 +117,19 @@ class DownloadTracker {
               { label: 'Download Tracker' }
             );
           }
+
+          settings.whisparr
+            .filter(
+              (other) =>
+                other.hostname === server.hostname &&
+                other.port === server.port &&
+                other.baseUrl === server.baseUrl &&
+                other.id !== server.id &&
+                other.syncEnabled
+            )
+            .forEach((other) => {
+              this.whisparrServers[other.id] = this.whisparrServers[server.id];
+            });
         })
     );
   }

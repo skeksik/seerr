@@ -23,13 +23,16 @@ import useSWR, { mutate } from 'swr';
 
 const messages = defineMessages('components.RequestModal.AdultRequestModal', {
   requestscenetitle: 'Request Scene',
+  requestscene4ktitle: 'Request Scene in 4K',
   requestadultmovietitle: 'Request Adult Movie',
+  requestadultmovie4ktitle: 'Request Adult Movie in 4K',
 });
 
 interface AdultRequestModalProps {
   type: AdultMediaType;
   // StashDB scene or ThePornDB movie UUID
   id: string;
+  is4k?: boolean;
   onCancel?: () => void;
   onComplete?: (newStatus: MediaStatus) => void;
   onUpdating?: (isUpdating: boolean) => void;
@@ -39,6 +42,7 @@ interface AdultRequestModalProps {
 const AdultRequestModal = ({
   type,
   id,
+  is4k = false,
   onCancel,
   onComplete,
   onUpdating,
@@ -60,7 +64,10 @@ const AdultRequestModal = ({
   const artwork = data && adultArtwork(data);
 
   const hasAutoApprove = hasPermission(
-    [...mediaPermissions('autoApprove', type), Permission.MANAGE_REQUESTS],
+    [
+      ...mediaPermissions(is4k ? 'autoApprove4k' : 'autoApprove', type),
+      Permission.MANAGE_REQUESTS,
+    ],
     { type: 'or' }
   );
 
@@ -77,6 +84,7 @@ const AdultRequestModal = ({
       await axios.post<MediaRequest>('/api/v1/request', {
         mediaType: type,
         [type === 'scene' ? 'stashId' : 'tpdbId']: id,
+        is4k,
         serverId: overrides?.server,
         profileId: overrides?.profile,
         rootFolder: overrides?.folder,
@@ -122,8 +130,12 @@ const AdultRequestModal = ({
       }
       title={intl.formatMessage(
         type === 'scene'
-          ? messages.requestscenetitle
-          : messages.requestadultmovietitle
+          ? is4k
+            ? messages.requestscene4ktitle
+            : messages.requestscenetitle
+          : is4k
+            ? messages.requestadultmovie4ktitle
+            : messages.requestadultmovietitle
       )}
       subTitle={data?.title}
       okText={
@@ -161,7 +173,7 @@ const AdultRequestModal = ({
         <AdvancedRequester
           type="movie"
           adultType={type}
-          is4k={false}
+          is4k={is4k}
           // Adult media goes through the movie form with its own quota
           quota={itemQuota && quota && { movie: itemQuota, tv: quota.tv }}
           onChange={setOverrides}

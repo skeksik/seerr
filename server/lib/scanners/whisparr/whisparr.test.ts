@@ -111,6 +111,40 @@ describe('WhisparrScanner', () => {
     assert.strictEqual(processing?.status, MediaStatus.PROCESSING);
   });
 
+  it('tracks the 4K versions on 4K servers', async () => {
+    const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
+    getSettings().whisparr[0].is4k = true;
+    const media = await getRepository(Media).save(
+      new Media({ mediaType: MediaType.SCENE, stashId: OTHER_ID, tmdbId: null })
+    );
+    await getRepository(MediaRequest).save(
+      new MediaRequest({
+        type: MediaType.SCENE,
+        status: MediaRequestStatus.DECLINED,
+        media,
+        requestedBy: await getRepository(User).findOneByOrFail({ id: 1 }),
+        is4k: true,
+      })
+    );
+    // Only the non-4K version was requested
+    await requested({ mediaType: MediaType.SCENE, stashId: SCENE_ID });
+    mock.method(WhisparrAPI.prototype, 'getMonitoredItems', async () => [
+      item({ id: 21, hasFile: false }),
+      item({ id: 22, foreignId: OTHER_ID, stashId: OTHER_ID, hasFile: false }),
+    ]);
+
+    await whisparrScanner.run();
+
+    const unrequested4k = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(unrequested4k?.status4k, MediaStatus.UNKNOWN);
+    assert.strictEqual(unrequested4k?.serviceId4k, 3);
+    assert.strictEqual(unrequested4k?.externalServiceId4k, 21);
+    assert.strictEqual(unrequested4k?.externalServiceId, null);
+    const requested4k = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
+    assert.strictEqual(requested4k?.status4k, MediaStatus.PROCESSING);
+    assert.strictEqual(requested4k?.status, MediaStatus.UNKNOWN);
+  });
+
   it('leaves TMDB movies to Radarr', async () => {
     await requested({
       mediaType: MediaType.MOVIE,

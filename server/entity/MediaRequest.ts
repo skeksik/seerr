@@ -115,6 +115,8 @@ export class MediaRequest {
     user: User
   ): Promise<MediaRequest> {
     const isScene = requestBody.mediaType === MediaType.SCENE;
+    const is4k = !!requestBody.is4k;
+    const statusKey = is4k ? 'status4k' : 'status';
     const mediaRepository = getRepository(Media);
     const requestRepository = getRepository(MediaRequest);
 
@@ -134,16 +136,18 @@ export class MediaRequest {
     }
 
     // Request grants every media type, Request Scenes and Request Adult
-    // Movies only theirs
+    // Movies only theirs; the same goes for 4K
     if (
       !canViewAdult(requestUser) ||
       !requestUser.hasPermission(
-        mediaPermissions('request', requestBody.mediaType),
+        mediaPermissions(is4k ? 'request4k' : 'request', requestBody.mediaType),
         { type: 'or' }
       )
     ) {
       throw new RequestPermissionError(
-        `You do not have permission to make ${isScene ? 'scene' : 'Adult movie'} requests.`
+        `You do not have permission to make ${is4k ? '4K ' : ''}${
+          isScene ? 'scene' : 'adult movie'
+        } requests.`
       );
     }
 
@@ -185,7 +189,8 @@ export class MediaRequest {
     );
 
     if (!media.id) {
-      media.status = MediaStatus.PENDING;
+      media.status = is4k ? MediaStatus.UNKNOWN : MediaStatus.PENDING;
+      media.status4k = is4k ? MediaStatus.PENDING : MediaStatus.UNKNOWN;
     } else {
       if (media.status === MediaStatus.BLOCKLISTED) {
         throw new BlocklistedMediaError('This media is blocklisted.');
@@ -194,6 +199,7 @@ export class MediaRequest {
       const active = await requestRepository.exist({
         where: {
           media: { id: media.id },
+          is4k,
           status: Not(
             In([MediaRequestStatus.DECLINED, MediaRequestStatus.COMPLETED])
           ),
@@ -204,6 +210,7 @@ export class MediaRequest {
         logger.warn('Duplicate adult request blocked', {
           mediaType: requestBody.mediaType,
           externalId: found.id,
+          is4k,
           label: 'Media Request',
         });
         throw new DuplicateMediaRequestError(
@@ -212,10 +219,10 @@ export class MediaRequest {
       }
 
       if (
-        media.status === MediaStatus.UNKNOWN ||
-        media.status === MediaStatus.DELETED
+        media[statusKey] === MediaStatus.UNKNOWN ||
+        media[statusKey] === MediaStatus.DELETED
       ) {
-        media.status = MediaStatus.PENDING;
+        media[statusKey] = MediaStatus.PENDING;
       }
     }
 
@@ -224,7 +231,7 @@ export class MediaRequest {
     // Same precedence as movies: advanced users keep what they picked
     const ruleResult = await overrideRules({
       mediaType: requestBody.mediaType,
-      is4k: false,
+      is4k,
       requestUser,
       tags: requestBody.tags,
     });
@@ -245,7 +252,10 @@ export class MediaRequest {
 
     const autoApprove = user.hasPermission(
       [
-        ...mediaPermissions('autoApprove', requestBody.mediaType),
+        ...mediaPermissions(
+          is4k ? 'autoApprove4k' : 'autoApprove',
+          requestBody.mediaType
+        ),
         Permission.MANAGE_REQUESTS,
       ],
       { type: 'or' }
@@ -259,7 +269,7 @@ export class MediaRequest {
         ? MediaRequestStatus.APPROVED
         : MediaRequestStatus.PENDING,
       modifiedBy: autoApprove ? user : undefined,
-      is4k: false,
+      is4k,
       serverId: requestBody.serverId,
       profileId: profileId || undefined,
       rootFolder: rootFolder || undefined,

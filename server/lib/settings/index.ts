@@ -232,6 +232,8 @@ interface FullPublicSettings extends PublicSettings {
   mediaServerLogin: boolean;
   movie4kEnabled: boolean;
   series4kEnabled: boolean;
+  // A default 4K Whisparr server takes 4K scene and adult movie requests
+  adult4kEnabled: boolean;
   discoverRegion: string;
   streamingRegion: string;
   originalLanguage: string;
@@ -824,6 +826,11 @@ class Settings {
       series4kEnabled: this.data.sonarr.some(
         (sonarr) => sonarr.is4k && sonarr.isDefault
       ),
+      adult4kEnabled:
+        this.data.main.enableAdult &&
+        this.data.whisparr.some(
+          (whisparr) => whisparr.is4k && whisparr.isDefault
+        ),
       discoverRegion: this.data.main.discoverRegion,
       streamingRegion: this.data.main.streamingRegion,
       originalLanguage: this.data.main.originalLanguage,

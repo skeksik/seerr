@@ -37,6 +37,7 @@ export interface PublicSettingsResponse {
   mediaServerLogin: boolean;
   movie4kEnabled: boolean;
   series4kEnabled: boolean;
+  adult4kEnabled: boolean;
   discoverRegion: string;
   streamingRegion: string;
   originalLanguage: string;

@@ -178,6 +178,87 @@ describe('Scene requests', () => {
     assert.strictEqual(media?.externalServiceSlug, STASH_ID);
   });
 
+  it('sends 4K scene requests to the default 4K Whisparr', async () => {
+    getSettings().whisparr = [
+      whisparrServer,
+      { ...whisparrServer, id: 1, is4k: true, activeDirectory: '/data/4k' },
+    ];
+    mock.method(WhisparrAPI.prototype, 'lookupScene', async () => lookupItem);
+    const addItem = mock.method(WhisparrAPI.prototype, 'addItem', async () => ({
+      ...lookupItem,
+      id: 43,
+      monitored: true,
+    }));
+    const user = await createUser(
+      'auto4k@seerr.dev',
+      Permission.REQUEST_4K | Permission.AUTO_APPROVE_4K | Permission.ADULT
+    );
+
+    const request = await MediaRequest.request(
+      { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+      user
+    );
+    await settle();
+
+    assert.strictEqual(request.is4k, true);
+    assert.strictEqual(request.status, MediaRequestStatus.APPROVED);
+    assert.strictEqual(
+      addItem.mock.calls[0].arguments[1]?.rootFolderPath,
+      '/data/4k'
+    );
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
+    assert.strictEqual(media?.status, MediaStatus.UNKNOWN);
+    assert.strictEqual(media?.status4k, MediaStatus.PROCESSING);
+    assert.strictEqual(media?.serviceId4k, 1);
+    assert.strictEqual(media?.externalServiceId4k, 43);
+    assert.strictEqual(media?.serviceId, null);
+  });
+
+  it('takes a 4K request next to a non-4K one', async () => {
+    const user = await createUser(
+      'both@seerr.dev',
+      addPermissions(
+        Permission.REQUEST | Permission.ADULT,
+        Permission.REQUEST_4K_SCENE
+      )
+    );
+
+    await requestScene(user);
+    const request4k = await MediaRequest.request(
+      { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+      user
+    );
+
+    assert.strictEqual(request4k.status, MediaRequestStatus.PENDING);
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
+    assert.strictEqual(media?.status, MediaStatus.PENDING);
+    assert.strictEqual(media?.status4k, MediaStatus.PENDING);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+          user
+        ),
+      DuplicateMediaRequestError
+    );
+  });
+
+  it('requires a 4K request permission for 4K scenes', async () => {
+    const user = await createUser(
+      'no4k@seerr.dev',
+      Permission.REQUEST | Permission.ADULT
+    );
+
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.SCENE, stashId: STASH_ID, is4k: true },
+          user
+        ),
+      RequestPermissionError
+    );
+  });
+
   it('marks the request failed when Whisparr rejects the add', async () => {
     getSettings().whisparr = [whisparrServer];
     mock.method(WhisparrAPI.prototype, 'lookupScene', async () => lookupItem);

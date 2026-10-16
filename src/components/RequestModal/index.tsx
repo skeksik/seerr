@@ -44,6 +44,7 @@ const RequestModal = (props: RequestModalProps) => {
           type={props.type}
           id={props.externalId}
           onUpdating={onUpdating}
+          is4k={is4k}
         />
       ) : props.type === 'movie' ? (
         <MovieRequestModal

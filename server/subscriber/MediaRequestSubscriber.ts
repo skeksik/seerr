@@ -104,7 +104,10 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
       where: { id: entity.media.id },
     });
 
-    if (latestMedia?.status === MediaStatus.AVAILABLE) {
+    if (
+      latestMedia?.[entity.is4k ? 'status4k' : 'status'] ===
+      MediaStatus.AVAILABLE
+    ) {
       await MediaRequest.sendNotification(
         entity,
         latestMedia,
@@ -198,8 +201,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
   ): Promise<void> {
     if (
       entity.status === MediaRequestStatus.APPROVED &&
-      entity.type === MediaType.MOVIE &&
-      !isAdultMediaType(entity.media.mediaType)
+      entity.type === MediaType.MOVIE
     ) {
       try {
         const mediaRepository = manager.getRepository(Media);
@@ -876,7 +878,8 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     }
 
     if (
-      media.mediaType === MediaType.MOVIE &&
+      (media.mediaType === MediaType.MOVIE ||
+        isAdultMediaType(media.mediaType)) &&
       entity.status === MediaRequestStatus.DECLINED &&
       media[statusKey] !== MediaStatus.DELETED
     ) {

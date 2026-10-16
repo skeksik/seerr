@@ -147,11 +147,21 @@ const NotificationTypeSelector = ({
     const adultTypes = settings.currentSettings.enableAdult
       ? (['scene', 'adultmovie'] as const)
       : [];
-    // Cannot submit requests of an adult type OR has Auto-Approve perms for it
+    // Cannot submit requests of an adult type OR has Auto-Approve perms for
+    // it, in 4K too while a 4K Whisparr server takes them
     const adultAutoApproved = adultTypes.every(
       (type) =>
-        !hasPermission(mediaPermissions('request', type), { type: 'or' }) ||
-        hasPermission(mediaPermissions('autoApprove', type), { type: 'or' })
+        (!hasPermission(mediaPermissions('request', type), { type: 'or' }) ||
+          hasPermission(mediaPermissions('autoApprove', type), {
+            type: 'or',
+          })) &&
+        (!settings.currentSettings.adult4kEnabled ||
+          !hasPermission(mediaPermissions('request4k', type), {
+            type: 'or',
+          }) ||
+          hasPermission(mediaPermissions('autoApprove4k', type), {
+            type: 'or',
+          }))
     );
     const allRequestsAutoApproved =
       user &&

@@ -90,9 +90,11 @@ const StatusBadge = ({
       }
     ) &&
     (!is4k ||
-      (mediaType === 'movie'
-        ? settings.currentSettings.movie4kEnabled
-        : settings.currentSettings.series4kEnabled))
+      (isAdultMediaType(mediaType)
+        ? settings.currentSettings.adult4kEnabled
+        : mediaType === 'movie'
+          ? settings.currentSettings.movie4kEnabled
+          : settings.currentSettings.series4kEnabled))
   ) {
     mediaLink = plexUrl;
     mediaLinkDescription = intl.formatMessage(messages.playonplex, {

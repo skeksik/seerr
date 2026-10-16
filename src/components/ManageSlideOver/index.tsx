@@ -738,7 +738,9 @@ const ManageSlideOver = ({
                   </Button>
                 )}
                 {data?.mediaInfo.status4k !== MediaStatus.AVAILABLE &&
-                  settings.currentSettings.series4kEnabled && (
+                  (isAdultType
+                    ? settings.currentSettings.adult4kEnabled
+                    : settings.currentSettings.series4kEnabled) && (
                     <Button
                       onClick={() => markAvailable(true)}
                       className="w-full"

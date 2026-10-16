@@ -30,8 +30,9 @@ export type MediaRequestBody = {
   ignoreQuota?: boolean;
 };
 
-// Scenes and adult movies have no TMDB id, seasons or 4K tier
+// Scenes and adult movies have no TMDB id or seasons
 type AdultRequestOptions = {
+  is4k?: boolean;
   serverId?: number;
   profileId?: number;
   rootFolder?: string;

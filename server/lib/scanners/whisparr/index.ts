@@ -23,7 +23,8 @@ type SyncStatus = StatusBase & {
 // Whisparr has their file. Only titles requested through Seerr show as
 // processing: performer and studio monitoring adds many more, which stay
 // requestable like a series Sonarr follows. Only monitored items are
-// scanned; see WhisparrAPI.getMonitoredItems.
+// scanned; see WhisparrAPI.getMonitoredItems. Servers flagged 4K hold the 4K
+// versions, like 4K Radarr servers do for movies.
 class WhisparrScanner
   extends BaseScanner<WhisparrItem>
   implements RunnableScanner<SyncStatus>
@@ -32,6 +33,7 @@ class WhisparrScanner
   private currentServer: WhisparrSettings;
   // Read once per server, so items mostly need no queries of their own
   private requestedIds = new Set<number>();
+  private requested4kIds = new Set<number>();
   private adultMedia = new Map<string, Media>();
 
   constructor() {
@@ -89,6 +91,7 @@ class WhisparrScanner
     } finally {
       if (this.sessionId === sessionId) {
         this.requestedIds.clear();
+        this.requested4kIds.clear();
         this.adultMedia.clear();
       }
       this.endRun(sessionId);
@@ -98,14 +101,20 @@ class WhisparrScanner
   private async preload(): Promise<void> {
     const [requested, adult] = await Promise.all([
       getRepository(Media).query(
-        'SELECT DISTINCT "mediaId" FROM media_request'
-      ) as Promise<{ mediaId: number }[]>,
+        'SELECT DISTINCT "mediaId", "is4k" FROM media_request'
+      ) as Promise<{ mediaId: number; is4k: boolean | number }[]>,
       getRepository(Media).find({
         where: { mediaType: In([MediaType.SCENE, MediaType.ADULT_MOVIE]) },
       }),
     ]);
 
-    this.requestedIds = new Set(requested.map(({ mediaId }) => mediaId));
+    // SQLite returns booleans as 0 and 1
+    this.requestedIds = new Set(
+      requested.filter(({ is4k }) => !is4k).map(({ mediaId }) => mediaId)
+    );
+    this.requested4kIds = new Set(
+      requested.filter(({ is4k }) => !!is4k).map(({ mediaId }) => mediaId)
+    );
     this.adultMedia = new Map(
       adult.flatMap((media) => {
         const id = media[adultIdField(media.mediaType as AdultMediaType)];
@@ -156,7 +165,9 @@ class WhisparrScanner
 
     // The status the title should have, and whether that changes it
     const plan = (media: Media) => {
-      const requested = !!media.id && this.requestedIds.has(media.id);
+      const requested =
+        !!media.id &&
+        (is4k ? this.requested4kIds : this.requestedIds).has(media.id);
       const previous = media[statusField] ?? MediaStatus.UNKNOWN;
       const next = item.hasFile
         ? MediaStatus.AVAILABLE

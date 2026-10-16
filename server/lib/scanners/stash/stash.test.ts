@@ -224,6 +224,47 @@ describe('syncSceneAvailability', () => {
     assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
   });
 
+  it('checks the 4K version on the 4K Whisparr server', async () => {
+    getSettings().whisparr = [
+      whisparrServer,
+      { ...whisparrServer, id: 1, is4k: true, hostname: 'whisparr4k.test' },
+    ];
+    const media = await saveScene({
+      stashMediaId: null,
+      serviceId: 0,
+      externalServiceId: 9,
+      status4k: MediaStatus.AVAILABLE,
+      serviceId4k: 1,
+      externalServiceId4k: 12,
+      externalServiceSlug4k: SCENE_ID,
+    });
+    const getItem = mock.method(
+      WhisparrAPI.prototype,
+      'getItem',
+      async ({ id }: { id: number }) => {
+        if (id === 12) {
+          throw new Error('[Whisparr] Failed to retrieve item: 404', {
+            cause: { response: { status: 404 } },
+          });
+        }
+        return { hasFile: true, stashId: SCENE_ID };
+      }
+    );
+
+    await syncSceneAvailability(media);
+
+    const latest = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
+    assert.strictEqual(latest?.status, MediaStatus.AVAILABLE);
+    assert.strictEqual(latest?.status4k, MediaStatus.DELETED);
+    assert.strictEqual(latest?.serviceId4k, null);
+    assert.strictEqual(latest?.externalServiceId4k, null);
+    assert.strictEqual(latest?.serviceId, 0);
+    assert.deepStrictEqual(
+      getItem.mock.calls.map((call) => call.arguments[0].id).sort(),
+      [12, 9]
+    );
+  });
+
   it('leaves scenes alone when Stash cannot be reached', async () => {
     const media = await saveScene();
     mock.method(StashAPI.prototype, 'getScene', async () => {

@@ -5,7 +5,7 @@ import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButt
 import type { ProfileLink } from '@app/components/AdultProfileLinks';
 import AdultProfileLinks from '@app/components/AdultProfileLinks';
 import type { SliderPerformer } from '@app/components/Common/adultRoutes';
-import Button from '@app/components/Common/Button';
+import ButtonWithDropdown from '@app/components/Common/ButtonWithDropdown';
 import CachedImage from '@app/components/Common/CachedImage';
 import PageTitle from '@app/components/Common/PageTitle';
 import PlayButton from '@app/components/Common/PlayButton';
@@ -16,7 +16,8 @@ import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
-import { useUser } from '@app/hooks/useUser';
+import useSettings from '@app/hooks/useSettings';
+import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { refreshIntervalHelper } from '@app/utils/refreshIntervalHelper';
@@ -128,14 +129,48 @@ const AdultTitleDetails = ({
   const intl = useIntl();
   const [showAllTags, setShowAllTags] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showRequest4kModal, setShowRequest4kModal] = useState(false);
   const { hasPermission } = useUser();
+  const settings = useSettings();
 
   const status = data.mediaInfo?.status ?? MediaStatus.UNKNOWN;
+  const status4k = data.mediaInfo?.status4k ?? MediaStatus.UNKNOWN;
+  const isRequestable = (value: MediaStatus) =>
+    value === MediaStatus.UNKNOWN || value === MediaStatus.DELETED;
   const canRequest =
     hasPermission(mediaPermissions('request', data.mediaType), {
       type: 'or',
+    }) && isRequestable(status);
+  // Like movies: 4K versions go to the default 4K Whisparr server
+  const adult4kEnabled = settings.currentSettings.adult4kEnabled;
+  const canRequest4k =
+    adult4kEnabled &&
+    status !== MediaStatus.BLOCKLISTED &&
+    hasPermission(mediaPermissions('request4k', data.mediaType), {
+      type: 'or',
     }) &&
-    (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
+    isRequestable(status4k);
+  const requestButtons = [
+    ...(canRequest
+      ? [
+          {
+            id: 'request',
+            text: intl.formatMessage(globalMessages.request),
+            action: () => setShowRequestModal(true),
+          },
+        ]
+      : []),
+    ...(canRequest4k
+      ? [
+          {
+            id: 'request4k',
+            text: intl.formatMessage(globalMessages.request4k),
+            action: () => setShowRequest4kModal(true),
+          },
+        ]
+      : []),
+  ];
+  const [firstButton, ...otherButtons] = requestButtons;
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
   const attributes: React.ReactNode[] = [];
@@ -235,6 +270,27 @@ const AdultTitleDetails = ({
               plexUrl={data.playUrl}
               serviceUrl={data.mediaInfo?.serviceUrl}
             />
+            {adult4kEnabled &&
+              hasPermission(
+                [
+                  Permission.MANAGE_REQUESTS,
+                  ...mediaPermissions('request4k', data.mediaType),
+                ],
+                { type: 'or' }
+              ) && (
+                <StatusBadge
+                  status={data.mediaInfo?.status4k}
+                  downloadItem={data.mediaInfo?.downloadStatus4k}
+                  title={data.title}
+                  is4k
+                  inProgress={
+                    (data.mediaInfo?.downloadStatus4k ?? []).length > 0
+                  }
+                  mediaType={data.mediaType}
+                  externalId={data.id}
+                  serviceUrl={data.mediaInfo?.serviceUrl4k}
+                />
+              )}
           </div>
           <h1 data-testid="media-title">
             {data.title} {year && <span className="media-year">({year})</span>}
@@ -270,14 +326,28 @@ const AdultTitleDetails = ({
               />
             </div>
           )}
-          {canRequest && (
-            <Button
-              buttonType="primary"
-              onClick={() => setShowRequestModal(true)}
+          {firstButton && (
+            <ButtonWithDropdown
+              text={
+                <>
+                  <ArrowDownTrayIcon />
+                  <span>{firstButton.text}</span>
+                </>
+              }
+              onClick={firstButton.action}
             >
-              <ArrowDownTrayIcon />
-              <span>{intl.formatMessage(globalMessages.request)}</span>
-            </Button>
+              {otherButtons.length > 0
+                ? otherButtons.map((button) => (
+                    <ButtonWithDropdown.Item
+                      key={`request-option-${button.id}`}
+                      onClick={button.action}
+                    >
+                      <ArrowDownTrayIcon />
+                      <span>{button.text}</span>
+                    </ButtonWithDropdown.Item>
+                  ))
+                : null}
+            </ButtonWithDropdown>
           )}
           <AdultIssueButton
             mediaType={data.mediaType}
@@ -293,6 +363,17 @@ const AdultTitleDetails = ({
           onCancel={() => setShowRequestModal(false)}
           onComplete={() => {
             setShowRequestModal(false);
+            revalidate();
+          }}
+        />
+        <RequestModal
+          show={showRequest4kModal}
+          type={data.mediaType}
+          externalId={data.id}
+          is4k
+          onCancel={() => setShowRequest4kModal(false)}
+          onComplete={() => {
+            setShowRequest4kModal(false);
             revalidate();
           }}
         />
