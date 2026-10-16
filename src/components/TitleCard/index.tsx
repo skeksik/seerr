@@ -113,6 +113,12 @@ const TitleCard = ({
       error: messages.watchlistError,
     },
     onRemoved: mutateParent,
+    // Users with Auto-Request get scenes and adult movies requested
+    onAdded: (entry) => {
+      if (entry.media?.status) {
+        setCurrentStatus(entry.media.status);
+      }
+    },
   });
   const blocklist = useBlocklistToggle({
     id,

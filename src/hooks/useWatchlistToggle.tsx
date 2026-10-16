@@ -20,6 +20,8 @@ interface WatchlistToggleOptions {
     error: MessageDescriptor;
   };
   onRemoved?: () => void;
+  // With the new entry, whose media shows a request the add made
+  onAdded?: (watchlist: Watchlist) => void;
 }
 
 // Adds a title to the user's watchlist or takes it off again
@@ -30,6 +32,7 @@ const useWatchlistToggle = ({
   onWatchlist: initialOnWatchlist,
   messages,
   onRemoved,
+  onAdded,
 }: WatchlistToggleOptions) => {
   const intl = useIntl();
   const { addToast } = useToasts();
@@ -61,6 +64,7 @@ const useWatchlistToggle = ({
         );
       }
       setOnWatchlist(true);
+      onAdded?.(response.data);
     } catch {
       showError();
     } finally {

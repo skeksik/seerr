@@ -85,7 +85,7 @@ export class MediaRequest {
 
       return requestLock.dispatch(userKey(adultLockUserId), () =>
         mediaLock.dispatch(mediaKey(adultBody.mediaType, externalId), () =>
-          MediaRequest.createAdultRequest(adultBody, user)
+          MediaRequest.createAdultRequest(adultBody, user, options)
         )
       );
     }
@@ -112,7 +112,8 @@ export class MediaRequest {
   // Scenes and adult movies: keyed by an external id, always sent to Whisparr
   private static async createAdultRequest(
     requestBody: AdultRequestBody,
-    user: User
+    user: User,
+    options: MediaRequestOptions
   ): Promise<MediaRequest> {
     const isScene = requestBody.mediaType === MediaType.SCENE;
     const is4k = !!requestBody.is4k;
@@ -274,7 +275,7 @@ export class MediaRequest {
       profileId: profileId || undefined,
       rootFolder: rootFolder || undefined,
       tags: tags ?? undefined,
-      isAutoRequest: false,
+      isAutoRequest: options.isAutoRequest ?? false,
       ignoreQuota,
     });
 

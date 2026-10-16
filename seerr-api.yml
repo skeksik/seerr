@@ -5852,6 +5852,8 @@ paths:
   /watchlist:
     post:
       summary: Add media to watchlist
+      description: |
+        Adds a title to the user's watchlist. Scenes and adult movies are also requested (non-4K, on the default Whisparr server) for users with the `AUTO_REQUEST`, `AUTO_REQUEST_SCENE` or `AUTO_REQUEST_ADULT_MOVIE` permission, unless the title is already requested or available. A failed request does not fail the watchlist add.
       tags:
         - watchlist
       requestBody:
