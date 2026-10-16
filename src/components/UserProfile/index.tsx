@@ -76,7 +76,6 @@ const UserProfile = () => {
       ? `/api/v1/user/${user.id}/quota`
       : null
   );
-  // Only worth a card when a scene limit applies and scenes are visible
   const showSceneQuota = canViewAdult && !!quota?.scene?.limit;
   const { data: watchData, error: watchDataError } =
     useSWR<UserWatchDataResponse>(
@@ -181,173 +180,78 @@ const UserProfile = () => {
                   </Link>
                 </dd>
               </div>
-              <div
-                className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
-                  quota.movie.restricted
-                    ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
-                    : 'ring-gray-700'
-                } sm:p-6`}
-              >
-                <dt
-                  className={`truncate text-sm font-bold ${
-                    quota.movie.restricted ? 'text-red-500' : 'text-gray-300'
-                  }`}
-                >
-                  {quota.movie.limit
-                    ? intl.formatMessage(messages.pastdays, {
-                        type: intl.formatMessage(messages.movierequests),
-                        days: quota?.movie.days,
-                      })
-                    : intl.formatMessage(messages.movierequests)}
-                </dt>
-                <dd
-                  className={`mt-1 flex items-center text-sm ${
-                    quota.movie.restricted ? 'text-red-500' : 'text-white'
-                  }`}
-                >
-                  {quota.movie.limit ? (
-                    <>
-                      <ProgressCircle
-                        progress={Math.round(
-                          ((quota?.movie.remaining ?? 0) /
-                            (quota?.movie.limit ?? 1)) *
-                            100
-                        )}
-                        useHeatLevel
-                        className="mr-2 h-8 w-8"
-                      />
-                      <div>
-                        {intl.formatMessage(messages.requestsperdays, {
-                          limit: (
-                            <span className="text-3xl font-semibold">
-                              {intl.formatMessage(messages.limit, {
-                                remaining: quota.movie.remaining,
-                                limit: quota.movie.limit,
-                              })}
-                            </span>
-                          ),
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-3xl font-semibold">
-                      {intl.formatMessage(messages.unlimited)}
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div
-                className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
-                  quota.tv.restricted
-                    ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
-                    : 'ring-gray-700'
-                } sm:p-6`}
-              >
-                <dt
-                  className={`truncate text-sm font-bold ${
-                    quota.tv.restricted ? 'text-red-500' : 'text-gray-300'
-                  }`}
-                >
-                  {quota.tv.limit
-                    ? intl.formatMessage(messages.pastdays, {
-                        type: intl.formatMessage(messages.seriesrequest),
-                        days: quota?.tv.days,
-                      })
-                    : intl.formatMessage(messages.seriesrequest)}
-                </dt>
-                <dd
-                  className={`mt-1 flex items-center text-sm ${
-                    quota.tv.restricted ? 'text-red-500' : 'text-white'
-                  }`}
-                >
-                  {quota.tv.limit ? (
-                    <>
-                      <ProgressCircle
-                        progress={Math.round(
-                          ((quota?.tv.remaining ?? 0) /
-                            (quota?.tv.limit ?? 1)) *
-                            100
-                        )}
-                        useHeatLevel
-                        className="mr-2 h-8 w-8"
-                      />
-                      <div>
-                        {intl.formatMessage(messages.requestsperdays, {
-                          limit: (
-                            <span className="text-3xl font-semibold">
-                              {intl.formatMessage(messages.limit, {
-                                remaining: quota.tv.remaining,
-                                limit: quota.tv.limit,
-                              })}
-                            </span>
-                          ),
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-3xl font-semibold">
-                      {intl.formatMessage(messages.unlimited)}
-                    </span>
-                  )}
-                </dd>
-              </div>
-              {showSceneQuota && (
-                <div
-                  className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
-                    quota.scene.restricted
-                      ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
-                      : 'ring-gray-700'
-                  } sm:p-6`}
-                >
-                  <dt
-                    className={`truncate text-sm font-bold ${
-                      quota.scene.restricted ? 'text-red-500' : 'text-gray-300'
-                    }`}
+              {(
+                [
+                  ['movie', messages.movierequests],
+                  ['tv', messages.seriesrequest],
+                  // Only worth a card when a scene limit applies and scenes
+                  // are visible
+                  ...(showSceneQuota
+                    ? [['scene', messages.scenerequests] as const]
+                    : []),
+                ] as const
+              ).map(([type, title]) => {
+                const typeQuota = quota[type];
+
+                return (
+                  <div
+                    key={type}
+                    className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
+                      typeQuota.restricted
+                        ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
+                        : 'ring-gray-700'
+                    } sm:p-6`}
                   >
-                    {quota.scene.limit
-                      ? intl.formatMessage(messages.pastdays, {
-                          type: intl.formatMessage(messages.scenerequests),
-                          days: quota?.scene.days,
-                        })
-                      : intl.formatMessage(messages.scenerequests)}
-                  </dt>
-                  <dd
-                    className={`mt-1 flex items-center text-sm ${
-                      quota.scene.restricted ? 'text-red-500' : 'text-white'
-                    }`}
-                  >
-                    {quota.scene.limit ? (
-                      <>
-                        <ProgressCircle
-                          progress={Math.round(
-                            ((quota?.scene.remaining ?? 0) /
-                              (quota?.scene.limit ?? 1)) *
-                              100
-                          )}
-                          useHeatLevel
-                          className="mr-2 h-8 w-8"
-                        />
-                        <div>
-                          {intl.formatMessage(messages.requestsperdays, {
-                            limit: (
-                              <span className="text-3xl font-semibold">
-                                {intl.formatMessage(messages.limit, {
-                                  remaining: quota.scene.remaining,
-                                  limit: quota.scene.limit,
-                                })}
-                              </span>
-                            ),
-                          })}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-3xl font-semibold">
-                        {intl.formatMessage(messages.unlimited)}
-                      </span>
-                    )}
-                  </dd>
-                </div>
-              )}
+                    <dt
+                      className={`truncate text-sm font-bold ${
+                        typeQuota.restricted ? 'text-red-500' : 'text-gray-300'
+                      }`}
+                    >
+                      {typeQuota.limit
+                        ? intl.formatMessage(messages.pastdays, {
+                            type: intl.formatMessage(title),
+                            days: typeQuota.days,
+                          })
+                        : intl.formatMessage(title)}
+                    </dt>
+                    <dd
+                      className={`mt-1 flex items-center text-sm ${
+                        typeQuota.restricted ? 'text-red-500' : 'text-white'
+                      }`}
+                    >
+                      {typeQuota.limit ? (
+                        <>
+                          <ProgressCircle
+                            progress={Math.round(
+                              ((typeQuota.remaining ?? 0) /
+                                (typeQuota.limit ?? 1)) *
+                                100
+                            )}
+                            useHeatLevel
+                            className="mr-2 h-8 w-8"
+                          />
+                          <div>
+                            {intl.formatMessage(messages.requestsperdays, {
+                              limit: (
+                                <span className="text-3xl font-semibold">
+                                  {intl.formatMessage(messages.limit, {
+                                    remaining: typeQuota.remaining,
+                                    limit: typeQuota.limit,
+                                  })}
+                                </span>
+                              ),
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-3xl font-semibold">
+                          {intl.formatMessage(messages.unlimited)}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
           </div>
         )}

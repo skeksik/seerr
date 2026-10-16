@@ -249,29 +249,30 @@ const SettingsMetadata = () => {
     }
   };
 
-  // Providers without a key are left alone, so they can stay unconfigured
+  // Tests or saves an adult provider. Providers without a key are left
+  // alone, so they can stay unconfigured.
+  const postProvider = async (
+    url: string,
+    body: StashDbSettings | TpdbSettings
+  ): Promise<ProviderStatus> => {
+    if (!body.apiKey) {
+      return 'not tested';
+    }
+
+    try {
+      await axios.post(url, body);
+      return 'ok';
+    } catch {
+      return 'failed';
+    }
+  };
+
   const testAdult = async (
     values: AdultValues
   ): Promise<AdultProviderStatus> => {
-    const check = async (
-      url: string,
-      body: StashDbSettings | TpdbSettings
-    ): Promise<ProviderStatus> => {
-      if (!body.apiKey) {
-        return 'not tested';
-      }
-
-      try {
-        await axios.post(url, body);
-        return 'ok';
-      } catch {
-        return 'failed';
-      }
-    };
-
     const [stashdb, tpdb] = await Promise.all([
-      check('/api/v1/settings/stashdb/test', values.stashdb),
-      check('/api/v1/settings/tpdb/test', values.tpdb),
+      postProvider('/api/v1/settings/stashdb/test', values.stashdb),
+      postProvider('/api/v1/settings/tpdb/test', values.tpdb),
     ]);
     const status = { stashdb, tpdb };
     setAdultStatus(status);
@@ -279,25 +280,9 @@ const SettingsMetadata = () => {
   };
 
   const saveAdult = async (values: AdultValues): Promise<void> => {
-    const save = async (
-      url: string,
-      body: StashDbSettings | TpdbSettings
-    ): Promise<ProviderStatus> => {
-      if (!body.apiKey) {
-        return 'not tested';
-      }
-
-      try {
-        await axios.post(url, body);
-        return 'ok';
-      } catch {
-        return 'failed';
-      }
-    };
-
     const [stashdb, tpdb] = await Promise.all([
-      save('/api/v1/settings/stashdb', values.stashdb),
-      save('/api/v1/settings/tpdb', values.tpdb),
+      postProvider('/api/v1/settings/stashdb', values.stashdb),
+      postProvider('/api/v1/settings/tpdb', values.tpdb),
     ]);
     setAdultStatus({ stashdb, tpdb });
 
@@ -349,12 +334,13 @@ const SettingsMetadata = () => {
     }
   };
 
-  if (
-    (!data && !error) ||
-    (adult && ((!stashDbData && !stashDbError) || (!tpdbData && !tpdbError)))
-  ) {
+  if (!data && !error) {
     return <LoadingSpinner />;
   }
+
+  // Only the adult section waits for its settings
+  const adultLoading =
+    adult && ((!stashDbData && !stashDbError) || (!tpdbData && !tpdbError));
 
   const adultInitialValues: AdultValues = {
     stashdb: {
@@ -442,6 +428,8 @@ const SettingsMetadata = () => {
       <div className="section">
         <Formik
           initialValues={{ metadata: initialValues, adult: adultInitialValues }}
+          // Takes in the adult settings once they have loaded
+          enableReinitialize
           validationSchema={schema}
           onSubmit={async (values) => {
             try {
@@ -539,83 +527,94 @@ const SettingsMetadata = () => {
                         {intl.formatMessage(messages.adultProvidersDescription)}
                       </p>
                     </div>
-                    <div className="form-row">
-                      <label htmlFor="stashdbEndpoint" className="text-label">
-                        {intl.formatMessage(messages.stashdbEndpoint)}
-                      </label>
-                      <div className="form-input-area">
-                        <div className="form-input-field">
-                          <Field
-                            type="text"
-                            inputMode="url"
-                            id="stashdbEndpoint"
-                            name="adult.stashdb.endpoint"
-                          />
-                        </div>
-                        {errors.adult?.stashdb?.endpoint &&
-                          touched.adult?.stashdb?.endpoint && (
-                            <div className="error">
-                              {errors.adult.stashdb.endpoint}
+                    {adultLoading ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <>
+                        <div className="form-row">
+                          <label
+                            htmlFor="stashdbEndpoint"
+                            className="text-label"
+                          >
+                            {intl.formatMessage(messages.stashdbEndpoint)}
+                          </label>
+                          <div className="form-input-area">
+                            <div className="form-input-field">
+                              <Field
+                                type="text"
+                                inputMode="url"
+                                id="stashdbEndpoint"
+                                name="adult.stashdb.endpoint"
+                              />
                             </div>
-                          )}
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <label htmlFor="stashdbApiKey" className="text-label">
-                        {intl.formatMessage(messages.stashdbApiKey)}
-                        <span className="label-tip">
-                          {intl.formatMessage(messages.stashdbApiKeyTip)}
-                        </span>
-                      </label>
-                      <div className="form-input-area">
-                        <div className="form-input-field">
-                          <SensitiveInput
-                            as="field"
-                            id="stashdbApiKey"
-                            name="adult.stashdb.apiKey"
-                          />
+                            {errors.adult?.stashdb?.endpoint &&
+                              touched.adult?.stashdb?.endpoint && (
+                                <div className="error">
+                                  {errors.adult.stashdb.endpoint}
+                                </div>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <label htmlFor="tpdbUrl" className="text-label">
-                        {intl.formatMessage(messages.tpdbUrl)}
-                        <span className="label-tip">
-                          {intl.formatMessage(messages.tpdbUrlTip)}
-                        </span>
-                      </label>
-                      <div className="form-input-area">
-                        <div className="form-input-field">
-                          <Field
-                            type="text"
-                            inputMode="url"
-                            id="tpdbUrl"
-                            name="adult.tpdb.url"
-                          />
+                        <div className="form-row">
+                          <label htmlFor="stashdbApiKey" className="text-label">
+                            {intl.formatMessage(messages.stashdbApiKey)}
+                            <span className="label-tip">
+                              {intl.formatMessage(messages.stashdbApiKeyTip)}
+                            </span>
+                          </label>
+                          <div className="form-input-area">
+                            <div className="form-input-field">
+                              <SensitiveInput
+                                as="field"
+                                id="stashdbApiKey"
+                                name="adult.stashdb.apiKey"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        {errors.adult?.tpdb?.url &&
-                          touched.adult?.tpdb?.url && (
-                            <div className="error">{errors.adult.tpdb.url}</div>
-                          )}
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <label htmlFor="tpdbApiKey" className="text-label">
-                        {intl.formatMessage(messages.tpdbApiKey)}
-                        <span className="label-tip">
-                          {intl.formatMessage(messages.tpdbApiKeyTip)}
-                        </span>
-                      </label>
-                      <div className="form-input-area">
-                        <div className="form-input-field">
-                          <SensitiveInput
-                            as="field"
-                            id="tpdbApiKey"
-                            name="adult.tpdb.apiKey"
-                          />
+                        <div className="form-row">
+                          <label htmlFor="tpdbUrl" className="text-label">
+                            {intl.formatMessage(messages.tpdbUrl)}
+                            <span className="label-tip">
+                              {intl.formatMessage(messages.tpdbUrlTip)}
+                            </span>
+                          </label>
+                          <div className="form-input-area">
+                            <div className="form-input-field">
+                              <Field
+                                type="text"
+                                inputMode="url"
+                                id="tpdbUrl"
+                                name="adult.tpdb.url"
+                              />
+                            </div>
+                            {errors.adult?.tpdb?.url &&
+                              touched.adult?.tpdb?.url && (
+                                <div className="error">
+                                  {errors.adult.tpdb.url}
+                                </div>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                        <div className="form-row">
+                          <label htmlFor="tpdbApiKey" className="text-label">
+                            {intl.formatMessage(messages.tpdbApiKey)}
+                            <span className="label-tip">
+                              {intl.formatMessage(messages.tpdbApiKeyTip)}
+                            </span>
+                          </label>
+                          <div className="form-input-area">
+                            <div className="form-input-field">
+                              <SensitiveInput
+                                as="field"
+                                id="tpdbApiKey"
+                                name="adult.tpdb.apiKey"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
