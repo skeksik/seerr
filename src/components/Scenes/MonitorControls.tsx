@@ -18,15 +18,21 @@ const messages = defineMessages('components.Scenes.MonitorControls', {
   openinwhisparr: 'Open in Whisparr',
   monitor: 'Monitor in Whisparr',
   monitored: 'Monitored in Whisparr',
+  scenesMonitored: 'Scenes Monitored',
+  moviesMonitored: 'Movies Monitored',
+  monitorMovies: 'Monitor Movies',
+  monitorScenes: 'Monitor Scenes',
   unmonitor: 'Stop Monitoring',
   monitorTitle: 'Monitor {name}',
-  monitorPerformer:
-    'Whisparr will add every scene with {name} and download new scenes as they are released.',
-  monitorStudio:
-    'Whisparr will add every scene from {name} and download new scenes as they are released.',
-  searchExisting: 'Search for existing scenes now',
+  monitorAll:
+    'Whisparr will add every scene and movie {type, select, performer {with} other {from}} {name} and download new ones as they are released.',
+  monitorMaybeMovies:
+    "Whisparr will add every scene {type, select, performer {with} other {from}} {name} and download new ones as they are released. It adds their movies too if StashDB links {name} to Whisparr's movie metadata source.",
+  monitorScenesOnly:
+    "Whisparr will add every scene {type, select, performer {with} other {from}} {name} and download new ones as they are released. It cannot add their movies, as StashDB does not link {name} to Whisparr's movie metadata source.",
+  searchExisting: 'Search for existing titles now',
   searchExistingTip:
-    'Starts a search for every scene that is not downloaded yet. This can queue a lot of downloads.',
+    'Starts a search for every scene and movie that is not downloaded yet. This can queue a lot of downloads.',
   monitorSuccess: 'Whisparr is now monitoring <strong>{name}</strong>.',
   unmonitorSuccess: 'Whisparr stopped monitoring <strong>{name}</strong>.',
   monitorError: 'Something went wrong while updating Whisparr.',
@@ -40,7 +46,8 @@ interface MonitorControlsProps {
   onChange: (status: WhisparrMonitorStatus) => void;
 }
 
-// Whisparr monitoring of a StashDB performer or studio
+// Whisparr monitoring of a StashDB performer or studio: their scenes, and their
+// movies where Whisparr can add them
 const MonitorControls = ({
   type,
   id,
@@ -53,6 +60,17 @@ const MonitorControls = ({
   const [showConfirm, setShowConfirm] = useState(false);
   const [search, setSearch] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const anyMonitored = status.monitored || status.moviesMonitored;
+  // Scenes, and movies unless Whisparr cannot add them
+  const fullyMonitored =
+    status.monitored &&
+    (status.moviesMonitored || status.moviesAvailable !== true);
+  const description =
+    status.moviesAvailable === true
+      ? messages.monitorAll
+      : status.moviesAvailable === false
+        ? messages.monitorScenesOnly
+        : messages.monitorMaybeMovies;
 
   const update = async (monitored: boolean) => {
     setIsUpdating(true);
@@ -103,12 +121,7 @@ const MonitorControls = ({
           backgroundClickable
         >
           <p className="text-gray-300">
-            {intl.formatMessage(
-              type === 'performer'
-                ? messages.monitorPerformer
-                : messages.monitorStudio,
-              { name }
-            )}
+            {intl.formatMessage(description, { type, name })}
           </p>
           <div className="mt-4 flex items-start space-x-3">
             <input
@@ -135,7 +148,7 @@ const MonitorControls = ({
           <span>{intl.formatMessage(messages.openinwhisparr)}</span>
         </Button>
       </a>
-      {status.monitored ? (
+      {anyMonitored ? (
         <Button
           buttonType="success"
           disabled={isUpdating}
@@ -146,7 +159,13 @@ const MonitorControls = ({
           <CheckIcon className="group-hover:hidden" />
           <EyeSlashIcon className="hidden group-hover:block" />
           <span className="group-hover:hidden">
-            {intl.formatMessage(messages.monitored)}
+            {intl.formatMessage(
+              fullyMonitored
+                ? messages.monitored
+                : status.monitored
+                  ? messages.scenesMonitored
+                  : messages.moviesMonitored
+            )}
           </span>
           <span className="hidden group-hover:inline">
             {intl.formatMessage(messages.unmonitor)}
@@ -160,6 +179,21 @@ const MonitorControls = ({
         >
           <EyeIcon />
           <span>{intl.formatMessage(messages.monitor)}</span>
+        </Button>
+      )}
+      {/* Monitoring completes the half Whisparr does not monitor yet */}
+      {anyMonitored && !fullyMonitored && (
+        <Button
+          buttonType="primary"
+          disabled={isUpdating}
+          onClick={() => setShowConfirm(true)}
+        >
+          <EyeIcon />
+          <span>
+            {intl.formatMessage(
+              status.monitored ? messages.monitorMovies : messages.monitorScenes
+            )}
+          </span>
         </Button>
       )}
     </>

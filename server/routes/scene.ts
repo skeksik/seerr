@@ -1,4 +1,7 @@
-import type { WhisparrCreditType } from '@server/api/servarr/whisparr';
+import type {
+  WhisparrCredit,
+  WhisparrCreditType,
+} from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import type { StashDbSceneQuery } from '@server/api/stashdb';
 import StashDbAPI from '@server/api/stashdb';
@@ -136,6 +139,36 @@ const whisparrClient = () => {
   return server ? { server, api: WhisparrAPI.forServer(server) } : undefined;
 };
 
+const monitorStatus = async (
+  whisparr: NonNullable<ReturnType<typeof whisparrClient>>,
+  type: WhisparrCreditType,
+  foreignId: string,
+  credit: WhisparrCredit | null
+): Promise<WhisparrMonitorStatus> => {
+  let moviesAvailable: boolean | undefined;
+
+  if (credit) {
+    try {
+      moviesAvailable = WhisparrAPI.canMonitorMovies(
+        credit,
+        await whisparr.api.getMovieMetadataSource()
+      );
+    } catch (e) {
+      logger.debug('Unable to retrieve the Whisparr movie metadata source', {
+        label: 'API',
+        errorMessage: e.message,
+      });
+    }
+  }
+
+  return {
+    monitored: !!credit?.monitored,
+    moviesMonitored: !!credit?.moviesMonitored,
+    moviesAvailable,
+    serviceUrl: whisparrServiceUrl(whisparr.server, `/${type}/${foreignId}`),
+  };
+};
+
 // Monitoring is a request manager tool; a Whisparr outage only hides it
 const getMonitorStatus = async (
   req: Request,
@@ -150,10 +183,7 @@ const getMonitorStatus = async (
 
   try {
     const credit = await whisparr.api.getCredit(type, foreignId);
-    return {
-      monitored: !!credit?.monitored,
-      serviceUrl: whisparrServiceUrl(whisparr.server, `/${type}/${foreignId}`),
-    };
+    return await monitorStatus(whisparr, type, foreignId, credit);
   } catch (e) {
     logger.debug('Unable to retrieve Whisparr monitoring status', {
       label: 'API',
@@ -1048,10 +1078,9 @@ sceneRoutes.post<{ type: string; id: string }>(
         }
       );
 
-      return res.status(200).json({
-        monitored: !!credit?.monitored,
-        serviceUrl: whisparrServiceUrl(server, `/${type}/${parsedId.data}`),
-      } satisfies WhisparrMonitorStatus);
+      return res
+        .status(200)
+        .json(await monitorStatus(whisparr, type, parsedId.data, credit));
     } catch (e) {
       logger.error('Unable to update Whisparr monitoring', {
         label: 'API',
