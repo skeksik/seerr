@@ -5,15 +5,11 @@ import TpdbAPI from '@server/api/tpdb';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
-import {
-  classifyMovie,
-  hiddenOrientations,
-  isHidden,
-} from '@server/lib/orientation';
+import { classifyMovies, mapAdultMovieList } from '@server/lib/adultMedia';
+import { hiddenOrientations, isHidden } from '@server/lib/orientation';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
-import { mapAdultMovieResult } from '@server/models/AdultMovie';
 import type { PerformerResult } from '@server/models/Scene';
 import { mapSearchResults } from '@server/models/Search';
 import { Router } from 'express';
@@ -92,24 +88,14 @@ const searchAdult = async (
   const performerResults = [...stashDbResults, ...tpdbResults];
   // Disabled and unchecked sexual preferences stay out of search too
   const hidden = hiddenOrientations(user);
-  const shownMovies = (movies?.data ?? []).filter(
-    (movie) => !isHidden(classifyMovie(movie), hidden)
-  );
-  const media = await Media.getRelatedAdultMovies(
-    shownMovies.map((movie) => movie.id),
-    user
+  const shownMovies = classifyMovies(movies?.data ?? []).filter(
+    ({ orientations }) => !isHidden(orientations, hidden)
   );
 
   return {
     results: [
       ...performerResults,
-      ...shownMovies.map((movie) => ({
-        ...mapAdultMovieResult(
-          movie,
-          media.find((m) => m.tpdbId === movie.id)
-        ),
-        orientations: classifyMovie(movie),
-      })),
+      ...(await mapAdultMovieList(shownMovies, user)),
     ],
     totalPages: movies?.meta.last_page ?? 0,
     totalResults: (movies?.meta.total ?? 0) + performerResults.length,

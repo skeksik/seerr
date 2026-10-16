@@ -18,7 +18,7 @@ describe('Scene media', () => {
       new Media({ mediaType: MediaType.SCENE, stashId: SCENE_ID, tmdbId: null })
     );
 
-    const media = await Media.getMediaByStashId(SCENE_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
 
     assert.ok(media);
     assert.strictEqual(media.mediaType, MediaType.SCENE);
@@ -48,7 +48,10 @@ describe('Scene media', () => {
       new Media({ mediaType: MediaType.MOVIE, stashId: SCENE_ID, tmdbId: 1 })
     );
 
-    assert.strictEqual(await Media.getMediaByStashId(SCENE_ID), undefined);
+    assert.strictEqual(
+      await Media.getAdultMedia(MediaType.SCENE, SCENE_ID),
+      undefined
+    );
   });
 });
 

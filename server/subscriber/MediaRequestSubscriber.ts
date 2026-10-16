@@ -11,6 +11,7 @@ import {
   MediaRequestStatus,
   MediaStatus,
   MediaType,
+  isAdultMediaType,
 } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
@@ -24,6 +25,7 @@ import { sendToWhisparr } from '@server/lib/whisparrRequest';
 import logger from '@server/logger';
 import { requireTmdbId } from '@server/utils/mediaIds';
 import { withNestedTransaction } from '@server/utils/nestedTransaction';
+import { sanitizeDisplayName } from '@server/utils/sanitizeDisplayName';
 import { isEqual, truncate } from 'lodash';
 import type {
   EntityManager,
@@ -33,16 +35,6 @@ import type {
   UpdateEvent,
 } from 'typeorm';
 import { EventSubscriber, Not } from 'typeorm';
-
-const sanitizeDisplayName = (displayName: string): string => {
-  return displayName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/gi, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-};
 
 @EventSubscriber()
 export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRequest> {
@@ -1104,10 +1096,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         if (event.entity.media.mediaType === MediaType.TV) {
           await this.notifyAvailableSeries(event.entity as MediaRequest, event);
         }
-        if (
-          event.entity.media.mediaType === MediaType.SCENE ||
-          event.entity.media.mediaType === MediaType.ADULT_MOVIE
-        ) {
+        if (isAdultMediaType(event.entity.media.mediaType)) {
           await this.notifyAvailableScene(event.entity as MediaRequest, event);
         }
       }

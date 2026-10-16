@@ -8,7 +8,7 @@ import { Router } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { ZodError } from 'zod';
 
-import { isAdultMediaType, MediaType } from '@server/constants/media';
+import { isAdultMediaType, parseMediaType } from '@server/constants/media';
 import {
   adultWatchlistCreate,
   watchlistCreate,
@@ -82,8 +82,8 @@ watchlistRoutes.delete('/:tmdbId', async (req, res, next) => {
     });
   }
   try {
-    const mediaType = req.query.mediaType as MediaType;
-    if (!Object.values(MediaType).includes(mediaType)) {
+    const mediaType = parseMediaType(req.query.mediaType);
+    if (!mediaType) {
       return next({
         status: 400,
         message: 'Invalid mediaType query parameter.',

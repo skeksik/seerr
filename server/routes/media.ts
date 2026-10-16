@@ -8,6 +8,7 @@ import {
   isTmdbMedia,
   MediaStatus,
   MediaType,
+  parseMediaType,
 } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
@@ -21,9 +22,9 @@ import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import {
+  findWhisparrItem,
   getWhisparrServer,
   isWhisparrMedia,
-  lookupWhisparrItem,
 } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
@@ -89,11 +90,10 @@ mediaRoutes.get('/', async (req, res, next) => {
   // Comma-separated, e.g. scene for the recently added scenes row
   const mediaTypes =
     typeof req.query.mediaType === 'string'
-      ? req.query.mediaType
-          .split(',')
-          .filter((type): type is MediaType =>
-            Object.values(MediaType).includes(type as MediaType)
-          )
+      ? req.query.mediaType.split(',').flatMap((type) => {
+          const mediaType = parseMediaType(type);
+          return mediaType ? [mediaType] : [];
+        })
       : [];
 
   // Each clause is one media type group; a row matches any of them
@@ -296,11 +296,12 @@ mediaRoutes.delete(
           });
         }
 
-        const whisparr = new WhisparrAPI({
-          apiKey: server.apiKey,
-          url: WhisparrAPI.buildUrl(server, '/api/v3'),
-        });
-        const item = await lookupWhisparrItem(whisparr, media);
+        const whisparr = WhisparrAPI.forServer(server);
+        const item = await findWhisparrItem(
+          whisparr,
+          media,
+          is4k ? media.externalServiceId4k : media.externalServiceId
+        );
         await whisparr.removeItem(item);
 
         media[is4k ? 'status4k' : 'status'] = MediaStatus.DELETED;

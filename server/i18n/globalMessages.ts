@@ -1,3 +1,4 @@
+import { MediaType } from '@server/constants/media';
 import { defineMessages } from '@server/i18n';
 
 const globalMessages = defineMessages('notifications.common', {
@@ -24,5 +25,14 @@ const globalMessages = defineMessages('notifications.common', {
   issue: 'issue',
   issueTypeName: '{type} issue',
 });
+
+// The name of a media type in notification text
+export const mediaTypeMessage = (mediaType: MediaType) =>
+  ({
+    [MediaType.MOVIE]: globalMessages.movie,
+    [MediaType.TV]: globalMessages.series,
+    [MediaType.SCENE]: globalMessages.scene,
+    [MediaType.ADULT_MOVIE]: globalMessages.adultMovie,
+  })[mediaType];
 
 export default globalMessages;

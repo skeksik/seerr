@@ -1,7 +1,9 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
+import type { TmdbMediaType } from '@server/constants/media';
 import {
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -245,12 +247,13 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
         })
       );
 
+      // Whisparr profiles only matter to pages with scenes or adult movies
       const whisparrServers = await Promise.all(
-        settings.whisparr.map(async (whisparrSetting) => {
-          const whisparr = new WhisparrAPI({
-            apiKey: whisparrSetting.apiKey,
-            url: WhisparrAPI.buildUrl(whisparrSetting, '/api/v3'),
-          });
+        (requests.some((r) => isWhisparrMedia(r.media))
+          ? settings.whisparr
+          : []
+        ).map(async (whisparrSetting) => {
+          const whisparr = WhisparrAPI.forServer(whisparrSetting);
 
           return {
             id: whisparrSetting.id,
@@ -270,7 +273,8 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
           };
         }
 
-        switch (r.type) {
+        // Scenes and adult movies are Whisparr media, handled above
+        switch (r.type as TmdbMediaType) {
           case MediaType.MOVIE: {
             const profileName = radarrServers
               .find((serverr) => serverr.id === r.serverId)
@@ -289,11 +293,6 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 ?.profiles?.find((profile) => profile.id === r.profileId)?.name,
             };
           }
-          case MediaType.SCENE:
-          case MediaType.ADULT_MOVIE: {
-            // Handled above, adult media always belongs to Whisparr
-            return { ...r, profileName: undefined };
-          }
         }
       });
 
@@ -311,7 +310,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             };
           }
 
-          switch (r.type) {
+          switch (r.type as TmdbMediaType) {
             case MediaType.MOVIE: {
               return {
                 ...r,
@@ -333,11 +332,6 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                     (r.is4k ? r.media.serviceId4k : r.media.serviceId)
                 ),
               };
-            }
-            case MediaType.SCENE:
-            case MediaType.ADULT_MOVIE: {
-              // Handled above, adult media always belongs to Whisparr
-              return { ...r, canRemove: false };
             }
           }
         });
@@ -622,8 +616,7 @@ requestRoutes.put<{ requestId: string }>(
           // Scenes and adult movies share the movie edit fields
           if (
             req.body.mediaType === MediaType.MOVIE ||
-            req.body.mediaType === MediaType.SCENE ||
-            req.body.mediaType === MediaType.ADULT_MOVIE
+            isAdultMediaType(req.body.mediaType)
           ) {
             if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();

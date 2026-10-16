@@ -10,7 +10,11 @@ import type {
   TmdbTvDetails,
   TmdbTvScanDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaRequestStatus, MediaStatus } from '@server/constants/media';
+import {
+  MediaRequestStatus,
+  MediaStatus,
+  isAdultMediaType,
+} from '@server/constants/media';
 import { MediaServerType } from '@server/constants/server';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
@@ -135,7 +139,7 @@ class AvailabilitySync {
           throw new Error('Job aborted');
         }
 
-        if (media.mediaType === 'scene' || media.mediaType === 'adultmovie') {
+        if (isAdultMediaType(media.mediaType)) {
           await syncSceneAvailability(media);
           continue;
         }

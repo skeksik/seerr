@@ -18,7 +18,8 @@ import type {
 import cacheManager from '@server/lib/cache';
 import { getSettings } from '@server/lib/settings';
 
-const IMAGE_FIELDS = 'id url width height';
+// pickImage only reads the url and width
+const IMAGE_FIELDS = 'url width';
 
 const SCENE_SUMMARY_FIELDS = `
   id
@@ -42,7 +43,7 @@ const SCENE_FIELDS = `
   director
   deleted
   urls { url site { name icon } }
-  tags { id name description }
+  tags { id name }
 `;
 
 const SCENE_LIST_FIELDS = `count scenes { ${SCENE_SUMMARY_FIELDS} }`;
@@ -52,8 +53,6 @@ const DETAILS_TTL = 21600;
 const LIST_TTL = 3600;
 // Scenes read to rank studios by; one request takes a few seconds
 const RANKED_SCENES = 5000;
-// The Studios and Networks rows ask for the same ranking at once
-const pendingSceneStudios = new Map<string, Promise<StashDbSceneStudio[]>>();
 
 export class StashDbNotConfiguredError extends Error {
   constructor() {
@@ -85,6 +84,12 @@ export interface StashDbSceneQuery {
   timeout?: number;
 }
 
+// Each criterion takes the studios under a studio, so their children are
+// looked up for the included studios, or the excluded ones when none are
+// included; see sceneInput
+const studioLookups = ({ studioIds, exclude }: StashDbSceneQuery): string[] =>
+  studioIds?.length ? studioIds : (exclude?.studioIds ?? []);
+
 export interface StashDbLookup {
   id: string;
   name: string;
@@ -92,7 +97,13 @@ export interface StashDbLookup {
   imageUrl?: string;
 }
 
+// One client per endpoint and key, so the rate limit holds across requests
+let shared: { key: string; api: StashDbAPI } | undefined;
+
 class StashDbAPI extends ExternalAPI {
+  // Requests on their way, so callers asking the same at once share one
+  private pending = new Map<string, Promise<unknown>>();
+
   constructor({ endpoint, apiKey }: { endpoint: string; apiKey: string }) {
     super(
       endpoint,
@@ -114,12 +125,35 @@ class StashDbAPI extends ExternalAPI {
       throw new StashDbNotConfiguredError();
     }
 
-    return new StashDbAPI({ endpoint, apiKey });
+    const key = `${endpoint}|${apiKey}`;
+    if (shared?.key !== key) {
+      shared = { key, api: new StashDbAPI({ endpoint, apiKey }) };
+    }
+    return shared.api;
   }
 
-  private async query<T>(
+  private query<T>(
     query: string,
     variables: Record<string, unknown> = {},
+    ttl?: number,
+    timeout?: number
+  ): Promise<T> {
+    const key = JSON.stringify({ query, variables });
+    const pending = this.pending.get(key);
+    if (pending) {
+      return pending as Promise<T>;
+    }
+
+    const request = this.send<T>(query, variables, ttl, timeout).finally(() =>
+      this.pending.delete(key)
+    );
+    this.pending.set(key, request);
+    return request;
+  }
+
+  private async send<T>(
+    query: string,
+    variables: Record<string, unknown>,
     ttl?: number,
     timeout?: number
   ): Promise<T> {
@@ -187,7 +221,12 @@ class StashDbAPI extends ExternalAPI {
   ): Promise<StashDbSceneList> {
     const data = await this.query<{ queryScenes: StashDbSceneList }>(
       `query ($input: SceneQueryInput!) { queryScenes(input: $input) { ${SCENE_LIST_FIELDS} } }`,
-      { input: await this.sceneInput(query) },
+      {
+        input: this.sceneInput(
+          query,
+          await this.childStudios(studioLookups(query))
+        ),
+      },
       LIST_TTL,
       query.timeout
     );
@@ -201,12 +240,14 @@ class StashDbAPI extends ExternalAPI {
       return [];
     }
 
+    // The studios of every query are looked up together
+    const children = await this.childStudios([
+      ...new Set(queries.flatMap(studioLookups)),
+    ]);
     // Trending counts only the scenes trending now, so the count goes by
     // date, which counts them all
-    const inputs = await Promise.all(
-      queries.map((query) =>
-        this.sceneInput({ ...query, sort: 'DATE', perPage: 1 })
-      )
+    const inputs = queries.map((query) =>
+      this.sceneInput({ ...query, sort: 'DATE', perPage: 1 }, children)
     );
     const data = await this.query<Record<string, { count: number }>>(
       `query (${inputs.map((_, i) => `$c${i}: SceneQueryInput!`).join(', ')}) {
@@ -220,19 +261,27 @@ class StashDbAPI extends ExternalAPI {
   }
 
   // stash-box takes one criterion per field, so an exclusion only goes along
-  // when nothing is included on that field; callers filter out the rest
-  private async sceneInput({
-    page = 1,
-    perPage = 20,
-    sort = 'TRENDING',
-    direction = 'DESC',
-    studioIds,
-    performerIds,
-    tagIds,
-    date,
-    any,
-    exclude,
-  }: StashDbSceneQuery): Promise<Record<string, unknown>> {
+  // when nothing is included on that field; callers filter out the rest.
+  // Studios take in the studios under them, from childStudios
+  private sceneInput(
+    {
+      page = 1,
+      perPage = 20,
+      sort = 'TRENDING',
+      direction = 'DESC',
+      studioIds,
+      performerIds,
+      tagIds,
+      date,
+      any,
+      exclude,
+    }: StashDbSceneQuery,
+    children: Map<string, string[]>
+  ): Record<string, unknown> {
+    const withChildren = (ids?: string[]) =>
+      ids?.length
+        ? [...new Set([...ids, ...ids.flatMap((id) => children.get(id) ?? [])])]
+        : undefined;
     const criterion = (
       include: string[] | undefined,
       excluded: string[] | undefined,
@@ -250,10 +299,8 @@ class StashDbAPI extends ExternalAPI {
       sort,
       direction,
       studios: criterion(
-        studioIds?.length ? await this.withChildStudios(studioIds) : undefined,
-        exclude?.studioIds?.length
-          ? await this.withChildStudios(exclude.studioIds)
-          : undefined,
+        withChildren(studioIds),
+        withChildren(exclude?.studioIds),
         'INCLUDES'
       ),
       performers: criterion(
@@ -344,6 +391,19 @@ class StashDbAPI extends ExternalAPI {
   // Networks hold no scenes of their own, so a studio filter also takes in
   // the studios under it
   public async withChildStudios(ids: string[]): Promise<string[]> {
+    const children = await this.childStudios(ids);
+
+    return [
+      ...new Set([...ids, ...ids.flatMap((id) => children.get(id) ?? [])]),
+    ];
+  }
+
+  // The studios under each studio, in one request
+  private async childStudios(ids: string[]): Promise<Map<string, string[]>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
     const data = await this.query<
       Record<string, { child_studios: { id: string }[] } | null>
     >(
@@ -354,14 +414,12 @@ class StashDbAPI extends ExternalAPI {
       DETAILS_TTL
     );
 
-    return [
-      ...new Set([
-        ...ids,
-        ...Object.values(data).flatMap(
-          (studio) => studio?.child_studios.map((child) => child.id) ?? []
-        ),
-      ]),
-    ];
+    return new Map(
+      ids.map((id, i) => [
+        id,
+        data[`s${i}`]?.child_studios.map((child) => child.id) ?? [],
+      ])
+    );
   }
 
   public async getPerformer(id: string): Promise<StashDbPerformer | null> {
@@ -451,23 +509,9 @@ class StashDbAPI extends ExternalAPI {
   }
 
   // The studios of the most trending or popular scenes, one per scene, for
-  // ranking studios; stash-box cannot sort studios on either
+  // ranking studios; stash-box cannot sort studios on either. The Studios
+  // and Networks rows ask for the same ranking at once, and share it
   public async getSceneStudios(
-    sort: 'TRENDING' | 'POPULARITY'
-  ): Promise<StashDbSceneStudio[]> {
-    const pending = pendingSceneStudios.get(sort);
-    if (pending) {
-      return pending;
-    }
-
-    const request = this.querySceneStudios(sort).finally(() =>
-      pendingSceneStudios.delete(sort)
-    );
-    pendingSceneStudios.set(sort, request);
-    return request;
-  }
-
-  private async querySceneStudios(
     sort: 'TRENDING' | 'POPULARITY'
   ): Promise<StashDbSceneStudio[]> {
     const studio = `id name images { ${IMAGE_FIELDS} }`;

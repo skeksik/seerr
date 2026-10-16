@@ -27,9 +27,12 @@ class StashScanner
   implements RunnableScanner<StatusBase>
 {
   private endpoint = '';
+  // Scene rows by StashDB id, read once a run
+  private existing = new Map<string, Media>();
 
   constructor() {
-    super('Stash Scan', { bundleSize: 50 });
+    // Each scene only looks up rows read up front, so bundles need no pause
+    super('Stash Scan', { bundleSize: 50, updateRate: 100 });
   }
 
   public status(): StatusBase {
@@ -51,9 +54,16 @@ class StashScanner
     try {
       this.endpoint = normalizeEndpoint(getSettings().stashdb.endpoint);
       const stash = StashAPI.fromSettings();
-      const linked = await stash.getLinkedScenes();
-      const unidentified = (await stash.getUnidentifiedScenes()).filter(
-        (scene) => stashIdFromPath(scene)
+      const [linked, unnamed, scenes] = await Promise.all([
+        stash.getLinkedScenes(),
+        stash.getUnidentifiedScenes(),
+        getRepository(Media).find({ where: { mediaType: MediaType.SCENE } }),
+      ]);
+      const unidentified = unnamed.filter((scene) => stashIdFromPath(scene));
+      this.existing = new Map(
+        scenes.flatMap((media) =>
+          media.stashId ? [[media.stashId, media] as const] : []
+        )
       );
       this.items = [...linked, ...unidentified];
       this.log(
@@ -66,6 +76,9 @@ class StashScanner
     } catch (e) {
       this.log('Scan interrupted', 'error', { errorMessage: e.message });
     } finally {
+      if (this.sessionId === sessionId) {
+        this.existing.clear();
+      }
       this.endRun(sessionId);
     }
   }
@@ -85,29 +98,29 @@ class StashScanner
 
     try {
       await this.asyncLock.dispatch(stashId, async () => {
-        const media =
-          (await mediaRepository.findOne({
-            where: { stashId, mediaType: MediaType.SCENE },
-          })) ??
-          new Media({ mediaType: MediaType.SCENE, stashId, tmdbId: null });
+        const known = this.existing.get(stashId);
 
-        const changed =
-          !media.id ||
-          media.status !== MediaStatus.AVAILABLE ||
-          media.stashMediaId !== scene.id;
-
-        if (!changed) {
+        if (
+          known?.status === MediaStatus.AVAILABLE &&
+          known.stashMediaId === scene.id
+        ) {
           this.log(
             `Title already exists and no changes detected for ${scene.title}`
           );
           return;
         }
 
+        // Read again to change, as other scans may have saved it since
+        const media =
+          (known &&
+            (await mediaRepository.findOne({ where: { id: known.id } }))) ||
+          new Media({ mediaType: MediaType.SCENE, stashId, tmdbId: null });
+
         media.stashMediaId = scene.id;
         media.status = MediaStatus.AVAILABLE;
         media.mediaAddedAt ??= new Date(scene.created_at);
 
-        await mediaRepository.save(media);
+        this.existing.set(stashId, await mediaRepository.save(media));
         this.log(`Scene available in Stash: ${scene.title || stashId}`);
       });
     } catch (e) {

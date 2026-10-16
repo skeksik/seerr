@@ -110,7 +110,7 @@ describe('Scene requests', () => {
 
     assert.strictEqual(request.status, MediaRequestStatus.PENDING);
     assert.strictEqual(request.type, MediaType.SCENE);
-    const media = await Media.getMediaByStashId(STASH_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
     assert.ok(media);
     assert.strictEqual(media.tmdbId, null);
     assert.strictEqual(media.status, MediaStatus.PENDING);
@@ -172,7 +172,7 @@ describe('Scene requests', () => {
       monitored: true,
       searchNow: true,
     });
-    const media = await Media.getMediaByStashId(STASH_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);
     assert.strictEqual(media?.serviceId, 0);
     assert.strictEqual(media?.externalServiceId, 42);
     assert.strictEqual(media?.externalServiceSlug, STASH_ID);
@@ -444,7 +444,7 @@ describe('Adult movie requests', () => {
     const request = await requestAdultMovie(user);
 
     assert.strictEqual(request.type, MediaType.ADULT_MOVIE);
-    const media = await Media.getMediaByTpdbId(TPDB_ID);
+    const media = await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID);
     assert.strictEqual(media?.isAdult, true);
     assert.strictEqual(media?.tmdbId, null);
     assert.strictEqual(media?.status, MediaStatus.PENDING);

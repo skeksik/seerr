@@ -1,8 +1,9 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
-import WhisparrAPI from '@server/api/servarr/whisparr';
 import { stashUrl } from '@server/api/stash';
+import type { AdultMediaType } from '@server/constants/media';
 import {
+  adultIdField,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -16,7 +17,7 @@ import type { DownloadingItem } from '@server/lib/downloadtracker';
 import downloadTracker from '@server/lib/downloadtracker';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
-import { isWhisparrMedia } from '@server/lib/whisparrMedia';
+import { isWhisparrMedia, whisparrServiceUrl } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { getHostname } from '@server/utils/getHostname';
@@ -119,7 +120,7 @@ class Media {
 
   // Scenes and adult movies by external id, with the viewer's watchlist entry
   private static async getRelatedAdultMedia(
-    mediaType: MediaType.SCENE | MediaType.ADULT_MOVIE,
+    mediaType: AdultMediaType,
     ids: string[],
     user?: User
   ): Promise<Media[]> {
@@ -127,7 +128,7 @@ class Media {
       return [];
     }
 
-    const idField = mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
+    const idField = adultIdField(mediaType);
 
     try {
       return await getRepository(Media)
@@ -161,30 +162,14 @@ class Media {
     return this.getRelatedAdultMedia(MediaType.ADULT_MOVIE, tpdbIds, user);
   }
 
-  public static async getMediaByTpdbId(
-    tpdbId: string
+  // A scene or adult movie by its StashDB or ThePornDB id
+  public static async getAdultMedia(
+    mediaType: AdultMediaType,
+    externalId: string
   ): Promise<Media | undefined> {
     try {
       const media = await getRepository(Media).findOne({
-        where: { tpdbId, mediaType: MediaType.ADULT_MOVIE },
-        relations: { requests: true, issues: true },
-      });
-
-      return media ?? undefined;
-    } catch (e) {
-      logger.error(e.message);
-      return undefined;
-    }
-  }
-
-  public static async getMediaByStashId(
-    stashId: string
-  ): Promise<Media | undefined> {
-    const mediaRepository = getRepository(Media);
-
-    try {
-      const media = await mediaRepository.findOne({
-        where: { stashId, mediaType: MediaType.SCENE },
+        where: { [adultIdField(mediaType)]: externalId, mediaType },
         relations: { requests: true, issues: true },
       });
 
@@ -433,9 +418,7 @@ class Media {
         if (!server || !slug) {
           return undefined;
         }
-        return server.externalUrl
-          ? `${server.externalUrl}/movie/${slug}`
-          : WhisparrAPI.buildUrl(server, `/movie/${slug}`);
+        return whisparrServiceUrl(server, `/movie/${slug}`);
       };
 
       this.serviceUrl = buildUrl(this.serviceId, this.externalServiceSlug);

@@ -1,3 +1,4 @@
+import type { WhisparrSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import ServarrBase from './base';
 
@@ -77,6 +78,13 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     super({ url, apiKey, cacheName: 'whisparr', apiName: 'Whisparr' });
   }
 
+  public static forServer(server: WhisparrSettings): WhisparrAPI {
+    return new WhisparrAPI({
+      apiKey: server.apiKey,
+      url: WhisparrAPI.buildUrl(server, '/api/v3'),
+    });
+  }
+
   // Whisparr also holds every scene of the performers and studios it follows,
   // usually tens of thousands of unmonitored entries. Only monitored items can
   // belong to Seerr requests, so the scan pages through those alone.
@@ -119,40 +127,6 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
       throw new Error(`[Whisparr] Failed to retrieve item: ${e.message}`, {
         cause: e,
       });
-    }
-  }
-
-  public async getLibraryItemsByStashId(
-    stashId: string
-  ): Promise<WhisparrItem[]> {
-    try {
-      const response = await this.axios.get<WhisparrItem[]>('/movie', {
-        params: { stashId },
-      });
-
-      return response.data;
-    } catch (e) {
-      throw new Error(
-        `[Whisparr] Failed to retrieve items by stash ID: ${e.message}`,
-        { cause: e }
-      );
-    }
-  }
-
-  public async getLibraryItemsByTmdbId(
-    tmdbId: number
-  ): Promise<WhisparrItem[]> {
-    try {
-      const response = await this.axios.get<WhisparrItem[]>('/movie', {
-        params: { tmdbId },
-      });
-
-      return response.data;
-    } catch (e) {
-      throw new Error(
-        `[Whisparr] Failed to retrieve items by TMDB ID: ${e.message}`,
-        { cause: e }
-      );
     }
   }
 
@@ -378,7 +352,10 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
   }
 
-  public async removeItem(item: WhisparrItem): Promise<void> {
+  // Takes a library item, or its id when the item itself is not needed
+  public async removeItem(
+    item: Pick<WhisparrItem, 'id' | 'title' | 'foreignId'>
+  ): Promise<void> {
     if (!item.id) {
       logger.info('[Whisparr] Item not in library, nothing to remove', {
         foreignId: item.foreignId,

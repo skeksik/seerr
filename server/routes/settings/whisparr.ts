@@ -36,50 +36,48 @@ whisparrRoutes.post('/', async (req, res) => {
   return res.status(201).json(newWhisparr);
 });
 
-whisparrRoutes.post<
-  undefined,
-  Record<string, unknown>,
-  WhisparrSettings & { tagLabel?: string }
->('/test', async (req, res, next) => {
-  try {
-    const whisparr = new WhisparrAPI({
-      apiKey: req.body.apiKey,
-      url: WhisparrAPI.buildUrl(req.body, '/api/v3'),
-    });
+whisparrRoutes.post<undefined, Record<string, unknown>, WhisparrSettings>(
+  '/test',
+  async (req, res, next) => {
+    try {
+      const whisparr = WhisparrAPI.forServer(req.body);
 
-    const status = await whisparr.getSystemStatus();
+      const status = await whisparr.getSystemStatus();
 
-    // v2 is a Sonarr fork with a different API and ThePornDB ids
-    if (!status.version?.startsWith('3.')) {
-      return next({
-        status: 400,
-        message: `Whisparr v3 is required, found ${status.version}`,
+      // v2 is a Sonarr fork with a different API and ThePornDB ids
+      if (!status.version?.startsWith('3.')) {
+        return next({
+          status: 400,
+          message: `Whisparr v3 is required, found ${status.version}`,
+        });
+      }
+
+      const urlBase = status.urlBase ?? req.body.baseUrl;
+      const [profiles, folders, tags] = await Promise.all([
+        whisparr.getProfiles(),
+        whisparr.getRootFolders(),
+        whisparr.getTags(),
+      ]);
+
+      return res.status(200).json({
+        profiles,
+        rootFolders: folders.map((folder) => ({
+          id: folder.id,
+          path: folder.path,
+        })),
+        tags,
+        urlBase,
       });
+    } catch (e) {
+      logger.error('Failed to test Whisparr', {
+        label: 'Whisparr',
+        message: e.message,
+      });
+
+      next({ status: 500, message: 'Failed to connect to Whisparr' });
     }
-
-    const urlBase = status.urlBase ?? req.body.baseUrl;
-    const profiles = await whisparr.getProfiles();
-    const folders = await whisparr.getRootFolders();
-    const tags = await whisparr.getTags();
-
-    return res.status(200).json({
-      profiles,
-      rootFolders: folders.map((folder) => ({
-        id: folder.id,
-        path: folder.path,
-      })),
-      tags,
-      urlBase,
-    });
-  } catch (e) {
-    logger.error('Failed to test Whisparr', {
-      label: 'Whisparr',
-      message: e.message,
-    });
-
-    next({ status: 500, message: 'Failed to connect to Whisparr' });
   }
-});
+);
 
 whisparrRoutes.put<{ id: string }, WhisparrSettings, WhisparrSettings>(
   '/:id',
@@ -126,10 +124,7 @@ whisparrRoutes.get<{ id: string }>('/:id/profiles', async (req, res, next) => {
     return next({ status: '404', message: 'Settings instance not found' });
   }
 
-  const whisparr = new WhisparrAPI({
-    apiKey: whisparrSettings.apiKey,
-    url: WhisparrAPI.buildUrl(whisparrSettings, '/api/v3'),
-  });
+  const whisparr = WhisparrAPI.forServer(whisparrSettings);
 
   const profiles = await whisparr.getProfiles();
 

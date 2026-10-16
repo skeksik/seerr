@@ -1,6 +1,7 @@
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
-import { MediaStatus, MediaType } from '@server/constants/media';
+import type { AdultMediaType } from '@server/constants/media';
+import { adultIdField, MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import type {
@@ -10,7 +11,8 @@ import type {
 import BaseScanner from '@server/lib/scanners/baseScanner';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
-import { uniqWith } from 'lodash';
+import { chunk, uniqWith } from 'lodash';
+import { In } from 'typeorm';
 
 type SyncStatus = StatusBase & {
   currentServer: WhisparrSettings;
@@ -28,6 +30,10 @@ class WhisparrScanner
 {
   private servers: WhisparrSettings[] = [];
   private currentServer: WhisparrSettings;
+  // Read once per server, so items mostly need no queries of their own
+  private requestedIds = new Set<number>();
+  private adultMedia = new Map<string, Media>();
+  private movies = new Map<number, Media>();
 
   constructor() {
     super('Whisparr Scan', { bundleSize: 50 });
@@ -71,12 +77,10 @@ class WhisparrScanner
           'info'
         );
 
-        const whisparr = new WhisparrAPI({
-          apiKey: server.apiKey,
-          url: WhisparrAPI.buildUrl(server, '/api/v3'),
-        });
+        const whisparr = WhisparrAPI.forServer(server);
 
         this.items = await whisparr.getMonitoredItems();
+        await this.preload(this.items);
         await this.loop(this.processItem.bind(this), { sessionId });
       }
 
@@ -84,8 +88,52 @@ class WhisparrScanner
     } catch (e) {
       this.log('Scan interrupted', 'error', { errorMessage: e.message });
     } finally {
+      if (this.sessionId === sessionId) {
+        this.requestedIds.clear();
+        this.adultMedia.clear();
+        this.movies.clear();
+      }
       this.endRun(sessionId);
     }
+  }
+
+  private async preload(items: WhisparrItem[]): Promise<void> {
+    const tmdbIds = [
+      ...new Set(
+        items.flatMap((item) =>
+          item.itemType === 'movie' && item.tmdbId > 0 ? [item.tmdbId] : []
+        )
+      ),
+    ];
+    const [requested, adult, movies] = await Promise.all([
+      getRepository(Media).query(
+        'SELECT DISTINCT "mediaId" FROM media_request'
+      ) as Promise<{ mediaId: number }[]>,
+      getRepository(Media).find({
+        where: { mediaType: In([MediaType.SCENE, MediaType.ADULT_MOVIE]) },
+      }),
+      // In batches, as databases cap the values a query takes
+      Promise.all(
+        chunk(tmdbIds, 500).map((ids) =>
+          getRepository(Media).find({
+            where: { tmdbId: In(ids), mediaType: MediaType.MOVIE },
+          })
+        )
+      ).then((lists) => lists.flat()),
+    ]);
+
+    this.requestedIds = new Set(requested.map(({ mediaId }) => mediaId));
+    this.adultMedia = new Map(
+      adult.flatMap((media) => {
+        const id = media[adultIdField(media.mediaType as AdultMediaType)];
+        return id ? [[`${media.mediaType}:${id}`, media] as const] : [];
+      })
+    );
+    this.movies = new Map(
+      movies.flatMap((media) =>
+        media.tmdbId ? [[media.tmdbId, media] as const] : []
+      )
+    );
   }
 
   private async processItem(item: WhisparrItem): Promise<void> {
@@ -117,15 +165,7 @@ class WhisparrScanner
       return;
     }
 
-    const trackedByTmdb =
-      hasTmdb &&
-      (await getRepository(Media).exist({
-        where: {
-          tmdbId: item.tmdbId,
-          mediaType: MediaType.MOVIE,
-          isAdult: true,
-        },
-      }));
+    const trackedByTmdb = hasTmdb && !!this.movies.get(item.tmdbId)?.isAdult;
 
     if (!trackedByTmdb) {
       await this.processExternal(
@@ -143,27 +183,22 @@ class WhisparrScanner
   private async processExternal(
     item: WhisparrItem,
     is4k: boolean,
-    mediaType: MediaType.SCENE | MediaType.ADULT_MOVIE,
+    mediaType: AdultMediaType,
     externalId: string
   ) {
     const mediaRepository = getRepository(Media);
-    const idField = mediaType === MediaType.SCENE ? 'stashId' : 'tpdbId';
+    const idField = adultIdField(mediaType);
+    const key = `${mediaType}:${externalId}`;
+    const statusField = is4k ? 'status4k' : 'status';
+    const serviceFields = {
+      [is4k ? 'serviceId4k' : 'serviceId']: this.currentServer.id,
+      [is4k ? 'externalServiceId4k' : 'externalServiceId']: item.id,
+      [is4k ? 'externalServiceSlug4k' : 'externalServiceSlug']: item.titleSlug,
+    } as Partial<Media>;
 
-    await this.asyncLock.dispatch(`${mediaType}:${externalId}`, async () => {
-      const media =
-        (await mediaRepository.findOne({
-          where: { [idField]: externalId, mediaType },
-          relations: { requests: true },
-        })) ??
-        new Media({
-          mediaType,
-          [idField]: externalId,
-          tmdbId: null,
-          isAdult: mediaType === MediaType.ADULT_MOVIE,
-        });
-      const requested = (media.requests ?? []).length > 0;
-
-      const statusField = is4k ? 'status4k' : 'status';
+    // The status the title should have, and whether that changes it
+    const plan = (media: Media) => {
+      const requested = !!media.id && this.requestedIds.has(media.id);
       const previous = media[statusField] ?? MediaStatus.UNKNOWN;
       const next = item.hasFile
         ? MediaStatus.AVAILABLE
@@ -176,32 +211,47 @@ class WhisparrScanner
               previous === MediaStatus.DELETED
             ? previous
             : MediaStatus.PROCESSING;
-
-      const serviceFields = {
-        [is4k ? 'serviceId4k' : 'serviceId']: this.currentServer.id,
-        [is4k ? 'externalServiceId4k' : 'externalServiceId']: item.id,
-        [is4k ? 'externalServiceSlug4k' : 'externalServiceSlug']:
-          item.titleSlug,
-      } as Partial<Media>;
-
       const changed =
         !media.id ||
         media[statusField] !== next ||
         Object.entries(serviceFields).some(
-          ([key, value]) => media[key as keyof Media] !== value
+          ([field, value]) => media[field as keyof Media] !== value
         );
 
-      if (!changed) {
+      return { next, changed };
+    };
+
+    const newMedia = () =>
+      new Media({
+        mediaType,
+        [idField]: externalId,
+        tmdbId: null,
+        isAdult: mediaType === MediaType.ADULT_MOVIE,
+      });
+
+    await this.asyncLock.dispatch(key, async () => {
+      const known = this.adultMedia.get(key);
+
+      if (known && !plan(known).changed) {
         this.log(
           `Title already exists and no changes detected for ${item.title}`
         );
         return;
       }
 
+      // Read again to change, as other scans may have saved it since
+      const media =
+        (known &&
+          (await mediaRepository.findOne({ where: { id: known.id } }))) ||
+        newMedia();
+      const { next, changed } = plan(media);
+
+      if (!changed) {
+        return;
+      }
+
       Object.assign(media, serviceFields);
       media[statusField] = next;
-      // Loaded to tell requested titles apart; saving must not touch them
-      delete (media as Partial<Media>).requests;
 
       if (next === MediaStatus.AVAILABLE && !media.mediaAddedAt) {
         media.mediaAddedAt = item.movieFile?.dateAdded
@@ -209,18 +259,14 @@ class WhisparrScanner
           : new Date();
       }
 
-      await mediaRepository.save(media);
+      this.adultMedia.set(key, await mediaRepository.save(media));
       this.log(`Updated ${mediaType}: ${item.title}`);
     });
   }
 
   private async processAdultMovie(item: WhisparrItem, is4k: boolean) {
-    const mediaRepository = getRepository(Media);
-    const existing = await mediaRepository.findOne({
-      where: { tmdbId: item.tmdbId, mediaType: MediaType.MOVIE },
-      relations: { requests: true },
-    });
-    const requested = (existing?.requests ?? []).length > 0;
+    const existing = this.movies.get(item.tmdbId);
+    const requested = !!existing && this.requestedIds.has(existing.id);
 
     // Radarr already manages this movie; leave its service ids alone
     if (
@@ -237,14 +283,17 @@ class WhisparrScanner
       externalServiceId: item.id,
       externalServiceSlug: item.titleSlug,
       title: item.title,
-      processing: !item.hasFile && item.monitored && requested,
+      // Only monitored items are scanned
+      processing: !item.hasFile && requested,
       hasFile: item.hasFile,
     });
 
-    await mediaRepository.update(
-      { tmdbId: item.tmdbId, mediaType: MediaType.MOVIE, isAdult: false },
-      { isAdult: true }
-    );
+    if (!existing?.isAdult) {
+      await getRepository(Media).update(
+        { tmdbId: item.tmdbId, mediaType: MediaType.MOVIE, isAdult: false },
+        { isAdult: true }
+      );
+    }
   }
 }
 

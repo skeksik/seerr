@@ -13,7 +13,7 @@ import type {
   GenreSliderItem,
   WatchlistResponse,
 } from '@server/interfaces/api/discoverInterfaces';
-import { canViewAdult } from '@server/lib/adult';
+import { adultWatchlistWhere } from '@server/lib/adult';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapProductionCompany } from '@server/models/Movie';
@@ -27,7 +27,6 @@ import { mapNetwork } from '@server/models/Tv';
 import { isCollection, isMovie, isPerson } from '@server/utils/typeHelpers';
 import { Router } from 'express';
 import { sortBy } from 'lodash';
-import { In } from 'typeorm';
 import { z } from 'zod';
 
 export const createTmdbWithRegionLanguage = (user?: User): TheMovieDb => {
@@ -959,10 +958,7 @@ discoverRoutes.get<Record<string, unknown>, WatchlistResponse>(
       const [result, total] = await getRepository(Watchlist).findAndCount({
         where: {
           requestedBy: { id: activeUser?.id },
-          // Scenes and adult movies only for viewers who may see them
-          ...(canViewAdult(req.user)
-            ? {}
-            : { mediaType: In([MediaType.MOVIE, MediaType.TV]) }),
+          ...adultWatchlistWhere(req.user),
         },
         relations: {
           /*requestedBy: true,media:true*/

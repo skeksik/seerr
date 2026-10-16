@@ -164,6 +164,17 @@ export class Watchlist implements WatchlistItem {
     externalId: string;
     user: User;
   }): Promise<Watchlist> {
+    const isListed = (id: string) =>
+      getRepository(Watchlist).exist({
+        where: { externalId: id, mediaType, requestedBy: { id: user.id } },
+      });
+
+    // Checked before the lookup too, which costs a StashDB or ThePornDB
+    // request
+    if (await isListed(externalId)) {
+      throw new DuplicateWatchlistRequestError();
+    }
+
     const found = await lookupAdultTitle(mediaType, externalId);
 
     if (!found) {

@@ -3,7 +3,7 @@ import { MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { User } from '@server/entity/User';
 import { defineMessages, getIntl } from '@server/i18n';
-import globalMessages from '@server/i18n/globalMessages';
+import { mediaTypeMessage } from '@server/i18n/globalMessages';
 import PreparedEmail from '@server/lib/email';
 import type { NotificationAgentEmail } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
@@ -126,15 +126,7 @@ class EmailAgent
     }
 
     const mediaType = payload.media
-      ? intl.formatMessage(
-          payload.media.mediaType === MediaType.MOVIE
-            ? globalMessages.movie
-            : payload.media.mediaType === MediaType.SCENE
-              ? globalMessages.scene
-              : payload.media.mediaType === MediaType.ADULT_MOVIE
-                ? globalMessages.adultMovie
-                : globalMessages.series
-        )
+      ? intl.formatMessage(mediaTypeMessage(payload.media.mediaType))
       : undefined;
     const is4k = payload.request?.is4k;
 

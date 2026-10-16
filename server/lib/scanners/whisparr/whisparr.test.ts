@@ -100,11 +100,12 @@ describe('WhisparrScanner', () => {
 
     await whisparrScanner.run();
 
-    const available = await Media.getMediaByStashId(SCENE_ID);
+    const available = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(available?.status, MediaStatus.AVAILABLE);
     assert.strictEqual(available?.serviceId, 3);
     assert.strictEqual(available?.externalServiceId, 26592);
-    const processing = await Media.getMediaByStashId(
+    const processing = await Media.getAdultMedia(
+      MediaType.SCENE,
       '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'
     );
     assert.strictEqual(processing?.status, MediaStatus.PROCESSING);
@@ -163,7 +164,7 @@ describe('WhisparrScanner', () => {
 
     await whisparrScanner.run();
 
-    const movie = await Media.getMediaByTpdbId(TPDB_ID);
+    const movie = await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID);
     assert.strictEqual(movie?.mediaType, MediaType.ADULT_MOVIE);
     assert.strictEqual(movie?.isAdult, true);
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
@@ -183,7 +184,10 @@ describe('WhisparrScanner', () => {
 
     await whisparrScanner.run();
 
-    assert.strictEqual(await Media.getMediaByTpdbId(TPDB_ID), undefined);
+    assert.strictEqual(
+      await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID),
+      undefined
+    );
     const movie = await Media.getMedia(1786674, MediaType.MOVIE);
     assert.strictEqual(movie?.status, MediaStatus.AVAILABLE);
   });
@@ -214,14 +218,14 @@ describe('WhisparrScanner', () => {
 
     await whisparrScanner.run();
 
-    const monitored = await Media.getMediaByStashId(SCENE_ID);
+    const monitored = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(monitored?.status, MediaStatus.UNKNOWN);
     assert.strictEqual(monitored?.externalServiceId, 14);
-    const stale = await Media.getMediaByStashId(OTHER_ID);
+    const stale = await Media.getAdultMedia(MediaType.SCENE, OTHER_ID);
     assert.strictEqual(stale?.status, MediaStatus.UNKNOWN);
     // Downloaded titles are available whoever asked for them
     assert.strictEqual(
-      (await Media.getMediaByTpdbId(TPDB_ID))?.status,
+      (await Media.getAdultMedia(MediaType.ADULT_MOVIE, TPDB_ID))?.status,
       MediaStatus.AVAILABLE
     );
     // TMDB movies without a file only get a row once requested

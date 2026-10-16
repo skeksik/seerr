@@ -1,6 +1,6 @@
 import TheMovieDb from '@server/api/themoviedb';
 import { IssueType, IssueTypeName } from '@server/constants/issue';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import IssueComment from '@server/entity/IssueComment';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
@@ -47,10 +47,7 @@ export class IssueCommentSubscriber implements EntitySubscriberInterface<IssueCo
         where: { id: issue.media.id },
       });
 
-      if (
-        media.mediaType === MediaType.SCENE ||
-        media.mediaType === MediaType.ADULT_MOVIE
-      ) {
+      if (isAdultMediaType(media.mediaType)) {
         ({ title, image } = await describeAdultMedia(media));
       } else if (media.mediaType === MediaType.MOVIE) {
         const movie = await tmdb.getMovie({ movieId: requireTmdbId(media) });

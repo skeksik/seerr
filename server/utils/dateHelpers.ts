@@ -15,3 +15,6 @@ export const isoDate = z
     const [year, month, day] = value.split('-');
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   });
+
+// Today's calendar date, YYYY-MM-DD in UTC
+export const today = (): string => new Date().toISOString().slice(0, 10);

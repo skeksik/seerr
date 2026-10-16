@@ -11,22 +11,22 @@ import {
   lookupWhisparrItem,
 } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
+import { sanitizeDisplayName } from '@server/utils/sanitizeDisplayName';
 import { isEqual } from 'lodash';
 import type { EntityManager } from 'typeorm';
 
-const sanitizeTagLabel = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/gi, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
-const markFailed = async (entity: MediaRequest, media: Media) => {
+// The request's own transaction, when it is still open, saves the failure
+const markFailed = async (
+  entity: MediaRequest,
+  media: Media,
+  manager?: EntityManager
+) => {
   try {
     if (entity.status !== MediaRequestStatus.FAILED) {
       entity.status = MediaRequestStatus.FAILED;
-      await getRepository(MediaRequest).save(entity);
+      await (
+        manager?.getRepository(MediaRequest) ?? getRepository(MediaRequest)
+      ).save(entity);
     }
   } catch (e) {
     logger.error('Failed to mark request as FAILED', {
@@ -96,10 +96,7 @@ export const sendToWhisparr = async (
       ? [...entity.tags]
       : [...(server.tags ?? [])];
 
-  const whisparr = new WhisparrAPI({
-    apiKey: server.apiKey,
-    url: WhisparrAPI.buildUrl(server, '/api/v3'),
-  });
+  const whisparr = WhisparrAPI.forServer(server);
 
   let item: WhisparrItem;
 
@@ -107,7 +104,7 @@ export const sendToWhisparr = async (
     item = await lookupWhisparrItem(whisparr, media);
 
     if (server.tagRequests) {
-      const label = `${entity.requestedBy.id}-${sanitizeTagLabel(
+      const label = `${entity.requestedBy.id}-${sanitizeDisplayName(
         entity.requestedBy.displayName
       )}`;
       const existingTags = await whisparr.getTags();
@@ -121,9 +118,6 @@ export const sendToWhisparr = async (
       }
     }
   } catch (e) {
-    entity.status = MediaRequestStatus.FAILED;
-    await manager.getRepository(MediaRequest).save(entity);
-
     logger.warn(
       'Failed to send request to Whisparr due to connection or configuration error, marking status as FAILED',
       {
@@ -133,7 +127,7 @@ export const sendToWhisparr = async (
         errorMessage: e.message,
       }
     );
-    MediaRequest.sendNotification(entity, media, Notification.MEDIA_FAILED);
+    await markFailed(entity, media, manager);
     return;
   }
 

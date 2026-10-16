@@ -1,4 +1,4 @@
-import { stashDbPerformerId } from '@server/api/tpdb';
+import { stashDbPerformerId, tpdbUrl } from '@server/api/tpdb';
 import type {
   TpdbPerformerSummary,
   TpdbSiteSummary,
@@ -59,7 +59,7 @@ export const mapAdultPerformerDetails = (
       site,
     })),
     stashDbId: stashDbPerformerId(extras),
-    tpdbUrl: `https://theporndb.net/performers/${performer.id}`,
+    tpdbUrl: tpdbUrl('performers', performer.id),
   };
 };
 
@@ -82,5 +82,5 @@ export const mapAdultStudioDetails = (
       imageUrl: child.logo ?? undefined,
     }))
     .sort((a, b) => a.name.localeCompare(b.name)),
-  tpdbUrl: `https://theporndb.net/sites/${site.uuid}`,
+  tpdbUrl: tpdbUrl('sites', site.uuid),
 });

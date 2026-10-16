@@ -53,7 +53,7 @@ interface Cast {
 // What a tag's name says about a title: who is in it, as in "Threesome
 // (BGG)" (B for boys, G for girls, T for trans), or whom it is for, as in
 // "Foursome (Lesbian)"
-export interface TagHint {
+interface TagHint {
   cast?: Cast;
   orientation?: Orientation;
 }
@@ -291,14 +291,14 @@ export const isHidden = (
   (orientations.length > 0 &&
     orientations.every((orientation) => hidden.has(orientation)));
 
-export interface OrientationPreferences {
+interface OrientationPreferences {
   // Never shown to the user, set by admins
   disabled: Orientation[];
   // Shown only when picked in the filters
   unchecked: Orientation[];
 }
 
-export const orientationPreferences = (
+const orientationPreferences = (
   user?: User | null
 ): OrientationPreferences => ({
   disabled: (user?.settings?.disabledOrientations ?? []).filter(isOrientation),
@@ -329,3 +329,91 @@ export const hiddenOrientations = (
     )
   );
 };
+
+// Narrowed to the orientations needed without straight, those shown beside
+// it, or none
+export type Narrow = 'needed' | 'beside' | 'none';
+
+// The tag ids of these orientations, leaving out those the source lacks
+export const orientationTagIds = <T extends string | number>(
+  ids: Partial<Record<Orientation, T>>,
+  orientations: Orientation[]
+): T[] =>
+  orientations.flatMap((orientation) => {
+    const id = ids[orientation];
+    return id ? [id] : [];
+  });
+
+export interface OrientationTagPlan<T> {
+  hidden: Set<Orientation>;
+  // The picked tags, with the orientation tags asked for when narrowed
+  tagIds: T[];
+  // Whether a title needs any of tagIds rather than all of them
+  anyTag: boolean;
+  // Asked for tagged titles only, which leaves out unidentified ones
+  narrowed: boolean;
+}
+
+// The tags a list asks its source for, given the picked tags and the
+// orientations it hides
+export const planOrientationTags = <T extends string | number>(
+  user: User | undefined,
+  {
+    orientation,
+    picked,
+    tagMode,
+  }: { orientation?: string; picked: T[]; tagMode?: 'and' | 'or' },
+  ids: Partial<Record<Orientation, T>>,
+  narrow: Narrow = 'needed'
+): OrientationTagPlan<T> => {
+  const hidden = hiddenOrientations(user, orientation);
+  const anyTag = tagMode === 'or';
+  const needed = orientationTagIds(
+    ids,
+    narrow === 'beside' ? tagsBeside(hidden) : tagsNeeded(hidden)
+  );
+  // Without straight, titles tagged with a shown orientation are asked for:
+  // any of them without picked tags, or the one shown next to all of those
+  const narrowed =
+    narrow !== 'none' &&
+    needed.length > 0 &&
+    (!picked.length || (needed.length === 1 && !anyTag));
+
+  return {
+    hidden,
+    tagIds: !narrowed
+      ? picked
+      : picked.length
+        ? [...picked, ...needed]
+        : needed,
+    anyTag: narrowed && !picked.length ? true : anyTag,
+    narrowed,
+  };
+};
+
+// Unidentified titles carry no orientation tag, so when they show next to
+// tagged ones they are read apart and joined in; so are tagged ones next to
+// straight, which would be few among the rest
+export const joinedPlan = <
+  P extends { narrowed: boolean; filter: { hidden: Set<Orientation> } },
+>(
+  plan: P,
+  planWith: (narrow: Narrow) => P
+): { plan: P; unidentified: boolean } | undefined => {
+  if (plan.narrowed) {
+    return plan.filter.hidden.has('unidentified')
+      ? undefined
+      : { plan: planWith('none'), unidentified: true };
+  }
+
+  const beside = planWith('beside');
+  return beside.narrowed ? { plan: beside, unidentified: false } : undefined;
+};
+
+// A list filter that keeps only unidentified titles
+export const onlyUnidentified = <F extends { hidden: Set<Orientation> }>(
+  filter: F
+): F => ({
+  ...filter,
+  hidden: new Set(ORIENTATIONS.filter((key) => key !== 'unidentified')),
+});

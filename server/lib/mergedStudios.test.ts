@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import type StashDbAPI from '@server/api/stashdb';
 import type TpdbAPI from '@server/api/tpdb';
-import { MergedStudioList } from '@server/lib/mergedStudios';
+import { MergedStudioList, mergedStudioList } from '@server/lib/mergedStudios';
 
 const stashDb = (names: string[], networks: string[] = []) =>
   ({
@@ -80,5 +80,14 @@ describe('MergedStudioList', () => {
     assert.strictEqual((await list.page(3, 100))[0].name, 'T1050');
     assert.strictEqual((await list.page(4, 100)).length, 0);
     assert.strictEqual(list.total, 300);
+  });
+
+  it('keeps a list for the same clients only', () => {
+    const stashDbApi = stashDb([]);
+    const tpdbApi = tpdb([]);
+    const list = mergedStudioList(stashDbApi, tpdbApi, 'Kept');
+
+    assert.strictEqual(mergedStudioList(stashDbApi, tpdbApi, 'kept'), list);
+    assert.notStrictEqual(mergedStudioList(stashDb([]), tpdbApi, 'kept'), list);
   });
 });

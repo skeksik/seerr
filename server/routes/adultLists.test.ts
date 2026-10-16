@@ -108,7 +108,7 @@ describe('adult watchlist', () => {
 
     assert.strictEqual(added.status, 201);
     assert.strictEqual(added.body.title, 'Scene Title');
-    const media = await Media.getMediaByStashId(SCENE_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.ok(media);
     assert.strictEqual(media.tmdbId, null);
 
@@ -165,7 +165,7 @@ describe('adult blocklist', () => {
       .send({ mediaType: 'scene', externalId: SCENE_ID });
 
     assert.strictEqual(added.status, 201);
-    const media = await Media.getMediaByStashId(SCENE_ID);
+    const media = await Media.getAdultMedia(MediaType.SCENE, SCENE_ID);
     assert.strictEqual(media?.status, MediaStatus.BLOCKLISTED);
 
     const again = await agent
@@ -180,7 +180,10 @@ describe('adult blocklist', () => {
       `/blocklist/${SCENE_ID}?mediaType=scene`
     );
     assert.strictEqual(removed.status, 204);
-    assert.strictEqual(await Media.getMediaByStashId(SCENE_ID), undefined);
+    assert.strictEqual(
+      await Media.getAdultMedia(MediaType.SCENE, SCENE_ID),
+      undefined
+    );
   });
 
   it('hides adult items from viewers without adult access', async () => {

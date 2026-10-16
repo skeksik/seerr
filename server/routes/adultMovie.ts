@@ -1,20 +1,35 @@
-import StashDbAPI, { StashDbNotConfiguredError } from '@server/api/stashdb';
+import StashDbAPI from '@server/api/stashdb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
-import TpdbAPI, { TpdbNotConfiguredError } from '@server/api/tpdb';
+import TpdbAPI, { tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
-import { isOnWatchlist } from '@server/lib/adultMedia';
-import type { Orientation } from '@server/lib/orientation';
+import type { SuggestionType } from '@server/lib/adultLists';
 import {
-  ORIENTATIONS,
+  handleError,
+  hasPickedFilters,
+  mergeByDate,
+  pageParam,
+  pageQuery,
+  searchQuery,
+  sharedFilters,
+  withSuggestion,
+  withoutSeen,
+} from '@server/lib/adultLists';
+import type { ClassifiedMovie } from '@server/lib/adultMedia';
+import {
+  classifyMovies,
+  isOnWatchlist,
+  mapAdultMovieList,
+} from '@server/lib/adultMedia';
+import type { Narrow, Orientation } from '@server/lib/orientation';
+import {
   TPDB_ORIENTATION_TAG_IDS,
-  classifyMovie,
-  hiddenOrientations,
   isHidden,
-  tagsBeside,
-  tagsNeeded,
+  joinedPlan,
+  onlyUnidentified,
+  planOrientationTags,
 } from '@server/lib/orientation';
 import logger from '@server/logger';
 import {
@@ -23,17 +38,11 @@ import {
 } from '@server/models/AdultCredit';
 import type {
   AdultMovieListResponse,
-  AdultMovieResult,
   AdultMovieStudio,
 } from '@server/models/AdultMovie';
-import {
-  MAX_DURATION,
-  mapAdultMovieDetails,
-  mapAdultMovieResult,
-} from '@server/models/AdultMovie';
+import { MAX_DURATION, mapAdultMovieDetails } from '@server/models/AdultMovie';
 import type { SiteLink } from '@server/models/Scene';
-import { isoDate } from '@server/utils/dateHelpers';
-import type { NextFunction } from 'express';
+import { today } from '@server/utils/dateHelpers';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -41,7 +50,7 @@ const PAGE_SIZE = 20;
 
 const adultMovieRoutes = Router();
 
-export const adultMovieSorts = [
+const adultMovieSorts = [
   'released',
   'oldest',
   'added',
@@ -68,34 +77,18 @@ const movieFilters = z.object({
   studioExclude: ids.optional(),
   performerExclude: ids.optional(),
   tagsExclude: ids.optional(),
-  // Whether a movie needs all of the performers or tags, or any
-  performerMode: z.enum(['and', 'or']).optional(),
-  tagMode: z.enum(['and', 'or']).optional(),
-  // Comma-separated sexual preferences to show; the user's defaults if unset
-  orientation: z.string().optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
-  // ThePornDB takes one date bound
-  released: z.enum(['after', 'before']).optional(),
-  releaseDate: isoDate.optional(),
-  upcoming: z
-    .enum(['true', 'false'])
-    .transform((value) => value === 'true')
-    .optional(),
+  ...sharedFilters,
 });
 
 type MovieFilters = z.infer<typeof movieFilters>;
 
 const discoverQuery = movieFilters.extend({
-  page: z.coerce.number().int().positive().default(1),
+  page: pageParam,
   sort: z.enum(adultMovieSorts).default('released'),
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
-
-const searchQuery = z.object({
-  query: z.string().trim().min(1),
-  page: z.coerce.number().int().positive().default(1),
-});
 
 const lookupQuery = movieFilters.extend({
   query: z.string().trim().min(1),
@@ -111,28 +104,32 @@ interface MovieListFilter {
 }
 
 // ThePornDB has no exclusions, so excluded studios, performers and tags and
-// hidden sexual preferences are filtered here
+// hidden sexual preferences are filtered here. Each movie is classified once,
+// for the filter and the results
 const filterMovies = (
   movies: TpdbMovie[],
   { hidden, exclude }: MovieListFilter
-): TpdbMovie[] => {
+): ClassifiedMovie[] => {
   const sites = new Set(exclude?.siteIds);
   const performers = new Set(exclude?.performerIds);
   const tags = new Set(exclude?.tagIds);
 
-  return movies.filter(
-    (movie) =>
-      ![movie.site?.id, movie.site?.parent_id, movie.site?.network_id].some(
-        (id) => id != null && sites.has(id)
-      ) &&
-      !movie.performers?.some(
-        (performer) =>
-          performers.has(performer._id) ||
-          (performer.parent?._id != null &&
-            performers.has(performer.parent._id))
-      ) &&
-      !movie.tags?.some((tag) => tags.has(tag.id)) &&
-      !(hidden.size && isHidden(classifyMovie(movie), hidden))
+  return classifyMovies(
+    movies.filter(
+      (movie) =>
+        ![movie.site?.id, movie.site?.parent_id, movie.site?.network_id].some(
+          (id) => id != null && sites.has(id)
+        ) &&
+        !movie.performers?.some(
+          (performer) =>
+            performers.has(performer._id) ||
+            (performer.parent?._id != null &&
+              performers.has(performer.parent._id))
+        ) &&
+        !movie.tags?.some((tag) => tags.has(tag.id))
+    )
+  ).filter(
+    ({ orientations }) => !(hidden.size && isHidden(orientations, hidden))
   );
 };
 
@@ -149,30 +146,21 @@ interface MoviePlan {
 
 // The ThePornDB query for the picked filters, and what is left to filter
 // here
-// Narrowed to the orientations needed without straight, those shown beside
-// it, or none
-type Narrow = 'needed' | 'beside' | 'none';
-
 const planMovies = (
   user: User | undefined,
   filters: MovieFilters,
   narrow: Narrow = 'needed'
 ): MoviePlan => {
-  const hidden = hiddenOrientations(user, filters.orientation);
-  const picked = filters.tags ?? [];
-  const anyTag = filters.tagMode === 'or';
-  const needed = (
-    narrow === 'beside' ? tagsBeside(hidden) : tagsNeeded(hidden)
-  ).flatMap((key) => {
-    const id = TPDB_ORIENTATION_TAG_IDS[key];
-    return id ? [id] : [];
-  });
-  // Without straight, movies tagged with a shown orientation are asked for:
-  // any of them without picked tags, or the one shown next to all of those
-  const narrowed =
-    narrow !== 'none' &&
-    needed.length > 0 &&
-    (!picked.length || (needed.length === 1 && !anyTag));
+  const { hidden, tagIds, anyTag, narrowed } = planOrientationTags(
+    user,
+    {
+      orientation: filters.orientation,
+      picked: filters.tags ?? [],
+      tagMode: filters.tagMode,
+    },
+    TPDB_ORIENTATION_TAG_IDS,
+    narrow
+  );
 
   // ThePornDB takes one date bound; future dates are often placeholders
   // like 3024, so released lists stop at today
@@ -190,12 +178,8 @@ const planMovies = (
       siteId: filters.studio,
       performerIds: filters.performer,
       anyPerformer: filters.performerMode === 'or',
-      tagIds: !narrowed
-        ? picked
-        : picked.length
-          ? [...picked, ...needed]
-          : needed,
-      anyTag: narrowed && !picked.length ? true : anyTag,
+      tagIds,
+      anyTag,
       year: filters.year,
       date,
     },
@@ -218,45 +202,14 @@ const planMovies = (
 // checked
 const CHECKED_SUGGESTIONS = 10;
 
-type LookupType = 'studio' | 'performer' | 'tag';
-
-// The picked filters with a suggestion added to its field: alone where the
-// field takes one or any of its values, next to the others where it needs
-// all of them
-const withSuggestion = (
-  filters: MovieFilters,
-  type: LookupType,
-  id: number
-): MovieFilters =>
-  type === 'studio'
-    ? { ...filters, studio: id }
-    : type === 'performer'
-      ? {
-          ...filters,
-          performer:
-            filters.performerMode === 'or'
-              ? [id]
-              : [...(filters.performer ?? []), id],
-        }
-      : {
-          ...filters,
-          tags: filters.tagMode === 'or' ? [id] : [...(filters.tags ?? []), id],
-        };
-
 // Drops suggestions that would find no movie next to the picked filters
 const withMatches = async <T extends { id: number }>(
   user: User | undefined,
-  type: LookupType,
+  type: SuggestionType,
   results: T[],
   filters: MovieFilters
 ): Promise<T[]> => {
-  const picked = Object.entries(filters).some(
-    ([key, value]) =>
-      !['performerMode', 'tagMode', 'released'].includes(key) &&
-      value !== undefined
-  );
-
-  if (!picked || results.length === 0) {
+  if (!hasPickedFilters(filters) || results.length === 0) {
     return results;
   }
 
@@ -267,7 +220,7 @@ const withMatches = async <T extends { id: number }>(
       checked.map(async (result) => {
         const { query } = planMovies(
           user,
-          withSuggestion(filters, type, result.id)
+          withSuggestion(filters, type, result.id, { studio: result.id })
         );
         const list = await tpdb.getMovies({ ...query, perPage: 1 });
         return list.meta.total;
@@ -283,49 +236,6 @@ const withMatches = async <T extends { id: number }>(
   }
 };
 
-// Movies for the viewer, with media info and sexual preferences
-const toResults = async (
-  movies: TpdbMovie[],
-  user?: User
-): Promise<AdultMovieResult[]> => {
-  const media = await Media.getRelatedAdultMovies(
-    movies.map((m) => m.id),
-    user
-  );
-
-  return movies.map((movie) => ({
-    ...mapAdultMovieResult(
-      movie,
-      media.find((m) => m.tpdbId === movie.id)
-    ),
-    orientations: classifyMovie(movie),
-  }));
-};
-
-// The viewer's defaults, for lists without filters
-const defaultFilter = async (user?: User): Promise<MovieListFilter> =>
-  planMovies(user, {}).filter;
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-const handleError = (
-  e: Error,
-  next: NextFunction,
-  message: string,
-  meta: Record<string, unknown>
-) => {
-  if (e instanceof TpdbNotConfiguredError) {
-    return next({ status: 503, message: 'ThePornDB is not configured.' });
-  }
-
-  if (e instanceof StashDbNotConfiguredError) {
-    return next({ status: 503, message: 'StashDB is not configured.' });
-  }
-
-  logger.debug(message, { label: 'API', errorMessage: e.message, ...meta });
-  return next({ status: 500, message });
-};
-
 const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   released: 'recently_released',
   oldest: 'former_released',
@@ -337,21 +247,13 @@ const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   title: 'recently_released',
 };
 
-// Joined lists keep a release date order
-const mergeByDate = (
-  movies: TpdbMovie[],
-  joined: TpdbMovie[],
-  sort: TpdbMovieSort
-): TpdbMovie[] => {
-  const all = [...movies, ...joined];
-  if (sort !== 'recently_released' && sort !== 'former_released') {
-    return all;
-  }
-  const sign = sort === 'recently_released' ? -1 : 1;
-  return all.sort((a, b) => sign * (a.date ?? '').localeCompare(b.date ?? ''));
+// Release date orders, which joined lists keep
+const dateDirections: Partial<Record<TpdbMovieSort, 'ASC' | 'DESC'>> = {
+  recently_released: 'DESC',
+  former_released: 'ASC',
 };
 
-const discoverTpdb = async (
+const discoverMovies = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
 ): Promise<AdultMovieListResponse> => {
@@ -363,54 +265,48 @@ const discoverTpdb = async (
     // Some durations are far off, like 535 hours, and would lead the list
     maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
   } as const;
-  // Unidentified movies carry no orientation tag, so when they show next
-  // to tagged ones they are read apart and joined in; so are tagged ones
-  // next to straight, which would be few among the rest
-  const unidentified =
-    plan.narrowed && !plan.filter.hidden.has('unidentified')
-      ? planMovies(user, filters, 'none')
-      : undefined;
-  const beside = plan.narrowed
-    ? undefined
-    : planMovies(user, filters, 'beside');
-  const tagged = beside?.narrowed ? beside : undefined;
-  const extraPlan = unidentified ?? tagged;
+  const joined = joinedPlan(plan, (narrow) =>
+    planMovies(user, filters, narrow)
+  );
   const [list, extra] = await Promise.all([
     tpdb.getMovies({
       ...plan.query,
       ...query,
       perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
     }),
-    extraPlan
+    joined
       ? tpdb.getMovies({
-          ...extraPlan.query,
+          ...joined.plan.query,
           ...query,
           perPage: DENSE_PAGE_SIZE,
         })
       : undefined,
   ]);
   const shown = filterMovies(list.data, plan.filter);
-  const joined =
-    extraPlan && extra
+  const rest =
+    joined && extra
       ? filterMovies(
-          extra.data.filter(({ id }) => !shown.some((m) => m.id === id)),
-          unidentified
-            ? {
-                ...unidentified.filter,
-                hidden: new Set(
-                  ORIENTATIONS.filter((key) => key !== 'unidentified')
-                ),
-              }
-            : extraPlan.filter
+          withoutSeen(
+            extra.data,
+            shown.map(({ movie }) => movie)
+          ),
+          joined.unidentified
+            ? onlyUnidentified(joined.plan.filter)
+            : joined.plan.filter
         )
       : [];
-  const movies = mergeByDate(shown, joined, query.sort);
+  const movies = mergeByDate(
+    shown,
+    rest,
+    ({ movie }) => movie.date,
+    dateDirections[query.sort]
+  );
 
   return {
     page,
     totalPages: Math.max(list.meta.last_page, extra?.meta.last_page ?? 0),
     totalResults: list.meta.total,
-    results: await toResults(movies, user),
+    results: await mapAdultMovieList(movies, user),
   };
 };
 
@@ -422,7 +318,7 @@ adultMovieRoutes.get('/discover', async (req, res, next) => {
   }
 
   try {
-    const list = await discoverTpdb(parsed.data, req.user);
+    const list = await discoverMovies(parsed.data, req.user);
 
     return res.status(200).json(list);
   } catch (e) {
@@ -430,6 +326,24 @@ adultMovieRoutes.get('/discover', async (req, res, next) => {
       query: req.query,
     });
   }
+});
+
+// Movies for the viewer, with the viewer's defaults for lists without
+// filters
+const mapMovieList = async (
+  movies: TpdbMovie[],
+  page: number,
+  totalPages: number,
+  totalResults: number,
+  user?: User
+): Promise<AdultMovieListResponse> => ({
+  page,
+  totalPages,
+  totalResults,
+  results: await mapAdultMovieList(
+    filterMovies(movies, planMovies(user, {}).filter),
+    user
+  ),
 });
 
 adultMovieRoutes.get('/search', async (req, res, next) => {
@@ -447,101 +361,83 @@ adultMovieRoutes.get('/search', async (req, res, next) => {
       page,
       perPage: PAGE_SIZE,
     });
-    const movies = filterMovies(list.data, await defaultFilter(req.user));
 
-    return res.status(200).json({
-      page,
-      totalPages: list.meta.last_page,
-      totalResults: list.meta.total,
-      results: await toResults(movies, req.user),
-    } satisfies AdultMovieListResponse);
+    return res
+      .status(200)
+      .json(
+        await mapMovieList(
+          list.data,
+          page,
+          list.meta.last_page,
+          list.meta.total,
+          req.user
+        )
+      );
   } catch (e) {
     return handleError(e, next, 'Unable to search adult movies.', { query });
   }
 });
 
-// Lookups for the ThePornDB filters
-adultMovieRoutes.get('/studios', async (req, res, next) => {
-  const parsed = lookupQuery.safeParse(req.query);
-
-  if (!parsed.success) {
-    return next({ status: 400, message: 'A query is required.' });
+// Lookups for the ThePornDB filters, by path
+const lookups: Record<
+  string,
+  {
+    type: SuggestionType;
+    search: (
+      tpdb: TpdbAPI,
+      query: string
+    ) => Promise<{ id: number; name: string; imageUrl?: string }[]>;
   }
+> = {
+  studios: {
+    type: 'studio',
+    search: async (tpdb, query) =>
+      (await tpdb.searchSites(query)).map((site) => ({
+        id: site.id,
+        name: site.name,
+      })),
+  },
+  performers: {
+    type: 'performer',
+    search: async (tpdb, query) =>
+      (await tpdb.searchPerformers(query)).map((performer) => ({
+        id: performer._id,
+        name: performer.name,
+        imageUrl: performer.image ?? undefined,
+      })),
+  },
+  tags: {
+    type: 'tag',
+    search: async (tpdb, query) =>
+      (await tpdb.searchTags(query)).map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+      })),
+  },
+};
 
-  try {
-    const { query, ...filters } = parsed.data;
-    const sites = await TpdbAPI.fromSettings().searchSites(query);
+for (const [path, lookup] of Object.entries(lookups)) {
+  adultMovieRoutes.get(`/${path}`, async (req, res, next) => {
+    const parsed = lookupQuery.safeParse(req.query);
 
-    return res.status(200).json(
-      await withMatches(
-        req.user,
-        'studio',
-        sites.map((site) => ({ id: site.id, name: site.name })),
-        filters
-      )
-    );
-  } catch (e) {
-    return handleError(e, next, 'Unable to search studios.', {
-      query: parsed.data.query,
-    });
-  }
-});
+    if (!parsed.success) {
+      return next({ status: 400, message: 'A query is required.' });
+    }
 
-adultMovieRoutes.get('/performers', async (req, res, next) => {
-  const parsed = lookupQuery.safeParse(req.query);
+    try {
+      const { query, ...filters } = parsed.data;
+      const results = await lookup.search(TpdbAPI.fromSettings(), query);
 
-  if (!parsed.success) {
-    return next({ status: 400, message: 'A query is required.' });
-  }
-
-  try {
-    const { query, ...filters } = parsed.data;
-    const performers = await TpdbAPI.fromSettings().searchPerformers(query);
-
-    return res.status(200).json(
-      await withMatches(
-        req.user,
-        'performer',
-        performers.map((performer) => ({
-          id: performer._id,
-          name: performer.name,
-          imageUrl: performer.image ?? undefined,
-        })),
-        filters
-      )
-    );
-  } catch (e) {
-    return handleError(e, next, 'Unable to search performers.', {
-      query: parsed.data.query,
-    });
-  }
-});
-
-adultMovieRoutes.get('/tags', async (req, res, next) => {
-  const parsed = lookupQuery.safeParse(req.query);
-
-  if (!parsed.success) {
-    return next({ status: 400, message: 'A query is required.' });
-  }
-
-  try {
-    const { query, ...filters } = parsed.data;
-    const tags = await TpdbAPI.fromSettings().searchTags(query);
-
-    return res.status(200).json(
-      await withMatches(
-        req.user,
-        'tag',
-        tags.map((tag) => ({ id: tag.id, name: tag.name })),
-        filters
-      )
-    );
-  } catch (e) {
-    return handleError(e, next, 'Unable to search tags.', {
-      query: parsed.data.query,
-    });
-  }
-});
+      return res
+        .status(200)
+        .json(await withMatches(req.user, lookup.type, results, filters));
+    } catch (e) {
+      return handleError(e, next, `Unable to search ${path}.`, {
+        query: parsed.data.query,
+      });
+    }
+  });
+}
 
 // The ThePornDB performer or site behind a StashDB performer or studio
 adultMovieRoutes.get<{ type: string; id: string }>(
@@ -567,7 +463,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
           ? {
               id: found._id,
               name: found.name,
-              url: `https://theporndb.net/performers/${found.id}`,
+              url: tpdbUrl('performers', found.id),
             }
           : null;
       } else {
@@ -577,7 +473,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
           ? {
               id: found.id,
               name: found.name,
-              url: `https://theporndb.net/sites/${found.uuid}`,
+              url: tpdbUrl('sites', found.uuid),
             }
           : null;
       }
@@ -597,25 +493,6 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 );
 
 const movieId = z.string().uuid();
-const pageQuery = z.object({
-  page: z.coerce.number().int().positive().default(1),
-});
-
-const mapMovieList = async (
-  movies: TpdbMovie[],
-  page: number,
-  totalPages: number,
-  totalResults: number,
-  user?: User
-): Promise<AdultMovieListResponse> => ({
-  page,
-  totalPages,
-  totalResults,
-  results: await toResults(
-    filterMovies(movies, await defaultFilter(user)),
-    user
-  ),
-});
 
 // Released movies with any of this movie's performers, newest first
 adultMovieRoutes.get<{ id: string }>(
@@ -709,7 +586,10 @@ adultMovieRoutes.get<{ type: string; id: string }>(
       const tpdb = TpdbAPI.fromSettings();
 
       if (req.params.type === 'performer') {
-        const performer = await tpdb.getPerformer(id);
+        const [performer, sites] = await Promise.all([
+          tpdb.getPerformer(id),
+          stashDbSites(),
+        ]);
 
         if (!performer) {
           return next({ status: 404, message: 'Not found.' });
@@ -719,7 +599,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 
         return res.status(200).json({
           ...details,
-          links: await withSiteIcons(details.links),
+          links: withSiteIcons(details.links, sites),
         });
       }
 
@@ -770,26 +650,36 @@ const siteHost = (url: string): string => {
   }
 };
 
-// ThePornDB links carry no icons, so borrow StashDB's for the same sites
-const withSiteIcons = async (links: SiteLink[]): Promise<SiteLink[]> => {
-  try {
-    const sites = await StashDbAPI.fromSettings().getSites();
+// StashDB's site icons by host; links go without icons when it fails
+const stashDbSites = async (): Promise<Map<string, string>> => {
+  const icons = new Map<string, string>();
 
-    return links.map((link) => {
-      const host = siteHost(link.url);
-      const site = sites.find(
-        (site) => site.icon && site.url && siteHost(site.url) === host
-      );
-      return site?.icon ? { ...link, icon: site.icon } : link;
-    });
+  try {
+    for (const site of await StashDbAPI.fromSettings().getSites()) {
+      const host = site.icon && site.url ? siteHost(site.url) : undefined;
+      if (site.icon && host !== undefined && !icons.has(host)) {
+        icons.set(host, site.icon);
+      }
+    }
   } catch (e) {
     logger.debug('No StashDB site icons for ThePornDB links.', {
       label: 'API',
       errorMessage: e.message,
     });
-    return links;
   }
+
+  return icons;
 };
+
+// ThePornDB links carry no icons, so borrow StashDB's for the same sites
+const withSiteIcons = (
+  links: SiteLink[],
+  icons: Map<string, string>
+): SiteLink[] =>
+  links.map((link) => {
+    const icon = icons.get(siteHost(link.url));
+    return icon ? { ...link, icon } : link;
+  });
 
 adultMovieRoutes.get('/:id', async (req, res, next) => {
   const parsed = z.string().uuid().safeParse(req.params.id);
@@ -805,16 +695,14 @@ adultMovieRoutes.get('/:id', async (req, res, next) => {
       return next({ status: 404, message: 'Movie not found.' });
     }
 
-    const media = await Media.getMediaByTpdbId(movie.id);
-    const details = mapAdultMovieDetails(movie, media?.filter(req.user));
+    const [media, onUserWatchlist] = await Promise.all([
+      Media.getAdultMedia(MediaType.ADULT_MOVIE, movie.id),
+      isOnWatchlist(MediaType.ADULT_MOVIE, movie.id, req.user),
+    ]);
 
     return res.status(200).json({
-      ...details,
-      onUserWatchlist: await isOnWatchlist(
-        MediaType.ADULT_MOVIE,
-        movie.id,
-        req.user
-      ),
+      ...mapAdultMovieDetails(movie, media?.filter(req.user)),
+      onUserWatchlist,
     });
   } catch (e) {
     return handleError(e, next, 'Unable to retrieve movie.', {

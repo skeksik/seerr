@@ -1,15 +1,17 @@
 import TheMovieDb from '@server/api/themoviedb';
 import {
+  adultIdField,
   isAdultMediaType,
   MediaStatus,
   MediaType,
+  parseMediaType,
 } from '@server/constants/media';
 import dataSource, { getRepository } from '@server/datasource';
 import { Blocklist } from '@server/entity/Blocklist';
 import Media from '@server/entity/Media';
 import type { BlocklistResultsResponse } from '@server/interfaces/api/blocklistInterfaces';
 import { canViewAdult } from '@server/lib/adult';
-import { adultIdField, lookupAdultTitle } from '@server/lib/adultMedia';
+import { lookupAdultTitle } from '@server/lib/adultMedia';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
@@ -32,11 +34,6 @@ const adultBlocklistAdd = z.object({
   externalId: z.string().uuid(),
   mediaType: z.enum([MediaType.SCENE, MediaType.ADULT_MOVIE]),
 });
-
-const parseMediaType = (value: unknown): MediaType | undefined =>
-  Object.values(MediaType).includes(value as MediaType)
-    ? (value as MediaType)
-    : undefined;
 
 // Where clause for one blocklisted title by its route id
 const itemWhere = (id: string, mediaType: MediaType) =>
@@ -161,6 +158,17 @@ blocklistRoutes.post(
         }
 
         const values = adultBlocklistAdd.parse(req.body);
+        const isListed = (externalId: string) =>
+          getRepository(Blocklist).exist({
+            where: { externalId, mediaType: values.mediaType },
+          });
+
+        // Checked before the lookup too, which costs a StashDB or ThePornDB
+        // request
+        if (await isListed(values.externalId)) {
+          return next({ status: 412, message: 'Item already blocklisted' });
+        }
+
         const found = await lookupAdultTitle(
           values.mediaType,
           values.externalId
@@ -170,12 +178,7 @@ blocklistRoutes.post(
           return next({ status: 404, message: 'Title not found.' });
         }
 
-        const existing = await getRepository(Blocklist).findOneBy({
-          externalId: found.id,
-          mediaType: values.mediaType,
-        });
-
-        if (existing) {
+        if (found.id !== values.externalId && (await isListed(found.id))) {
           return next({ status: 412, message: 'Item already blocklisted' });
         }
 

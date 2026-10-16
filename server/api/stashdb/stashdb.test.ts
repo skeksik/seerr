@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from 'node:test';
 
 import StashDbAPI from '@server/api/stashdb';
 import cacheManager from '@server/lib/cache';
+import { getSettings } from '@server/lib/settings';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 class TestStashDbAPI extends StashDbAPI {
@@ -115,5 +116,74 @@ describe('StashDbAPI', () => {
     );
     const { c0 } = JSON.parse(api.requests[0].data).variables;
     assert.strictEqual(c0.sort, 'DATE');
+  });
+
+  it('shares one request between callers asking the same at once', async () => {
+    const api = new TestStashDbAPI([{ data: { findScene: scene } }]);
+
+    const [first, second] = await Promise.all([
+      api.getScene(scene.id),
+      api.getScene(scene.id),
+    ]);
+
+    assert.deepStrictEqual(first, scene);
+    assert.deepStrictEqual(second, scene);
+    assert.strictEqual(api.requests.length, 1);
+  });
+
+  it('looks up the studios of all counts in one request', async () => {
+    const api = new TestStashDbAPI([
+      {
+        data: {
+          s0: { child_studios: [{ id: 'child' }] },
+          s1: { child_studios: [] },
+        },
+      },
+      { data: { c0: { count: 1 }, c1: { count: 2 }, c2: { count: 0 } } },
+    ]);
+
+    assert.deepStrictEqual(
+      await api.countScenes([
+        { studioIds: ['network'] },
+        { studioIds: ['network'], exclude: { studioIds: ['ignored'] } },
+        { exclude: { studioIds: ['excluded'] } },
+      ]),
+      [1, 2, 0]
+    );
+
+    assert.strictEqual(api.requests.length, 2);
+    // An exclusion next to an included studio is left to the caller
+    assert.deepStrictEqual(JSON.parse(api.requests[0].data).variables, {
+      s0: 'network',
+      s1: 'excluded',
+    });
+    const { c0, c2 } = JSON.parse(api.requests[1].data).variables;
+    assert.deepStrictEqual(c0.studios, {
+      value: ['network', 'child'],
+      modifier: 'INCLUDES',
+    });
+    assert.deepStrictEqual(c2.studios, {
+      value: ['excluded'],
+      modifier: 'EXCLUDES',
+    });
+  });
+
+  it('keeps one client per endpoint and key', () => {
+    const settings = getSettings();
+    const previous = settings.stashdb;
+    settings.stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'a',
+    };
+
+    const first = StashDbAPI.fromSettings();
+    assert.strictEqual(StashDbAPI.fromSettings(), first);
+    settings.stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'b',
+    };
+    assert.notStrictEqual(StashDbAPI.fromSettings(), first);
+
+    settings.stashdb = previous;
   });
 });
