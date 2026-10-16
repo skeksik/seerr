@@ -18,7 +18,7 @@ import {
 } from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
-import { Permission } from '@server/lib/permissions';
+import { mediaPermissions, Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
@@ -133,10 +133,14 @@ export class MediaRequest {
       });
     }
 
-    // Adult media has no type-specific request permissions; REQUEST covers it
+    // Request grants every media type, Request Scenes and Request Adult
+    // Movies only theirs
     if (
       !canViewAdult(requestUser) ||
-      !requestUser.hasPermission(Permission.REQUEST)
+      !requestUser.hasPermission(
+        mediaPermissions('request', requestBody.mediaType),
+        { type: 'or' }
+      )
     ) {
       throw new RequestPermissionError(
         `You do not have permission to make ${isScene ? 'scene' : 'Adult movie'} requests.`
@@ -240,7 +244,10 @@ export class MediaRequest {
       (isAdvanced && requestBody.tags) || ruleResult.tags || requestBody.tags;
 
     const autoApprove = user.hasPermission(
-      [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
+      [
+        ...mediaPermissions('autoApprove', requestBody.mediaType),
+        Permission.MANAGE_REQUESTS,
+      ],
       { type: 'or' }
     );
 

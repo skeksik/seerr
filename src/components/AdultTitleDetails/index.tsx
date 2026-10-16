@@ -16,7 +16,7 @@ import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
 import StatusBadge from '@app/components/StatusBadge';
 import StudioBanner from '@app/components/StudioBanner';
-import { Permission, useUser } from '@app/hooks/useUser';
+import { useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { refreshIntervalHelper } from '@app/utils/refreshIntervalHelper';
@@ -24,6 +24,7 @@ import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type Media from '@server/entity/Media';
 import type { Orientation } from '@server/lib/orientation';
+import { mediaPermissions } from '@server/lib/permissions';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -131,7 +132,9 @@ const AdultTitleDetails = ({
 
   const status = data.mediaInfo?.status ?? MediaStatus.UNKNOWN;
   const canRequest =
-    hasPermission(Permission.REQUEST) &&
+    hasPermission(mediaPermissions('request', data.mediaType), {
+      type: 'or',
+    }) &&
     (status === MediaStatus.UNKNOWN || status === MediaStatus.DELETED);
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;

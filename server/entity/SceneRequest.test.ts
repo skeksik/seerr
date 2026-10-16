@@ -21,7 +21,7 @@ import {
 } from '@server/entity/MediaRequest';
 import OverrideRule from '@server/entity/OverrideRule';
 import { User } from '@server/entity/User';
-import { Permission } from '@server/lib/permissions';
+import { Permission, addPermissions } from '@server/lib/permissions';
 import type { WhisparrSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
@@ -196,6 +196,75 @@ describe('Scene requests', () => {
       where: { id: request.id },
     });
     assert.strictEqual(saved.status, MediaRequestStatus.FAILED);
+  });
+});
+
+describe('Adult request permissions', () => {
+  const TPDB_ID = '144b1c4a-1129-40b6-b57a-564cbef6631d';
+
+  beforeEach(() => {
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: 'key' };
+    mock.method(TpdbAPI.prototype, 'getMovie', async (id: string) => ({
+      id,
+      _id: 1,
+      title: '2 of a Kind',
+      type: 'Movie',
+    }));
+  });
+
+  afterEach(() => {
+    getSettings().tpdb = { url: 'https://api.theporndb.net', apiKey: '' };
+  });
+
+  it('keeps permissions past 32 bits when saved', async () => {
+    const permissions = addPermissions(
+      Permission.ADULT,
+      Permission.AUTO_APPROVE_4K_ADULT_MOVIE
+    );
+    const user = await createUser('bits@seerr.dev', permissions);
+
+    const loaded = await getRepository(User).findOneByOrFail({ id: user.id });
+
+    assert.strictEqual(loaded.permissions, permissions);
+    assert.ok(loaded.hasPermission(Permission.AUTO_APPROVE_4K_ADULT_MOVIE));
+  });
+
+  it('lets Request Scenes request scenes but not adult movies', async () => {
+    const user = await createUser(
+      'scenesonly@seerr.dev',
+      addPermissions(Permission.ADULT, Permission.REQUEST_SCENE)
+    );
+
+    const request = await requestScene(user);
+
+    assert.strictEqual(request.status, MediaRequestStatus.PENDING);
+    await assert.rejects(
+      () =>
+        MediaRequest.request(
+          { mediaType: MediaType.ADULT_MOVIE, tpdbId: TPDB_ID },
+          user
+        ),
+      RequestPermissionError
+    );
+  });
+
+  it('auto-approves only the media type Auto-Approve covers', async () => {
+    const user = await createUser(
+      'autoapprove@seerr.dev',
+      addPermissions(
+        Permission.REQUEST | Permission.ADULT,
+        Permission.AUTO_APPROVE_ADULT_MOVIE
+      )
+    );
+
+    const scene = await requestScene(user);
+    const movie = await MediaRequest.request(
+      { mediaType: MediaType.ADULT_MOVIE, tpdbId: TPDB_ID },
+      user
+    );
+
+    assert.strictEqual(scene.status, MediaRequestStatus.PENDING);
+    assert.strictEqual(movie.status, MediaRequestStatus.APPROVED);
   });
 });
 

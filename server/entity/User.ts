@@ -10,6 +10,7 @@ import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { AfterDate } from '@server/utils/dateHelpers';
+import { isPgsql } from '@server/utils/dbType';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { nanoid } from 'nanoid';
@@ -104,7 +105,17 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   public plexToken?: string | null;
 
-  @Column({ type: 'integer', default: 0 })
+  // Permissions go past 32 bits: Postgres needs a bigint, which it returns as
+  // a string, while SQLite integers are 64-bit already
+  @Column({
+    type: isPgsql ? 'bigint' : 'integer',
+    default: 0,
+    transformer: {
+      from: (value: string | number | null) =>
+        value == null ? value : Number(value),
+      to: (value?: number | null) => value,
+    },
+  })
   public permissions = 0;
 
   @Column()

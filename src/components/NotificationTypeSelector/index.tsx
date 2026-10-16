@@ -3,6 +3,7 @@ import useSettings from '@app/hooks/useSettings';
 import type { User } from '@app/hooks/useUser';
 import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
+import { mediaPermissions } from '@server/lib/permissions';
 import { sortBy } from 'lodash';
 import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -143,6 +144,15 @@ const NotificationTypeSelector = ({
   const [allowedTypes, setAllowedTypes] = useState(enabledTypes);
 
   const availableTypes = useMemo(() => {
+    const adultTypes = settings.currentSettings.enableAdult
+      ? (['scene', 'adultmovie'] as const)
+      : [];
+    // Cannot submit requests of an adult type OR has Auto-Approve perms for it
+    const adultAutoApproved = adultTypes.every(
+      (type) =>
+        !hasPermission(mediaPermissions('request', type), { type: 'or' }) ||
+        hasPermission(mediaPermissions('autoApprove', type), { type: 'or' })
+    );
     const allRequestsAutoApproved =
       user &&
       // Has Manage Requests perm, which grants all Auto-Approve perms
@@ -156,6 +166,10 @@ const NotificationTypeSelector = ({
             Permission.REQUEST_4K,
             Permission.REQUEST_4K_MOVIE,
             Permission.REQUEST_4K_TV,
+            ...adultTypes.flatMap((type) => [
+              ...mediaPermissions('request', type),
+              ...mediaPermissions('request4k', type),
+            ]),
           ],
           { type: 'or' }
         ) ||
@@ -193,7 +207,8 @@ const NotificationTypeSelector = ({
             hasPermission(
               [Permission.AUTO_APPROVE_4K, Permission.AUTO_APPROVE_4K_TV],
               { type: 'or' }
-            ))));
+            )) &&
+          adultAutoApproved));
 
     const types: NotificationItem[] = [
       {

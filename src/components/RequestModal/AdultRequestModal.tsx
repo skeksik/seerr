@@ -13,6 +13,7 @@ import { adultArtwork } from '@app/utils/stashImage';
 import { MediaStatus } from '@server/constants/media';
 import type { MediaRequest } from '@server/entity/MediaRequest';
 import type { QuotaResponse } from '@server/interfaces/api/userInterfaces';
+import { mediaPermissions } from '@server/lib/permissions';
 import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { SceneDetails } from '@server/models/Scene';
 import axios from 'axios';
@@ -59,7 +60,7 @@ const AdultRequestModal = ({
   const artwork = data && adultArtwork(data);
 
   const hasAutoApprove = hasPermission(
-    [Permission.AUTO_APPROVE, Permission.MANAGE_REQUESTS],
+    [...mediaPermissions('autoApprove', type), Permission.MANAGE_REQUESTS],
     { type: 'or' }
   );
 

@@ -6,9 +6,9 @@ import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
 import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
-import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
 import useBlocklistToggle from '@app/hooks/useBlocklistToggle';
 import { useIsTouch } from '@app/hooks/useIsTouch';
 import { Permission, UserType, useUser } from '@app/hooks/useUser';
@@ -28,6 +28,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { Orientation } from '@server/lib/orientation';
+import { mediaPermissions } from '@server/lib/permissions';
 import type { MediaType } from '@server/models/Search';
 import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useState } from 'react';
@@ -158,9 +159,8 @@ const TitleCard = ({
 
   const closeModal = useCallback(() => setShowRequestModal(false), []);
 
-  // Adult titles have no type-specific request permission
   const showRequestButton = adultType
-    ? hasPermission(Permission.REQUEST)
+    ? hasPermission(mediaPermissions('request', adultType), { type: 'or' })
     : hasPermission(
         [
           Permission.REQUEST,

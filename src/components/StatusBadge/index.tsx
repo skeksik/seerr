@@ -14,6 +14,7 @@ import defineMessages from '@app/utils/defineMessages';
 import { MediaStatus, type MediaType } from '@server/constants/media';
 import { MediaServerType } from '@server/constants/server';
 import type { DownloadingItem } from '@server/lib/downloadtracker';
+import { mediaPermissions } from '@server/lib/permissions';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.StatusBadge', {
@@ -69,19 +70,21 @@ const StatusBadge = ({
     mediaType &&
     plexUrl &&
     hasPermission(
-      is4k
-        ? [
-            Permission.REQUEST_4K,
-            mediaType === 'movie'
-              ? Permission.REQUEST_4K_MOVIE
-              : Permission.REQUEST_4K_TV,
-          ]
-        : [
-            Permission.REQUEST,
-            mediaType === 'movie'
-              ? Permission.REQUEST_MOVIE
-              : Permission.REQUEST_TV,
-          ],
+      isAdultMediaType(mediaType)
+        ? mediaPermissions(is4k ? 'request4k' : 'request', mediaType)
+        : is4k
+          ? [
+              Permission.REQUEST_4K,
+              mediaType === 'movie'
+                ? Permission.REQUEST_4K_MOVIE
+                : Permission.REQUEST_4K_TV,
+            ]
+          : [
+              Permission.REQUEST,
+              mediaType === 'movie'
+                ? Permission.REQUEST_MOVIE
+                : Permission.REQUEST_TV,
+            ],
       {
         type: 'or',
       }
