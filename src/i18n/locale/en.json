@@ -735,7 +735,6 @@
   "components.Scenes.MonitorControls.monitorError": "Something went wrong while updating Whisparr.",
   "components.Scenes.MonitorControls.monitorMovies": "Monitor movies",
   "components.Scenes.MonitorControls.monitorNewItems": "Monitor new items",
-  "components.Scenes.MonitorControls.monitorNewItemsTip": "New scenes and movies are added monitored and downloaded as they are released; unchecked, Whisparr adds them unmonitored.",
   "components.Scenes.MonitorControls.monitorScenes": "Monitor scenes",
   "components.Scenes.MonitorControls.monitorSuccess": "Whisparr is now monitoring <strong>{name}</strong>.",
   "components.Scenes.MonitorControls.monitorTitle": "Monitor {name}",

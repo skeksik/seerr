@@ -32,8 +32,6 @@ const messages = defineMessages('components.Scenes.MonitorControls', {
   monitorScenes: 'Monitor scenes',
   monitorMovies: 'Monitor movies',
   monitorNewItems: 'Monitor new items',
-  monitorNewItemsTip:
-    'New scenes and movies are added monitored and downloaded as they are released; unchecked, Whisparr adds them unmonitored.',
   studios: 'Studios',
   studiosTip:
     'Whisparr follows studios rather than networks, so the options above apply to {name} and to each studio picked here.',
@@ -291,7 +289,6 @@ const MonitorControls = ({
               checked={newItems}
               onChange={() => setNewItems((on) => !on)}
               label={intl.formatMessage(messages.monitorNewItems)}
-              tip={intl.formatMessage(messages.monitorNewItemsTip)}
             />
             {isNetwork && (
               <div>
