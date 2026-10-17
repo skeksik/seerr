@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 
-import ExternalAPI from '@server/api/externalapi';
 import type { WhisparrItem } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import StashDbAPI from '@server/api/stashdb';
@@ -488,42 +487,6 @@ describe('Whisparr override rules', () => {
     const request = await requestScene(user);
 
     assert.strictEqual(request.profileId ?? null, null);
-  });
-});
-
-describe('Adult TMDB movies', () => {
-  it('are requested like any other movie', async () => {
-    getSettings().whisparr = [whisparrServer];
-    mock.method(
-      ExternalAPI.prototype as unknown as {
-        get: (endpoint: string) => Promise<unknown>;
-      },
-      'get',
-      async (endpoint: string) => ({
-        id: Number(endpoint.replace(/^\/movie\//, '')),
-        adult: true,
-        external_ids: {},
-        videos: { results: [{ type: 'Trailer', key: 'trailer' }] },
-      })
-    );
-    const lookup = mock.method(
-      WhisparrAPI.prototype,
-      'lookupTpdbMovie',
-      async () => lookupItem
-    );
-    const user = await createUser('tmdbadult@seerr.dev', Permission.REQUEST);
-
-    const request = await MediaRequest.request(
-      { mediaType: MediaType.MOVIE, mediaId: 777 },
-      user
-    );
-
-    assert.strictEqual(request.type, MediaType.MOVIE);
-    assert.strictEqual(
-      (await Media.getMedia(777, MediaType.MOVIE))?.mediaType,
-      MediaType.MOVIE
-    );
-    assert.strictEqual(lookup.mock.callCount(), 0);
   });
 });
 

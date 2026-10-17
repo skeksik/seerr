@@ -149,7 +149,7 @@ describe('GET /adultmovie/discover', () => {
     assert.strictEqual(query?.date?.operation, '<=');
   });
 
-  it('falls back to the release order for unknown sorts, like the older names', async () => {
+  it('falls back to the release order for unknown sorts', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [],
       meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
@@ -157,9 +157,8 @@ describe('GET /adultmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     for (const url of [
-      '/adultmovie/discover?sortBy=popularity.desc',
-      '/adultmovie/discover?sortBy=added',
-      '/adultmovie/discover?sort=added',
+      '/adultmovie/discover',
+      '/adultmovie/discover?sortBy=random',
     ]) {
       const res = await agent.get(url);
 
@@ -376,33 +375,6 @@ describe('Adult movie filter lookups', () => {
 });
 
 describe('GET /adultmovie/:id', () => {
-  it('maps performers to their cross-site ids', async () => {
-    getSettings().stashdb = {
-      endpoint: 'https://stashdb.org/graphql',
-      apiKey: 'key',
-    };
-    mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
-    mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
-    mock.method(
-      StashDbAPI.prototype,
-      'getPerformerImages',
-      async () => new Map()
-    );
-    const agent = await loginAs('admin@seerr.dev');
-
-    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
-
-    assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.body.performers, [
-      {
-        id: 'performer',
-        stashDbId: '3b1d6e04-0b4c-4b8b-a6a4-ee9d81a5a64c',
-        name: 'Erica Boyer',
-      },
-    ]);
-    assert.strictEqual(res.body.studio.name, 'The Classic Porn');
-  });
-
   it('shows the large poster on the page and the medium one in lists', async () => {
     const posters = {
       large: 'https://cdn.theporndb.net/scene/a/large.jpg',

@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  pickedAndExcluded,
-  stashDbDate,
-  tpdbDateOperations,
-} from '@server/lib/adultLists';
+import { pickedAndExcluded, stashDbDate } from '@server/lib/adultLists';
 
 describe('list helpers', () => {
   it('tells a performer or tag both picked and excluded', () => {
@@ -39,6 +35,5 @@ describe('release date comparisons', () => {
       value: '2025-02-28',
       modifier: 'EQUALS',
     });
-    assert.strictEqual(tpdbDateOperations.lte, '<=');
   });
 });

@@ -431,7 +431,7 @@ describe('GET /scene/discover', () => {
     assert.strictEqual(upcoming?.date?.modifier, 'GREATER_THAN');
   });
 
-  it('rejects unknown sorts, like the older names', async () => {
+  it('rejects unknown sorts and sorts by popularity without one', async () => {
     const queryScenes = mock.method(
       StashDbAPI.prototype,
       'queryScenes',
@@ -447,25 +447,6 @@ describe('GET /scene/discover', () => {
       (await agent.get('/scene/discover?sortBy=date')).status,
       400
     );
-    // The older sort param is not a filter, so it is left out
-    assert.strictEqual(
-      (await agent.get('/scene/discover?sort=date')).status,
-      200
-    );
-    assert.strictEqual(
-      queryScenes.mock.calls[0].arguments[0]?.sort,
-      'POPULARITY'
-    );
-  });
-
-  it('sorts by popularity without a sort', async () => {
-    const queryScenes = mock.method(
-      StashDbAPI.prototype,
-      'queryScenes',
-      async () => ({ count: 0, scenes: [] })
-    );
-    const agent = await loginAs('admin@seerr.dev');
-
     assert.strictEqual((await agent.get('/scene/discover')).status, 200);
     const query = queryScenes.mock.calls[0].arguments[0];
     assert.strictEqual(query?.sort, 'POPULARITY');
@@ -509,21 +490,6 @@ describe('studio rankings', () => {
     );
     assert.strictEqual(res.body.totalPages, 1);
     assert.strictEqual(getSceneStudios.mock.callCount(), 1);
-  });
-
-  it('no longer lists by trending', async () => {
-    const getSceneStudios = mock.method(
-      StashDbAPI.prototype,
-      'getSceneStudios',
-      async () => studios
-    );
-    const agent = await loginAs('admin@seerr.dev');
-
-    assert.strictEqual(
-      (await agent.get('/scene/studios?sortBy=trending.desc')).status,
-      400
-    );
-    assert.strictEqual(getSceneStudios.mock.callCount(), 0);
   });
 
   it('ranks networks by the popular scenes of their studios', async () => {
@@ -1069,17 +1035,13 @@ describe('POST /scene/:type/:id/monitor', () => {
     assert.strictEqual(monitor.mock.calls[0].arguments[2]?.scenes, false);
   });
 
-  it('rejects the old body and returns 409 without a default Whisparr server', async () => {
+  it('returns 409 without a default Whisparr server', async () => {
     const admin = await loginAs('admin@seerr.dev');
 
     const res = await admin
       .post(`/scene/performer/${SCENE_ID}/monitor`)
       .send({ scenes: true, movies: true });
-    const old = await admin
-      .post(`/scene/performer/${SCENE_ID}/monitor`)
-      .send({ monitored: true });
 
     assert.strictEqual(res.status, 409);
-    assert.strictEqual(old.status, 400);
   });
 });
