@@ -742,7 +742,6 @@
   "components.Scenes.MonitorControls.searchExistingTip": "Starts a search for every scene and movie that is not downloaded yet. This can queue a lot of downloads.",
   "components.Scenes.MonitorControls.unmonitor": "Stop Monitoring",
   "components.Scenes.MonitorControls.unmonitorSuccess": "Whisparr stopped monitoring <strong>{name}</strong>.",
-  "components.Scenes.NetworkStudioList.search": "Search by name",
   "components.Scenes.NetworkStudioList.sites": "Sites",
   "components.Scenes.NetworkStudioList.studios": "Studios",
   "components.Scenes.SceneCreditDetails.sceneCount": "{count, plural, one {# scene} other {# scenes}} on StashDB",

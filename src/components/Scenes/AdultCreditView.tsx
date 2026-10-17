@@ -5,6 +5,7 @@ import {
   creditTitlesQuery,
   creditTitlesUrl,
 } from '@app/components/Common/adultRoutes';
+import SceneCard from '@app/components/SceneCard';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import Slider from '@app/components/Slider';
 import useDiscover from '@app/hooks/useDiscover';
@@ -137,21 +138,40 @@ interface CreditTitlesProps {
   scenes?: CreditSource;
 }
 
-// What shows while they are looked up: a row of card placeholders under a
-// bar where its title will be, so the page doesn't look empty meanwhile
-export const CreditTitlesPlaceholder = () => (
-  <>
-    <div className="slider-header">
-      <div className="h-7 w-40 animate-pulse rounded-md bg-gray-700" />
-    </div>
-    <Slider
-      sliderKey="credit-titles-loading"
-      isLoading
-      isEmpty={false}
-      items={[]}
-    />
-  </>
-);
+// While they are looked up, a row of each kind they may have, named but
+// filled with card placeholders; real rows or a grid take their place
+export const CreditTitlesPlaceholder = ({
+  scenes = true,
+}: {
+  // ThePornDB pages have no scenes
+  scenes?: boolean;
+}) => {
+  const intl = useIntl();
+
+  return (
+    <>
+      <SliderHeader title={intl.formatMessage(globalMessages.adultMovies)} />
+      <Slider
+        sliderKey="credit-movies-loading"
+        isLoading
+        isEmpty={false}
+        items={[]}
+      />
+      {scenes && (
+        <>
+          <SliderHeader title={intl.formatMessage(globalMessages.scenes)} />
+          <Slider
+            sliderKey="credit-scenes-loading"
+            isLoading
+            isEmpty={false}
+            placeholder={<SceneCard.Placeholder />}
+            items={[]}
+          />
+        </>
+      )}
+    </>
+  );
+};
 
 const firstPageUrl = (
   mediaType: 'scene' | 'adultmovie',
@@ -177,7 +197,7 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
 
   if (view === 'all') {
     if (!known) {
-      return <CreditTitlesPlaceholder />;
+      return <CreditTitlesPlaceholder scenes={!!scenes} />;
     }
 
     if (hasMovies && hasScenes && movies && scenes) {

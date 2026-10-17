@@ -42,6 +42,10 @@ const AdultStudioRow = ({
       sliderKey={sliderKey}
       isLoading={!studios}
       isEmpty={false}
+      // Shaped like the studio cards they stand in for
+      placeholder={
+        <div className="h-32 w-56 animate-pulse rounded-xl bg-gray-700 sm:h-36 sm:w-72" />
+      }
       items={[
         ...(studios ?? [])
           .slice(0, SLIDER_LIMIT)
@@ -58,7 +62,8 @@ const AdultStudioRow = ({
               url={creditHref('studio', studio.stashDbId ?? studio.id)}
             />
           )),
-        ...(hasMore
+        // Whether there are more is only known once they are in
+        ...(studios && hasMore
           ? [<SeeAllStudiosCard key={`${sliderKey}-all`} url={linkUrl} />]
           : []),
       ]}

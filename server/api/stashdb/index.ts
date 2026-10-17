@@ -445,6 +445,27 @@ class StashDbAPI extends ExternalAPI {
     );
   }
 
+  // The links of several studios, in one request
+  public async studioUrls(ids: string[]): Promise<Map<string, string[]>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const data = await this.query<
+      Record<string, { urls: { url: string }[] } | null>
+    >(
+      `query (${ids.map((_, i) => `$s${i}: ID!`).join(', ')}) {
+        ${ids.map((_, i) => `s${i}: findStudio(id: $s${i}) { urls { url } }`).join('\n')}
+      }`,
+      Object.fromEntries(ids.map((id, i) => [`s${i}`, id])),
+      DETAILS_TTL
+    );
+
+    return new Map(
+      ids.map((id, i) => [id, data[`s${i}`]?.urls.map(({ url }) => url) ?? []])
+    );
+  }
+
   public async getPerformer(id: string): Promise<StashDbPerformer | null> {
     const data = await this.query<{ findPerformer: StashDbPerformer | null }>(
       `query ($id: ID!) {

@@ -295,38 +295,60 @@ export const tpdbSiteFor = async (
       });
 };
 
-// Studios of a network read for the network's own ThePornDB site
-const NETWORK_SAMPLE = 6;
+// Studios of a network whose links are read, and ThePornDB sites of them
+// looked up, for the network's own ThePornDB site
+const NETWORK_STUDIOS = 50;
+const NETWORK_SITES = 6;
 
 // The ThePornDB network of a StashDB network that links none itself, like
 // Vixen Media Group: the one its studios' sites mostly belong to, so its
-// page has the movies of all of them
+// page has the movies of all of them. A network another StashDB studio
+// links is that studio's, as with Adult Time Originals, whose studios
+// ThePornDB files under Adult Time itself; its movies would be all of
+// Adult Time's
 export const tpdbNetworkFor = async (
   studio: StashDbStudio,
   stashDb: StashDbAPI
 ): Promise<TpdbSiteSummary | null> => {
-  const children = (studio.child_studios ?? []).slice(0, NETWORK_SAMPLE);
+  const children = (studio.child_studios ?? []).slice(0, NETWORK_STUDIOS);
 
   if (!TpdbAPI.isConfigured() || children.length === 0) {
     return null;
   }
 
+  const tpdb = TpdbAPI.fromSettings();
+
   return cached(`link:network:${studio.id}`, async () => {
+    const urls = await stashDb.studioUrls(children.map(({ id }) => id));
+    const siteIds = [...urls.values()]
+      .map((list) =>
+        tpdbProfileIds(
+          list.map((url) => ({ url, site: { name: '' } })),
+          'studio'
+        )
+      )
+      .filter((ids) => ids.length > 0)
+      .slice(0, NETWORK_SITES);
     const sites = await Promise.all(
-      children.map(async (child) => {
-        const found = await stashDb.getStudio(child.id).catch(() => null);
-        return found ? tpdbSiteFor(found).catch(() => null) : null;
-      })
+      siteIds.map((ids) => firstFound(ids, (id) => tpdb.getSite(id)))
     );
     const counts = new Map<number, number>();
     for (const site of sites) {
       const network = site?.network?.id ?? site?.network_id ?? site?.parent_id;
-      if (network && network !== site?.id) {
+      if (site && network && network !== site.id) {
         counts.set(network, (counts.get(network) ?? 0) + 1);
       }
     }
     const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const network = best ? await tpdb.getSite(best[0]) : null;
 
-    return best ? TpdbAPI.fromSettings().getSite(best[0]) : null;
+    if (!network) {
+      return null;
+    }
+
+    const owner = (await linkedStashDbStudios([network], stashDb)).get(
+      network.id
+    );
+    return !owner || owner === studio.id ? network : null;
   });
 };
