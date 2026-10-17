@@ -5,22 +5,18 @@ interface SliderHeaderProps {
   title: string;
   // The full list, when there is one
   linkUrl?: string;
-  // Looks like a link while what it leads to is still unknown
-  placeholderLink?: boolean;
+  // A row still loading: the same link, leading nowhere yet
+  linkPending?: boolean;
 }
 
 // MediaSlider's title row, for the adult rows that fetch their own way
-const SliderHeader = ({
-  title,
-  linkUrl,
-  placeholderLink = false,
-}: SliderHeaderProps) => (
+const SliderHeader = ({ title, linkUrl, linkPending }: SliderHeaderProps) => (
   <div className="slider-header">
-    {placeholderLink ? (
-      <span className="slider-title min-w-0 cursor-pointer pr-16 transition duration-300 hover:text-white">
+    {linkPending ? (
+      <a className="slider-title min-w-0 cursor-pointer pr-16" aria-disabled>
         <span className="truncate">{title}</span>
-        <ArrowRightCircleIcon className="ml-2 h-6 w-6" />
-      </span>
+        <ArrowRightCircleIcon />
+      </a>
     ) : linkUrl ? (
       <Link href={linkUrl} className="slider-title min-w-0 pr-16">
         <span className="truncate">{title}</span>

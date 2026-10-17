@@ -1,5 +1,4 @@
 import StashLogo from '@app/assets/services/stash.svg';
-import TpdbIcon from '@app/assets/services/tpdb-icon.svg';
 import type { ProfileLink } from '@app/components/AdultProfileLinks';
 import AdultProfileLinks from '@app/components/AdultProfileLinks';
 
@@ -30,12 +29,8 @@ const AdultLinkBlock = ({
     links.push({ url: stashDbUrl, site: 'StashDB' });
   }
   if (tpdbUrl) {
-    // ThePornDB's small logo, sized like the other services' logos
-    links.push({
-      url: tpdbUrl,
-      site: 'ThePornDB',
-      logo: [TpdbIcon, 'h-7 w-7'],
-    });
+    // StashDB's icon for ThePornDB, like the other links
+    links.push({ url: tpdbUrl, site: 'ThePornDB' });
   }
 
   return (

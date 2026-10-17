@@ -1,12 +1,8 @@
 # Brand logos
 
-Logos for performer and studio profile links.
+Logos for performer and studio profile links to sites StashDB has no icon
+for; StashDB's site icons cover the rest.
 
-- From [Simple Icons](https://simpleicons.org) (CC0): bluesky, facebook,
-  instagram, linktree, onlyfans, patreon, reddit, snapchat, telegram, threads,
-  tiktok, tumblr, twitch, wikidata, x, youtube.
-- From [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Logos_of_pornographic_websites),
-  public domain as simple text logos (PD-textlogo): afdb, chaturbate,
-  manyvids, myfreecams, pornhub.
+- From [Simple Icons](https://simpleicons.org) (CC0): telegram, threads.
 
-All of them are trademarks of their owners and only used to link to them.
+Both are trademarks of their owners and only used to link to them.

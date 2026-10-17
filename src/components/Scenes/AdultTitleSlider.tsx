@@ -3,7 +3,6 @@ import SliderHeader from '@app/components/Common/SliderHeader';
 import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import SceneCard from '@app/components/SceneCard';
 import Slider from '@app/components/Slider';
-import TitleCard from '@app/components/TitleCard';
 import { isTitleShown } from '@app/hooks/useDiscover';
 import useSettings from '@app/hooks/useSettings';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -155,7 +154,7 @@ const AdultTitleSlider = ({
         sliderKey={sliderKey}
         isLoading={results.length === 0}
         isEmpty={false}
-        placeholder={<TitleCard.Placeholder landscape={isScene} hoverable />}
+        placeholder={isScene ? <SceneCard.Placeholder /> : undefined}
         items={items}
       />
     </>

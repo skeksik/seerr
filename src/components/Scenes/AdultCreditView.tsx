@@ -5,9 +5,9 @@ import {
   creditTitlesQuery,
   creditTitlesUrl,
 } from '@app/components/Common/adultRoutes';
+import SceneCard from '@app/components/SceneCard';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import Slider from '@app/components/Slider';
-import TitleCard from '@app/components/TitleCard';
 import useDiscover from '@app/hooks/useDiscover';
 import globalMessages from '@app/i18n/globalMessages';
 import { CircleStackIcon } from '@heroicons/react/24/solid';
@@ -138,8 +138,8 @@ interface CreditTitlesProps {
   scenes?: CreditSource;
 }
 
-// While they are looked up, a row of each kind they may have, named but
-// filled with card placeholders; real rows or a grid take their place
+// While they are looked up, the rows as Seerr shows them loading, their
+// titles not linking yet; real rows or a grid take their place
 export const CreditTitlesPlaceholder = ({
   scenes = true,
 }: {
@@ -152,26 +152,25 @@ export const CreditTitlesPlaceholder = ({
     <>
       <SliderHeader
         title={intl.formatMessage(globalMessages.adultMovies)}
-        placeholderLink
+        linkPending
       />
       <Slider
         sliderKey="credit-movies-loading"
         isLoading
         isEmpty={false}
-        placeholder={<TitleCard.Placeholder hoverable />}
         items={[]}
       />
       {scenes && (
         <>
           <SliderHeader
             title={intl.formatMessage(globalMessages.scenes)}
-            placeholderLink
+            linkPending
           />
           <Slider
             sliderKey="credit-scenes-loading"
             isLoading
             isEmpty={false}
-            placeholder={<TitleCard.Placeholder landscape hoverable />}
+            placeholder={<SceneCard.Placeholder />}
             items={[]}
           />
         </>
