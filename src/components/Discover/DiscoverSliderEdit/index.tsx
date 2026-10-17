@@ -1,10 +1,14 @@
+import Spinner from '@app/assets/spinner.svg';
 import Button from '@app/components/Common/Button';
 import SlideCheckbox from '@app/components/Common/SlideCheckbox';
 import Tag from '@app/components/Common/Tag';
 import Tooltip from '@app/components/Common/Tooltip';
 import CompanyTag from '@app/components/CompanyTag';
 import CreateSlider from '@app/components/Discover/CreateSlider';
-import { sliderTitles } from '@app/components/Discover/constants';
+import {
+  decodeAdultMovieTags,
+  sliderTitles,
+} from '@app/components/Discover/constants';
 import GenreTag from '@app/components/GenreTag';
 import KeywordTag from '@app/components/KeywordTag';
 import useToasts from '@app/hooks/useToasts';
@@ -25,6 +29,7 @@ import axios from 'axios';
 import { useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-aria';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 const messages = defineMessages('components.Discover.DiscoverSliderEdit', {
   deletesuccess: 'Sucessfully deleted slider.',
@@ -32,6 +37,29 @@ const messages = defineMessages('components.Discover.DiscoverSliderEdit', {
   remove: 'Remove',
   enable: 'Toggle Visibility',
 });
+
+// A StashDB studio, performer or tag named by its page, like KeywordTag
+const StashDbTag = ({
+  type,
+  id,
+}: {
+  type: 'studio' | 'performer' | 'tag';
+  id: string;
+}) => {
+  const { data, error } = useSWR<{ name: string }>(
+    `/api/v1/scene/${type}/${id}`
+  );
+
+  if (!data && !error) {
+    return (
+      <Tag>
+        <Spinner className="h-4 w-4" />
+      </Tag>
+    );
+  }
+
+  return <Tag>{data?.name ?? id}</Tag>;
+};
 
 const Position = {
   None: 'None',
@@ -167,6 +195,22 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.newAdultMovies);
       case DiscoverSliderType.UPCOMING_ADULT_MOVIES:
         return intl.formatMessage(sliderTitles.upcomingAdultMovies);
+      case DiscoverSliderType.SCENE_TAG:
+        return intl.formatMessage(sliderTitles.sceneTag);
+      case DiscoverSliderType.SCENE_PERFORMER:
+        return intl.formatMessage(sliderTitles.scenePerformer);
+      case DiscoverSliderType.SCENE_STUDIO:
+        return intl.formatMessage(sliderTitles.sceneStudio);
+      case DiscoverSliderType.SCENE_SEARCH:
+        return intl.formatMessage(sliderTitles.sceneSearch);
+      case DiscoverSliderType.ADULT_MOVIE_TAG:
+        return intl.formatMessage(sliderTitles.adultMovieTag);
+      case DiscoverSliderType.ADULT_MOVIE_PERFORMER:
+        return intl.formatMessage(sliderTitles.adultMoviePerformer);
+      case DiscoverSliderType.ADULT_MOVIE_STUDIO:
+        return intl.formatMessage(sliderTitles.adultMovieStudio);
+      case DiscoverSliderType.ADULT_MOVIE_SEARCH:
+        return intl.formatMessage(sliderTitles.adultMovieSearch);
       case DiscoverSliderType.TMDB_MOVIE_KEYWORD:
         return intl.formatMessage(sliderTitles.tmdbmoviekeyword);
       case DiscoverSliderType.TMDB_TV_KEYWORD:
@@ -258,8 +302,36 @@ const DiscoverSliderEdit = ({
               genreId={Number(slider.data)}
             />
           )}
-          {slider.type === DiscoverSliderType.TMDB_SEARCH && (
+          {(slider.type === DiscoverSliderType.TMDB_SEARCH ||
+            slider.type === DiscoverSliderType.SCENE_SEARCH ||
+            slider.type === DiscoverSliderType.ADULT_MOVIE_SEARCH) && (
             <Tag iconSvg={<MagnifyingGlassIcon />}>{slider.data}</Tag>
+          )}
+          {slider.type === DiscoverSliderType.SCENE_TAG && (
+            <div className="flex space-x-2">
+              {slider.data?.split(',').map((tagId) => (
+                <StashDbTag
+                  key={`slider-scene-tags-${slider.id}-${tagId}`}
+                  type="tag"
+                  id={tagId}
+                />
+              ))}
+            </div>
+          )}
+          {(slider.type === DiscoverSliderType.SCENE_PERFORMER ||
+            slider.type === DiscoverSliderType.ADULT_MOVIE_PERFORMER) &&
+            slider.data && <StashDbTag type="performer" id={slider.data} />}
+          {(slider.type === DiscoverSliderType.SCENE_STUDIO ||
+            slider.type === DiscoverSliderType.ADULT_MOVIE_STUDIO) &&
+            slider.data && <StashDbTag type="studio" id={slider.data} />}
+          {slider.type === DiscoverSliderType.ADULT_MOVIE_TAG && (
+            <div className="flex space-x-2">
+              {decodeAdultMovieTags(slider.data).map((tag) => (
+                <Tag key={`slider-adult-movie-tags-${slider.id}-${tag.id}`}>
+                  {tag.name}
+                </Tag>
+              ))}
+            </div>
           )}
         </div>
         <div className="flex items-center space-x-2">

@@ -8,10 +8,10 @@ interface AdultStudioSliderProps {
   title: string;
 }
 
-// Studios behind the most popular scenes, linking to their pages
+// Studios behind the currently trending scenes, linking to their pages
 const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
   const { data, error } = useSWR<SceneFilterDetails[]>(
-    `/api/v1/scene/popular-studios?type=${type}`
+    `/api/v1/scene/trending-studios?type=${type}`
   );
 
   if (error || data?.length === 0) {
@@ -22,7 +22,7 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
     <AdultStudioRow
       sliderKey={`adult-${type}`}
       title={title}
-      // Every studio or network, beyond the popular ones
+      // Every studio or network, beyond the trending ones
       linkUrl={`/discover/scenes/${type}`}
       hasMore
       studios={data}

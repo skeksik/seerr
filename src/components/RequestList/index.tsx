@@ -198,11 +198,11 @@ const RequestList = () => {
               </option>
               {canViewAdult && (
                 <>
-                  <option value="adultmovie">
-                    {intl.formatMessage(globalMessages.adultMovies)}
-                  </option>
                   <option value="scene">
                     {intl.formatMessage(globalMessages.scenes)}
+                  </option>
+                  <option value="adultmovie">
+                    {intl.formatMessage(globalMessages.adultMovies)}
                   </option>
                 </>
               )}

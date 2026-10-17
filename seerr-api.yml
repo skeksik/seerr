@@ -7955,6 +7955,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdultMovieList'
+  /adultmovie/search:
+    get:
+      summary: Search adult movies
+      description: Searches ThePornDB movies by title. The query may come form-encoded, with + for spaces.
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          allowReserved: true
+          schema:
+            type: string
+            example: Pirates
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+      responses:
+        '200':
+          description: Adult movie results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdultMovieList'
   /adultmovie/studios:
     get:
       summary: Search StashDB studios linked to ThePornDB
@@ -8289,10 +8316,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StashDbLookup'
-  /scene/popular-studios:
+  /scene/trending-studios:
     get:
-      summary: Popular StashDB studios or networks
-      description: Studios, or the networks at the top of their tree, ranked by how many of the most popular scenes they have.
+      summary: Trending StashDB studios or networks
+      description: Studios, or the networks at the top of their tree, ranked by how many of the top trending scenes they have.
       tags:
         - scenes
       parameters:

@@ -99,7 +99,49 @@ export const sliderTitles = defineMessages('components.Discover', {
   adultNetworksEdit: 'Networks (Adult)',
   newAdultMovies: 'New Adult Movies',
   upcomingAdultMovies: 'Upcoming Adult Movies',
+  sceneTag: 'Scene Tag',
+  scenePerformer: 'Scene Performer',
+  sceneStudio: 'Scene Studio',
+  sceneSearch: 'Scene Search',
+  adultMovieTag: 'Adult Movie Tag',
+  adultMoviePerformer: 'Adult Movie Performer',
+  adultMovieStudio: 'Adult Movie Studio',
+  adultMovieSearch: 'Adult Movie Search',
 });
+
+// ThePornDB cannot name a tag by id, so an Adult Movie Tag row keeps each
+// tag's name with its id in its data: "<id>:<encoded name>" per tag,
+// comma-separated like a keyword row's ids. Only the ids reach the API
+export const encodeAdultMovieTags = (
+  tags: { id: string | number; name: string }[]
+): string =>
+  tags.map((tag) => `${tag.id}:${encodeURIComponent(tag.name)}`).join(',');
+
+export const decodeAdultMovieTags = (
+  data?: string
+): { id: string; name: string }[] =>
+  (data ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map((part) => {
+      const [id, ...name] = part.split(':');
+
+      return {
+        id,
+        name: name.length > 0 ? decodeURIComponent(name.join(':')) : id,
+      };
+    });
+
+// Where an Adult Movie Tag row's See More goes: the Adult Movies tab with
+// the tag names riding along for its Filters panel, as the detail pages do
+export const adultMovieTagsLink = (
+  tags: { id: string; name: string }[]
+): string =>
+  `/discover/adultmovies?sortBy=release_date.desc&tags=${tags
+    .map((tag) => tag.id)
+    .join(',')}&tagNames=${encodeURIComponent(
+    tags.map((tag) => tag.name).join('|')
+  )}`;
 
 export const QueryFilterOptions = z.object({
   sortBy: z.string().optional(),

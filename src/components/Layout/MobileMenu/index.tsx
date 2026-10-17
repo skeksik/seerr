@@ -100,19 +100,19 @@ const MobileMenu = ({
       activeRegExp: /^\/discover\/tv$/,
     },
     {
-      href: '/discover/adultmovies',
-      content: intl.formatMessage(menuMessages.browseadultmovies),
-      svgIcon: <FireIcon className="h-6 w-6" />,
-      svgIconSelected: <FilledFireIcon className="h-6 w-6" />,
-      activeRegExp: /^\/discover\/adultmovies$/,
-      requiresAdult: true,
-    },
-    {
       href: '/discover/scenes',
       content: intl.formatMessage(menuMessages.browsescenes),
       svgIcon: <VideoCameraIcon className="h-6 w-6" />,
       svgIconSelected: <FilledVideoCameraIcon className="h-6 w-6" />,
       activeRegExp: /^\/discover\/scenes$/,
+      requiresAdult: true,
+    },
+    {
+      href: '/discover/adultmovies',
+      content: intl.formatMessage(menuMessages.browseadultmovies),
+      svgIcon: <FireIcon className="h-6 w-6" />,
+      svgIconSelected: <FilledFireIcon className="h-6 w-6" />,
+      activeRegExp: /^\/discover\/adultmovies$/,
       requiresAdult: true,
     },
     {

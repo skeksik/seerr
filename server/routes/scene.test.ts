@@ -488,7 +488,7 @@ describe('studio rankings', () => {
     ref('c'),
   ];
 
-  it('ranks studios by their popular scenes by default, leaving out networks', async () => {
+  it('lists studios by their popular scenes by default, leaving out networks', async () => {
     const getSceneStudios = mock.method(
       StashDbAPI.prototype,
       'getSceneStudios',
@@ -508,10 +508,12 @@ describe('studio rankings', () => {
       'https://stashdb.test/images/a'
     );
     assert.strictEqual(res.body.totalPages, 1);
-    assert.strictEqual(getSceneStudios.mock.callCount(), 1);
+    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
+      'POPULARITY',
+    ]);
   });
 
-  it('no longer ranks by trending', async () => {
+  it('no longer lists by trending', async () => {
     const getSceneStudios = mock.method(
       StashDbAPI.prototype,
       'getSceneStudios',
@@ -543,20 +545,29 @@ describe('studio rankings', () => {
       res.body.results.map((studio: { id: string }) => studio.id),
       ['n']
     );
-    assert.strictEqual(getSceneStudios.mock.callCount(), 1);
+    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
+      'POPULARITY',
+    ]);
   });
 
-  it('starts the rows the same way', async () => {
-    mock.method(StashDbAPI.prototype, 'getSceneStudios', async () => studios);
+  it('ranks the rows by trending scenes', async () => {
+    const getSceneStudios = mock.method(
+      StashDbAPI.prototype,
+      'getSceneStudios',
+      async () => studios
+    );
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/scene/popular-studios?type=networks');
+    const res = await agent.get('/scene/trending-studios?type=networks');
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(
       res.body.map((studio: { id: string }) => studio.id),
       ['n']
     );
+    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
+      'TRENDING',
+    ]);
   });
 });
 

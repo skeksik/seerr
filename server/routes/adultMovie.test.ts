@@ -252,6 +252,39 @@ describe('GET /adultmovie/discover', () => {
   });
 });
 
+describe('GET /adultmovie/search', () => {
+  it('searches ThePornDB by title, however the query is encoded', async () => {
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [movie],
+      meta: { current_page: 2, last_page: 3, per_page: 20, total: 50 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    for (const query of ['2%20of%20a%20kind', '2+of+a+kind']) {
+      const res = await agent.get(`/adultmovie/search?query=${query}&page=2`);
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.page, 2);
+      assert.strictEqual(res.body.totalPages, 3);
+      assert.strictEqual(res.body.totalResults, 50);
+      assert.strictEqual(res.body.results[0].mediaType, 'adultmovie');
+    }
+    assert.deepStrictEqual(
+      getMovies.mock.calls.map((call) => call.arguments[0]),
+      [
+        { query: '2 of a kind', page: 2, perPage: 20 },
+        { query: '2 of a kind', page: 2, perPage: 20 },
+      ]
+    );
+  });
+
+  it('requires a query', async () => {
+    const agent = await loginAs('admin@seerr.dev');
+
+    assert.strictEqual((await agent.get('/adultmovie/search')).status, 400);
+  });
+});
+
 describe('Adult movie filter lookups', () => {
   beforeEach(() => {
     getSettings().stashdb = {

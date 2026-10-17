@@ -55,8 +55,8 @@ const sortOptions = [
 
 type StudioSort = (typeof sortOptions)[number][0];
 
-// Every StashDB studio or network, behind the rows of the same name, which
-// start out like the rows: popularity ranks those of the most popular scenes
+// Every StashDB studio or network, behind the rows of the same name; the
+// rows go by trending scenes, the lists start by popular ones
 const AdultStudioList = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const router = useRouter();
@@ -68,16 +68,16 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
     sortOptions.find(([value]) => value === router.query.sortBy)?.[0] ??
     sortOptions[0][0];
   const [search, debouncedSearch, setSearch] = useDebouncedState(query);
-  // The URL keeps its values as given, so both go in encoded
-  const setParams = (params: { query: string; sortBy: StudioSort }) =>
-    batchUpdate({
-      query: params.query ? encodeURIComponent(params.query) : undefined,
-      sortBy: params.sortBy === sortOptions[0][0] ? undefined : params.sortBy,
-    });
 
   useEffect(() => {
+    // The URL keeps its values as given, so the search goes in encoded;
+    // the sort is left as it is, written only when picked
     if (debouncedSearch !== query) {
-      setParams({ query: debouncedSearch, sortBy });
+      batchUpdate({
+        query: debouncedSearch
+          ? encodeURIComponent(debouncedSearch)
+          : undefined,
+      });
     }
     // Only once typing settles
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,9 +130,8 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
               name="sortBy"
               className="rounded-r-only"
               value={sortBy}
-              onChange={(e) =>
-                setParams({ query, sortBy: e.target.value as StudioSort })
-              }
+              // Kept in the URL as picked, the default too
+              onChange={(e) => batchUpdate({ sortBy: e.target.value })}
             >
               {sortOptions.map(([value, message]) => (
                 <option key={value} value={value}>

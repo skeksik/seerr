@@ -21,16 +21,16 @@ import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
 // What a performer or studio page shows: all their titles, or one kind
-export type CreditView = 'all' | 'adultmovies' | 'scenes';
+export type CreditView = 'all' | 'scenes' | 'adultmovies';
 
 // Every view is offered, like the person page's, even where there is
 // nothing of a kind
-const VIEWS: CreditView[] = ['all', 'adultmovies', 'scenes'];
+const VIEWS: CreditView[] = ['all', 'scenes', 'adultmovies'];
 
 const viewMessages = {
   all: globalMessages.all,
-  adultmovies: globalMessages.adultMovies,
   scenes: globalMessages.scenes,
+  adultmovies: globalMessages.adultMovies,
 };
 
 // Like the person page, the pick lasts while the page is open
@@ -157,16 +157,6 @@ export const CreditTitlesPlaceholder = ({
 
   return (
     <>
-      <SliderHeader
-        title={intl.formatMessage(globalMessages.adultMovies)}
-        linkPending
-      />
-      <Slider
-        sliderKey="credit-movies-loading"
-        isLoading
-        isEmpty={false}
-        items={[]}
-      />
       {scenes && (
         <>
           <SliderHeader
@@ -182,6 +172,16 @@ export const CreditTitlesPlaceholder = ({
           />
         </>
       )}
+      <SliderHeader
+        title={intl.formatMessage(globalMessages.adultMovies)}
+        linkPending
+      />
+      <Slider
+        sliderKey="credit-movies-loading"
+        isLoading
+        isEmpty={false}
+        items={[]}
+      />
     </>
   );
 };
@@ -217,6 +217,13 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
       return (
         <>
           <AdultTitleSlider
+            mediaType="scene"
+            sliderKey={`scenes-${scenes.type}-${scenes.id}`}
+            title={intl.formatMessage(globalMessages.scenes)}
+            url={firstPageUrl('scene', scenes) ?? ''}
+            linkUrl={creditBrowseHref('scene', scenes.type, scenes.id)}
+          />
+          <AdultTitleSlider
             mediaType="adultmovie"
             sliderKey={`adult-${movies.type}-${movies.id}`}
             title={intl.formatMessage(globalMessages.adultMovies)}
@@ -226,13 +233,6 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
               movies.type,
               movies.browseId ?? movies.id
             )}
-          />
-          <AdultTitleSlider
-            mediaType="scene"
-            sliderKey={`scenes-${scenes.type}-${scenes.id}`}
-            title={intl.formatMessage(globalMessages.scenes)}
-            url={firstPageUrl('scene', scenes) ?? ''}
-            linkUrl={creditBrowseHref('scene', scenes.type, scenes.id)}
           />
         </>
       );

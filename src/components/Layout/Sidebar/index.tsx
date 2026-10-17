@@ -78,17 +78,17 @@ const SidebarLinks: SidebarLinkProps[] = [
     activeRegExp: /^\/discover\/tv$/,
   },
   {
-    href: '/discover/adultmovies',
-    messagesKey: 'browseadultmovies',
-    svgIcon: <FireIcon className="mr-3 h-6 w-6" />,
-    activeRegExp: /^\/discover\/adultmovies$/,
-    requiresAdult: true,
-  },
-  {
     href: '/discover/scenes',
     messagesKey: 'browsescenes',
     svgIcon: <VideoCameraIcon className="mr-3 h-6 w-6" />,
     activeRegExp: /^\/discover\/scenes$/,
+    requiresAdult: true,
+  },
+  {
+    href: '/discover/adultmovies',
+    messagesKey: 'browseadultmovies',
+    svgIcon: <FireIcon className="mr-3 h-6 w-6" />,
+    activeRegExp: /^\/discover\/adultmovies$/,
     requiresAdult: true,
   },
   {

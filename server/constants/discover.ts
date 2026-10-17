@@ -33,25 +33,48 @@ export enum DiscoverSliderType {
   // keep their stored numbers
   POPULAR_ADULT_MOVIES,
   UPCOMING_ADULT_MOVIES,
+  // Custom rows admins create, like the TMDB keyword ones
+  SCENE_TAG,
+  SCENE_PERFORMER,
+  SCENE_STUDIO,
+  SCENE_SEARCH,
+  ADULT_MOVIE_TAG,
+  ADULT_MOVIE_PERFORMER,
+  ADULT_MOVIE_STUDIO,
+  ADULT_MOVIE_SEARCH,
 }
 
 // Removed from existing installs at startup
 export const retiredSliderTypes = [DiscoverSliderType.POPULAR_ADULT_MOVIES];
 
-// Only shown to users with adult access
+// The built-in adult rows, only shown to users with adult access; this is
+// also their default order
 export const adultSliderTypes = [
   DiscoverSliderType.TRENDING_SCENES,
   DiscoverSliderType.POPULAR_SCENES,
   DiscoverSliderType.NEW_SCENES,
   DiscoverSliderType.UPCOMING_SCENES,
-  DiscoverSliderType.ADULT_STUDIOS,
-  DiscoverSliderType.ADULT_NETWORKS,
   DiscoverSliderType.NEW_ADULT_MOVIES,
   DiscoverSliderType.UPCOMING_ADULT_MOVIES,
+  DiscoverSliderType.ADULT_STUDIOS,
+  DiscoverSliderType.ADULT_NETWORKS,
+];
+
+// The adult rows admins create themselves, gated the same way but not
+// bootstrapped
+export const adultCustomSliderTypes = [
+  DiscoverSliderType.SCENE_TAG,
+  DiscoverSliderType.SCENE_PERFORMER,
+  DiscoverSliderType.SCENE_STUDIO,
+  DiscoverSliderType.SCENE_SEARCH,
+  DiscoverSliderType.ADULT_MOVIE_TAG,
+  DiscoverSliderType.ADULT_MOVIE_PERFORMER,
+  DiscoverSliderType.ADULT_MOVIE_STUDIO,
+  DiscoverSliderType.ADULT_MOVIE_SEARCH,
 ];
 
 export const isAdultSliderType = (type: DiscoverSliderType): boolean =>
-  adultSliderTypes.includes(type);
+  adultSliderTypes.includes(type) || adultCustomSliderTypes.includes(type);
 
 export const defaultSliders: Partial<DiscoverSlider>[] = [
   {

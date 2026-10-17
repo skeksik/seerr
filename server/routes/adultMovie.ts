@@ -22,6 +22,7 @@ import {
   pageParam,
   pageQuery,
   pickedAndExcluded,
+  searchQuery,
   sharedFilters,
   tpdbDateOperations,
 } from '@server/lib/adultLists';
@@ -246,6 +247,46 @@ const mapMovieList = async (
   totalPages,
   totalResults,
   results: await mapAdultMovieList(movies, user),
+});
+
+// Like the scene search, for the search rows admins create
+adultMovieRoutes.get('/search', async (req, res, next) => {
+  const parsed = searchQuery.safeParse(req.query);
+
+  if (!parsed.success) {
+    return next({ status: 400, message: 'Invalid search parameters.' });
+  }
+
+  const { query, page } = parsed.data;
+
+  try {
+    const list = await TpdbAPI.fromSettings().getMovies({
+      query,
+      page,
+      perPage: PAGE_SIZE,
+    });
+
+    return res
+      .status(200)
+      .json(
+        await mapMovieList(
+          list.data,
+          page,
+          list.meta.last_page,
+          list.meta.total,
+          req.user
+        )
+      );
+  } catch (e) {
+    return handleError(
+      e,
+      next,
+      'Unable to retrieve adult movie search results.',
+      {
+        query,
+      }
+    );
+  }
 });
 
 // The StashDB studios or performers among a search's matches linked to

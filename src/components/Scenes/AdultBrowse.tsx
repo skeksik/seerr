@@ -89,27 +89,35 @@ const browseConfigs: Record<AdultFilterKind, BrowseConfig> = {
 
 interface AdultBrowseProps {
   kind: AdultFilterKind;
+  // A sort of its own, like the Trending Scenes page: the select goes and
+  // the URL's sortBy is ignored
+  fixedSort?: string;
+  // The page title, in place of the tab's
+  title?: MessageDescriptor;
 }
 
 // The Scenes and Adult Movies tabs, sorted and filtered through the URL
-const AdultBrowse = ({ kind }: AdultBrowseProps) => {
+const AdultBrowse = ({
+  kind,
+  fixedSort,
+  title: titleOverride,
+}: AdultBrowseProps) => {
   const intl = useIntl();
   const router = useRouter();
   const { hasPermission } = useUser();
   const updateQueryParams = useUpdateQueryParams(router.query);
   const [showFilters, setShowFilters] = useState(false);
-  const {
-    endpoint,
-    sortOptions,
-    title: titleMessage,
-    provider,
-  } = browseConfigs[kind];
+  const { endpoint, sortOptions, provider } = browseConfigs[kind];
+  const titleMessage = titleOverride ?? browseConfigs[kind].title;
 
+  // The URL only carries sortBy once the user picks one; the default is
+  // never written on its own
   const sortBy =
-    typeof router.query.sortBy === 'string' &&
+    fixedSort ??
+    (typeof router.query.sortBy === 'string' &&
     sortOptions.some(([value]) => value === router.query.sortBy)
       ? router.query.sortBy
-      : sortOptions[0][0];
+      : sortOptions[0][0]);
   const filters = Object.fromEntries(
     adultFilterParams
       .map((key) => [key, router.query[key]] as const)
@@ -166,24 +174,27 @@ const AdultBrowse = ({ kind }: AdultBrowseProps) => {
       <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-end">
         <Header>{title}</Header>
         <div className="mt-2 flex flex-grow flex-col sm:flex-row lg:flex-grow-0">
-          <div className="mb-2 flex flex-grow sm:mb-0 sm:mr-2 lg:flex-grow-0">
-            <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
-              <BarsArrowDownIcon className="h-6 w-6" />
-            </span>
-            <select
-              id="sortBy"
-              name="sortBy"
-              className="rounded-r-only"
-              value={sortBy}
-              onChange={(e) => updateQueryParams('sortBy', e.target.value)}
-            >
-              {sortOptions.map(([value, message]) => (
-                <option key={value} value={value}>
-                  {intl.formatMessage(message)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!fixedSort && (
+            <div className="mb-2 flex flex-grow sm:mb-0 sm:mr-2 lg:flex-grow-0">
+              <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
+                <BarsArrowDownIcon className="h-6 w-6" />
+              </span>
+              <select
+                id="sortBy"
+                name="sortBy"
+                className="rounded-r-only"
+                value={sortBy}
+                // Kept in the URL as picked, the default too
+                onChange={(e) => updateQueryParams('sortBy', e.target.value)}
+              >
+                {sortOptions.map(([value, message]) => (
+                  <option key={value} value={value}>
+                    {intl.formatMessage(message)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <AdultFilterSlideover
             kind={kind}
             show={showFilters}

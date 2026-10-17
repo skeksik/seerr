@@ -26,6 +26,9 @@ export interface AdultTitleSliderProps {
   linkUrl?: string;
   // Off for search results, which show everything like the movie ones
   applyHideSettings?: boolean;
+  // Like MediaSlider's, how many titles the row has once read, for the
+  // Discover editor's preview
+  onNewTitles?: (titleCount: number) => void;
 }
 
 // Landscape scene cards are wider, so fewer make a row as long as the
@@ -52,6 +55,7 @@ const AdultTitleSlider = ({
   url,
   linkUrl,
   applyHideSettings = true,
+  onNewTitles,
 }: AdultTitleSliderProps) => {
   const settings = useSettings();
   const { hasPermission } = useUser();
@@ -110,6 +114,13 @@ const AdultTitleSlider = ({
 
   const settled = !!error || (!reading && !wantsMore);
   const isEmpty = !!error || results.length === 0;
+  const resultCount = results.length;
+
+  useEffect(() => {
+    if (onNewTitles && settled) {
+      onNewTitles(resultCount);
+    }
+  }, [onNewTitles, settled, resultCount]);
 
   if (settled && isEmpty) {
     return null;

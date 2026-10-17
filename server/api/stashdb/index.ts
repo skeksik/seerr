@@ -573,10 +573,12 @@ class StashDbAPI extends ExternalAPI {
     return data.queryStudios;
   }
 
-  // The studios of the most popular scenes, one per scene, for ranking
-  // studios; stash-box cannot sort studios on that. The Studios and
-  // Networks rows ask for the same ranking at once, and share it
-  public async getSceneStudios(): Promise<StashDbSceneStudio[]> {
+  // The studios of the most trending or popular scenes, one per scene, for
+  // ranking studios; stash-box cannot sort studios on either. The Studios
+  // and Networks rows ask for the same ranking at once, and share it
+  public async getSceneStudios(
+    sort: 'TRENDING' | 'POPULARITY'
+  ): Promise<StashDbSceneStudio[]> {
     const studio = `id name images { ${IMAGE_FIELDS} }`;
     const data = await this.query<{
       queryScenes: { scenes: { studio?: StashDbSceneStudio | null }[] };
@@ -588,7 +590,7 @@ class StashDbAPI extends ExternalAPI {
       }`,
       {
         input: {
-          sort: 'POPULARITY',
+          sort,
           direction: 'DESC',
           per_page: RANKED_SCENES,
         },
