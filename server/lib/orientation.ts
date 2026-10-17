@@ -56,8 +56,9 @@ interface Cast {
 interface TagHint {
   cast?: Cast;
   orientation?: Orientation;
-  // Who body and act tags imply, like "Big Tits" or "Strap-On" a woman and
-  // "Big Dick" or "Blowjob" a man. Trans and futanari performers have
+  // Who body and act tags imply, like "Big Tits" or "Squirting" a woman
+  // and "Big Dick" or "Cumshot" a man; acts a strap-on can stand in for,
+  // like "Blowjob", imply no one. Trans and futanari performers have
   // either, so these only count without either in the title
   implied?: Cast;
   // Tags naming trans performers, which say nothing of the cast's count
@@ -80,17 +81,24 @@ const FEMALE_WORDS =
 const MALE_WORDS =
   /\b(man|men|guy|guys|boy|boys|male|husband|boyfriend|dilf|maledom|malesub|twink|stud|cuckold(ing)?|(step ?)?(brother|dad|daddy|father|son|uncle|grandpa|nephew))\b|\(male\)/i;
 const BREAST_WORDS = /\b(tits?|titties|titty|boobs?|breasts?)\b/i;
-const PENIS_WORDS =
-  /\b(dicks?|cocks?|penis|penises|balls|bbc|bwc|(un)?circumcised)\b/i;
-// Acts that need a woman: a strap-on is worn by one, a titjob needs her
-// breasts, and squirting, tribbing and a clit are hers
+// A penis is a man's unless the act is one a strap-on can stand in for
+const PENIS_WORDS = /\b(dicks?|cocks?|penis|penises)\b/i;
+// Acts that need a woman's body: a titjob her breasts, and squirting,
+// tribbing and a clit are hers. A strap-on or pegging do not, as a man can
+// wear a strap-on too
 const FEMALE_ACTS =
-  /\b(strap-?ons?|pegg(ing|ed)|titjobs?|tit ?fuck(s|ing)?|(?<!(male|anal) )squirt(s|ing)?|tribbing|tribadism|scissoring|clit|labia|queef(ing)?|lactation|breast milk|pregnant)\b/i;
-// A squirting dildo is a toy
-const NOT_FEMALE_ACTS = /\b(dildos?|toys?)\b/i;
-// Acts that need a man, like "Blowjob", "Facial" or "Cum in Mouth"
+  /\b(titjobs?|tit ?fuck(s|ing)?|(?<!(male|anal) )squirt(s|ing)?|tribbing|tribadism|scissoring|clit|labia|queef(ing)?|lactation|breast milk|pregnant)\b/i;
+// A squirting dildo or strap-on is a toy
+const NOT_FEMALE_ACTS = /\b(dildos?|toys?|strap-?ons?)\b/i;
+// What only a man's body has or does, like "Balls", "Cumshot", "Facial",
+// "Creampie" or "Glory Hole", and pegging, which a man takes
 const MALE_ACTS =
-  /\b((blow|hand|foot|tit|titty|thigh|butt|armpit|hair|shoe|sock|glove|boot|panty|calf|leg) ?jobs?|blowbangs?|deep ?throat(ing)?|cum ?shots?|cum|creampies?|facials?|bukkake|pearl necklace|money shot|(face|throat|titty|tit) ?fuck(s|ing)?|spit ?roast|ball (sucking|licking|play|worship|kicking|stretching|tie|bondage|slap\w*)|tea ?bagging|glory ?holes?|pull out|precum|(?<!reverse )pegg(ing|ed)|finishing the job)\b/i;
+  /\b(balls|bbc|bwc|(un)?circumcised|cum ?shots?|cum|creampies?|facials?|bukkake|pearl necklace|money shot|ball (sucking|licking|play|worship|kicking|stretching|tie|bondage|slap\w*)|tea ?bagging|glory ?holes?|pull out|precum|(?<!reverse )pegg(ing|ed)|finishing the job)\b/i;
+// Acts a strap-on can stand in for, like "Blowjob", "Handjob",
+// "Deepthroat", "Face Fuck", "Spit Roast" or "Cock Worship", which need
+// no man
+const STRAP_ON_ACTS =
+  /(jobs?|blowbangs?|deep ?throat(ing)?|(face|throat|mouth|skull) ?fuck(s|ing)?|spit ?roast|suck(s|ing)?|lick(s|ing)?|worship|slap(s|ping)?|smack(s|ing)?|rubbing|riding|stroking|play|teas(e|ing)|in mouth|leading)\b/i;
 // Toys and fakes, like "Dildo Blowjob", "Fake Cum" or "No Cumshot", leave
 // the man out, a squirting facial is hers, a lone "to cum" is anyone's
 // orgasm, and instructions and humiliation are often for the viewer alone
@@ -196,7 +204,7 @@ export const tagHint = (name: string): TagHint | undefined => {
   }
   const female = FEMALE_WORDS.test(name);
   const male = MALE_WORDS.test(name);
-  // Body and act tags, like "Big Tits", "Strap-On" or "Cum on Pussy", say
+  // Body and act tags, like "Big Tits", "Squirting" or "Cum on Pussy", say
   // who else is there
   const impliedFemale =
     !female &&
@@ -204,7 +212,8 @@ export const tagHint = (name: string): TagHint | undefined => {
       (FEMALE_ACTS.test(name) && !NOT_FEMALE_ACTS.test(name)));
   const impliedMale =
     !male &&
-    (PENIS_WORDS.test(name) || MALE_ACTS.test(name)) &&
+    (MALE_ACTS.test(name) ||
+      (PENIS_WORDS.test(name) && !STRAP_ON_ACTS.test(name))) &&
     !NOT_MALE_ACTS.test(name);
 
   if (!female && !male && !impliedFemale && !impliedMale) {

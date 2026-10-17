@@ -215,10 +215,8 @@ describe('tagHint', () => {
     assert.deepStrictEqual(tagHint('Trans Woman'), { trans: true });
     assert.deepStrictEqual(tagHint('Big Tits')?.implied?.female, 1);
     assert.deepStrictEqual(tagHint('Big Dick')?.implied?.male, 1);
-    // A woman wears it, and no man needs to be there
-    assert.deepStrictEqual(tagHint('Strap-On Cock'), {
-      implied: { male: 0, female: 1, trans: 0 },
-    });
+    // Anyone can wear it, and no man needs to be there
+    assert.strictEqual(tagHint('Strap-On Cock'), undefined);
     assert.deepStrictEqual(tagHint('Brother Sister Fuck')?.cast, {
       male: 1,
       female: 1,
@@ -275,37 +273,66 @@ describe('tagHint', () => {
     const both = { male: 1, female: 1, trans: 0 };
 
     for (const name of [
-      'Blowjob',
-      'Handjob',
-      'Deepthroat',
       'Cumshot',
       'Facial',
       'Cum in Mouth',
+      'Cum Covered Blowjob',
       'Creampie',
-      'Footjob',
+      'Throat Creampie',
       'Bukkake',
-      'Face Fuck',
-      'Throat Fucking',
       'Ball Sucking',
+      'Holding Balls During Blowjob',
       'Pearl Necklace',
       'Glory Hole',
       'Uncircumcised',
+      'Big Dick',
+      'Monster Cock',
+      'Big Black Cock (BBC)',
+      'Cock and Ball Torture',
+      'Pegging',
     ]) {
       assert.deepStrictEqual(implied(name), man, name);
     }
     for (const name of [
-      'Strap-on',
       'Scissoring',
       'Tribbing',
       'Squirting',
       'Squirting Facial',
       'Clit Play',
       'Lactation',
+      // Her breasts, whoever or whatever gets it
+      'Titjob',
+      'Titty Fuck',
     ]) {
       assert.deepStrictEqual(implied(name), woman, name);
     }
-    for (const name of ['Titjob', 'Titty Fuck', 'Cum on Tits', 'Pegging']) {
-      assert.deepStrictEqual(implied(name), both, name);
+    assert.deepStrictEqual(implied('Cum on Tits'), both);
+    // Acts a strap-on can stand in for, and a strap-on itself, which a man
+    // can wear too
+    for (const name of [
+      'Blowjob',
+      'Handjob',
+      'Footjob',
+      'Thighjob',
+      'Buttjob',
+      'Shoejob',
+      'Panty Job',
+      'Blowjob - Cowgirl',
+      'Blowbang',
+      'Deepthroat',
+      'Face Fuck',
+      'Throat Fucking',
+      'Spit Roast',
+      'Anal Spit Roast',
+      'Cock Worship',
+      'Cock Slapping',
+      'Dick Licking',
+      'Rubbing Cock on Face',
+      'Double Blowjob (2 Penises)',
+      'Strap-on',
+      'Squirting Strap-on',
+    ]) {
+      assert.strictEqual(implied(name), undefined, name);
     }
     // Pussy names a woman outright
     assert.deepStrictEqual(tagHint('Cum on Pussy'), {
@@ -352,8 +379,15 @@ describe('classifyMovie', () => {
       ['lesbian']
     );
     assert.deepStrictEqual(
-      classifyMovie(movie(['Female', 'Female'], ['Handjob'])),
+      classifyMovie(movie(['Female', 'Female'], ['Creampie'])),
       ['straight']
+    );
+    // A strap-on can stand in for a man
+    assert.deepStrictEqual(
+      classifyMovie(
+        movie(['Female', 'Female'], ['Strap-on', 'Blowjob', 'Deepthroat'])
+      ),
+      ['lesbian']
     );
   });
 
