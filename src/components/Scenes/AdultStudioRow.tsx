@@ -44,7 +44,7 @@ const AdultStudioRow = ({
       isEmpty={false}
       // Shaped like the studio cards they stand in for
       placeholder={
-        <div className="h-32 w-56 animate-pulse rounded-xl bg-gray-700 sm:h-36 sm:w-72" />
+        <div className="h-32 w-56 transform-gpu animate-pulse cursor-pointer rounded-xl bg-gray-700 ring-1 ring-gray-700 transition duration-300 ease-in-out hover:scale-105 hover:ring-gray-500 sm:h-36 sm:w-72" />
       }
       items={[
         ...(studios ?? [])

@@ -5,9 +5,9 @@ import {
   creditTitlesQuery,
   creditTitlesUrl,
 } from '@app/components/Common/adultRoutes';
-import SceneCard from '@app/components/SceneCard';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import Slider from '@app/components/Slider';
+import TitleCard from '@app/components/TitleCard';
 import useDiscover from '@app/hooks/useDiscover';
 import globalMessages from '@app/i18n/globalMessages';
 import { CircleStackIcon } from '@heroicons/react/24/solid';
@@ -150,21 +150,28 @@ export const CreditTitlesPlaceholder = ({
 
   return (
     <>
-      <SliderHeader title={intl.formatMessage(globalMessages.adultMovies)} />
+      <SliderHeader
+        title={intl.formatMessage(globalMessages.adultMovies)}
+        placeholderLink
+      />
       <Slider
         sliderKey="credit-movies-loading"
         isLoading
         isEmpty={false}
+        placeholder={<TitleCard.Placeholder hoverable />}
         items={[]}
       />
       {scenes && (
         <>
-          <SliderHeader title={intl.formatMessage(globalMessages.scenes)} />
+          <SliderHeader
+            title={intl.formatMessage(globalMessages.scenes)}
+            placeholderLink
+          />
           <Slider
             sliderKey="credit-scenes-loading"
             isLoading
             isEmpty={false}
-            placeholder={<SceneCard.Placeholder />}
+            placeholder={<TitleCard.Placeholder landscape hoverable />}
             items={[]}
           />
         </>
