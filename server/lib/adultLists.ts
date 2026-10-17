@@ -27,9 +27,6 @@ export type DateComparison = (typeof dateComparisons)[number];
 // Filters panel fields both sources take; titles need all of the picked
 // performers and tags
 export const sharedFilters = {
-  // Comma-separated sexual preferences to show; the user's defaults if
-  // unset. Titles with any other are left out
-  orientation: z.string().optional(),
   // How the release date compares; both sources take one date bound
   released: z.enum(dateComparisons).optional(),
   releaseDate: isoDate.optional(),
@@ -58,32 +55,6 @@ export const pickedAndExcluded = <I>({
   ].some(([picked, excluded]) =>
     (picked ?? []).some((id) => excluded?.includes(id))
   );
-
-// The items of joined that are not in items already
-export const withoutSeen = <T extends { id: string }>(
-  joined: T[],
-  items: { id: string }[]
-): T[] => {
-  const seen = new Set(items.map(({ id }) => id));
-  return joined.filter(({ id }) => !seen.has(id));
-};
-
-// Joined lists keep a release date order; other orders just follow on
-export const mergeByDate = <T>(
-  items: T[],
-  joined: T[],
-  dateOf: (item: T) => string | null | undefined,
-  direction?: 'ASC' | 'DESC'
-): T[] => {
-  const all = [...items, ...joined];
-  if (!direction) {
-    return all;
-  }
-  const sign = direction === 'DESC' ? -1 : 1;
-  return all.sort(
-    (a, b) => sign * (dateOf(a) ?? '').localeCompare(dateOf(b) ?? '')
-  );
-};
 
 // An unconfigured source is a 503; anything else is logged
 export const handleError = (

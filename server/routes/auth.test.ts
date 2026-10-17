@@ -629,13 +629,11 @@ describe('GET /auth/me', () => {
     assert.deepStrictEqual(Object.keys(res.body.settings).sort(), [
       'adultSafeMode',
       'blurAdultImages',
-      'disabledOrientations',
       'discoverRegion',
       'locale',
       'notificationTypes',
       'originalLanguage',
       'streamingRegion',
-      'uncheckedOrientations',
       'watchlistSyncMovies',
       'watchlistSyncTv',
     ]);

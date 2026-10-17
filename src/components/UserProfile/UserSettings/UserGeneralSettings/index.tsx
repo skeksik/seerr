@@ -3,7 +3,6 @@ import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import LanguageSelector from '@app/components/LanguageSelector';
-import OrientationSelector from '@app/components/OrientationSelector';
 import QuotaSelector from '@app/components/QuotaSelector';
 import RegionSelector from '@app/components/RegionSelector';
 import { availableLanguages } from '@app/context/LanguageContext';
@@ -18,14 +17,13 @@ import defineMessages from '@app/utils/defineMessages';
 import { ArrowDownOnSquareIcon } from '@heroicons/react/24/outline';
 import { ApiErrorCode } from '@server/constants/error';
 import type { UserSettingsGeneralResponse } from '@server/interfaces/api/userSettingsInterfaces';
-import { ORIENTATIONS, isOrientation } from '@server/lib/orientation';
 import type { AvailableLocale } from '@server/types/languages';
 import axios from 'axios';
 import { Field, Form, Formik } from 'formik';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import useSWR, { mutate, useSWRConfig } from 'swr';
+import useSWR from 'swr';
 import validator from 'validator';
 import * as Yup from 'yup';
 
@@ -63,12 +61,6 @@ const messages = defineMessages(
     seriesrequestlimit: 'Series Request Limit',
     scenerequestlimit: 'Scene Request Limit',
     adultmovierequestlimit: 'Adult Movie Request Limit',
-    sexualPreferences: 'Sexual Preferences',
-    sexualPreferencesTip:
-      'Picked by default in the Scenes and Adult Movies filters; the others show only when picked there',
-    allowedSexualPreferences: 'Allowed Sexual Preferences',
-    allowedSexualPreferencesTip:
-      'The others are never shown to this user, and are left out of their filters',
     enableOverride: 'Override Global Limit',
     applanguage: 'Display Language',
     languageDefault: 'Default ({language})',
@@ -100,16 +92,6 @@ const UserGeneralSettings = () => {
     id: Number(router.query.userId),
   });
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
-  const { cache } = useSWRConfig();
-  // Scene and adult movie lists are filtered by the sexual preferences on
-  // the server, so the ones read before are read again when next opened
-  const forgetAdultLists = () => {
-    for (const key of cache.keys()) {
-      if (/\/api\/v1\/(scene|adultmovie)\b/.test(key)) {
-        cache.delete(key);
-      }
-    }
-  };
   const { currentSettings } = useSettings();
   // Adult rows show when the viewer may see adult content and is out of safe
   // mode, whatever the edited user's permissions, so admins can set them up
@@ -199,12 +181,6 @@ const UserGeneralSettings = () => {
           adultMovieQuotaDays: data?.adultMovieQuotaDays,
           watchlistSyncMovies: data?.watchlistSyncMovies,
           watchlistSyncTv: data?.watchlistSyncTv,
-          disabledOrientations: (data?.disabledOrientations ?? []).filter(
-            isOrientation
-          ),
-          uncheckedOrientations: (data?.uncheckedOrientations ?? []).filter(
-            isOrientation
-          ),
         }}
         validationSchema={UserGeneralSettingsSchema}
         enableReinitialize
@@ -236,8 +212,6 @@ const UserGeneralSettings = () => {
                 : null,
               watchlistSyncMovies: values.watchlistSyncMovies,
               watchlistSyncTv: values.watchlistSyncTv,
-              disabledOrientations: values.disabledOrientations,
-              uncheckedOrientations: values.uncheckedOrientations,
             });
 
             if (currentUser?.id === user?.id && setLocale) {
@@ -280,11 +254,6 @@ const UserGeneralSettings = () => {
           } finally {
             revalidate();
             revalidateUser();
-            // The filters take their defaults from the signed-in user
-            mutate('/api/v1/auth/me');
-            if (currentUser?.id === user?.id) {
-              forgetAdultLists();
-            }
           }
         }}
       >
@@ -479,68 +448,6 @@ const UserGeneralSettings = () => {
                   </div>
                 </div>
               </div>
-              {showAdult && (
-                <div className="form-row">
-                  <label className="text-label">
-                    <span>
-                      {intl.formatMessage(messages.sexualPreferences)}
-                    </span>
-                    <span className="label-tip">
-                      {intl.formatMessage(messages.sexualPreferencesTip)}
-                    </span>
-                  </label>
-                  <div className="form-input-area">
-                    <OrientationSelector
-                      options={ORIENTATIONS.filter(
-                        (value) => !values.disabledOrientations.includes(value)
-                      )}
-                      selected={ORIENTATIONS.filter(
-                        (value) => !values.uncheckedOrientations.includes(value)
-                      )}
-                      onChange={(selected) =>
-                        setFieldValue(
-                          'uncheckedOrientations',
-                          ORIENTATIONS.filter(
-                            (value) => !selected.includes(value)
-                          )
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-              {showAdult &&
-                currentHasPermission(Permission.MANAGE_USERS) &&
-                !hasPermission(Permission.MANAGE_USERS) && (
-                  <div className="form-row">
-                    <label className="text-label">
-                      <span>
-                        {intl.formatMessage(messages.allowedSexualPreferences)}
-                      </span>
-                      <span className="label-tip">
-                        {intl.formatMessage(
-                          messages.allowedSexualPreferencesTip
-                        )}
-                      </span>
-                    </label>
-                    <div className="form-input-area">
-                      <OrientationSelector
-                        selected={ORIENTATIONS.filter(
-                          (value) =>
-                            !values.disabledOrientations.includes(value)
-                        )}
-                        onChange={(selected) =>
-                          setFieldValue(
-                            'disabledOrientations',
-                            ORIENTATIONS.filter(
-                              (value) => !selected.includes(value)
-                            )
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
               {currentHasPermission(Permission.MANAGE_USERS) &&
                 !hasPermission(Permission.MANAGE_USERS) && (
                   <>

@@ -4,7 +4,6 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tooltip from '@app/components/Common/Tooltip';
-import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
@@ -27,7 +26,6 @@ import {
   StarIcon,
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
-import type { Orientation } from '@server/lib/orientation';
 import { mediaPermissions } from '@server/lib/permissions';
 import type { MediaType } from '@server/models/Search';
 import Link from 'next/link';
@@ -50,8 +48,6 @@ interface TitleCardProps {
   inProgress?: boolean;
   isAddedToWatchlist?: number | boolean;
   mutateParent?: () => void;
-  // Scenes and adult movies
-  orientations?: Orientation[];
 }
 
 const messages = defineMessages('components.TitleCard', {
@@ -86,7 +82,6 @@ const TitleCard = ({
   inProgress = false,
   canExpand = false,
   mutateParent,
-  orientations,
 }: TitleCardProps) => {
   const isTouch = useIsTouch();
   const intl = useIntl();
@@ -292,54 +287,26 @@ const TitleCard = ({
             />
           )}
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
-            {/* The sexual preference letters hang below the type badge, out
-                of the row, so the buttons and status line up with the badge
-                as on other cards */}
-            <div className="pointer-events-none relative z-40 self-start">
-              <div
-                className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                  adultType
-                    ? 'border-pink-500 bg-pink-600/80'
-                    : mediaType === 'movie' || mediaType === 'collection'
-                      ? 'border-blue-500 bg-blue-600/80'
-                      : 'border-purple-600 bg-purple-600/80'
-                }`}
-              >
-                <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                  {isScene
-                    ? intl.formatMessage(globalMessages.scene)
-                    : adultType
-                      ? intl.formatMessage(globalMessages.adult)
-                      : mediaType === 'movie'
-                        ? intl.formatMessage(globalMessages.movie)
-                        : mediaType === 'collection'
-                          ? intl.formatMessage(globalMessages.collection)
-                          : intl.formatMessage(globalMessages.tvshow)}
-                </div>
+            <div
+              className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
+                adultType
+                  ? 'border-pink-500 bg-pink-600/80'
+                  : mediaType === 'movie' || mediaType === 'collection'
+                    ? 'border-blue-500 bg-blue-600/80'
+                    : 'border-purple-600 bg-purple-600/80'
+              }`}
+            >
+              <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
+                {isScene
+                  ? intl.formatMessage(globalMessages.scene)
+                  : adultType
+                    ? intl.formatMessage(globalMessages.adult)
+                    : mediaType === 'movie'
+                      ? intl.formatMessage(globalMessages.movie)
+                      : mediaType === 'collection'
+                        ? intl.formatMessage(globalMessages.collection)
+                        : intl.formatMessage(globalMessages.tvshow)}
               </div>
-              {/* Sexual preferences, which the Filters panel goes by, by
-                  their first letter */}
-              {orientations?.some((value) => value !== 'unidentified') && (
-                <div className="absolute left-0 top-full mt-1 flex gap-1">
-                  {orientations
-                    .filter((orientation) => orientation !== 'unidentified')
-                    .map((orientation) => {
-                      const name = intl.formatMessage(
-                        orientationMessages[orientation]
-                      );
-                      return (
-                        <div
-                          key={orientation}
-                          aria-label={name}
-                          title={name}
-                          className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/80 text-[0.65rem] font-semibold text-gray-200 shadow-md"
-                        >
-                          {name.charAt(0)}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div

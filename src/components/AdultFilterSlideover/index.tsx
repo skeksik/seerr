@@ -1,14 +1,10 @@
 import Button from '@app/components/Common/Button';
 import SlideOver from '@app/components/Common/SlideOver';
-import OrientationSelector from '@app/components/OrientationSelector';
 import { useBatchUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
-import { useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { XCircleIcon } from '@heroicons/react/24/outline';
 import Datepicker from '@seerr-team/react-tailwindcss-datepicker';
-import type { Orientation } from '@server/lib/orientation';
-import { isOrientation, ORIENTATIONS } from '@server/lib/orientation';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -27,7 +23,6 @@ const messages = defineMessages('components.AdultFilterSlideover', {
   releasedGte: 'Greater or Equal',
   releasedLt: 'Less',
   releasedLte: 'Less or Equal',
-  sexualPreferences: 'Sexual Preferences',
   studios: 'Studios',
   studio: 'Studio',
   excludeStudios: 'Exclude Studios',
@@ -50,7 +45,6 @@ export type AdultFilterKind = 'scene' | 'adultmovie';
 // date
 const countedParams = [
   'releaseDate',
-  'orientation',
   'studio',
   'studioExclude',
   'performer',
@@ -223,23 +217,6 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <div className="text-lg font-semibold">{children}</div>
 );
 
-// The user's sexual preferences: those picked by default, and those offered
-const useOrientationDefaults = () => {
-  const { user } = useUser();
-  const disabled = (user?.settings?.disabledOrientations ?? []).filter(
-    isOrientation
-  );
-  const unchecked = (user?.settings?.uncheckedOrientations ?? []).filter(
-    isOrientation
-  );
-  const options = ORIENTATIONS.filter((value) => !disabled.includes(value));
-
-  return {
-    options,
-    defaults: options.filter((value) => !unchecked.includes(value)),
-  };
-};
-
 interface AdultFilterSlideoverProps {
   kind: AdultFilterKind;
   show: boolean;
@@ -254,16 +231,10 @@ const AdultFilterSlideover = ({
   const intl = useIntl();
   const router = useRouter();
   const batchUpdate = useBatchUpdateQueryParams(router.query);
-  const { options: orientationOptions, defaults: orientationDefaults } =
-    useOrientationDefaults();
 
   // How the release date compares
   const released = param(router.query.released) ?? 'gte';
   const releaseDate = param(router.query.releaseDate);
-  const orientationParam = param(router.query.orientation);
-  const orientations: Orientation[] = orientationParam
-    ? orientationParam.split(',').filter(isOrientation)
-    : orientationDefaults;
   const studio = param(router.query.studio);
   const studioExclude = param(router.query.studioExclude);
   const performer = param(router.query.performer);
@@ -281,9 +252,6 @@ const AdultFilterSlideover = ({
   const ids = (value?: string) => value?.split(',') ?? [];
   const joined = (options: Option[]) =>
     options.map((option) => option.value).join(',') || undefined;
-  const sameAsDefaults = (values: Orientation[]) =>
-    values.length === orientationDefaults.length &&
-    values.every((value) => orientationDefaults.includes(value));
 
   return (
     <SlideOver
@@ -346,25 +314,6 @@ const AdultFilterSlideover = ({
             />
           </div>
         </div>
-        {orientationOptions.length > 0 && (
-          <>
-            <SectionTitle>
-              {intl.formatMessage(messages.sexualPreferences)}
-            </SectionTitle>
-            <OrientationSelector
-              options={orientationOptions}
-              selected={orientations}
-              onChange={(values) =>
-                batchUpdate({
-                  // "none" keeps an empty pick apart from the defaults
-                  orientation: sameAsDefaults(values)
-                    ? undefined
-                    : values.join(',') || 'none',
-                })
-              }
-            />
-          </>
-        )}
         <SectionTitle>
           {/* ThePornDB filters on a single studio */}
           {intl.formatMessage(isScene ? messages.studios : messages.studio)}

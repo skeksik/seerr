@@ -45,7 +45,6 @@ const AdultMovieDetails = () => {
         overview: data.overview,
         releaseDate: data.releaseDate,
         duration: data.duration,
-        orientations: data.orientations,
         // Like the cast, studios open their StashDB page when linked to
         // one, else their ThePornDB page. The banner shows the site's movies
         studio: data.studio && {

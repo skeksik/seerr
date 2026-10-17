@@ -64,8 +64,6 @@ authRoutes.get('/me', isAuthenticated(), async (req, res) => {
       watchlistSyncTv: user.settings.watchlistSyncTv,
       adultSafeMode: user.settings.adultSafeMode,
       blurAdultImages: user.settings.blurAdultImages,
-      disabledOrientations: user.settings.disabledOrientations ?? [],
-      uncheckedOrientations: user.settings.uncheckedOrientations ?? [],
     },
   });
 });

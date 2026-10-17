@@ -93,14 +93,6 @@ export class UserSettings {
   @Column({ default: false })
   public blurAdultImages: boolean;
 
-  // Sexual preferences an admin took away from the user
-  @Column({ type: 'text', nullable: true, transformer: jsonArrayTransformer })
-  public disabledOrientations: string[];
-
-  // Sexual preferences the filters leave unpicked until the user picks them
-  @Column({ type: 'text', nullable: true, transformer: jsonArrayTransformer })
-  public uncheckedOrientations: string[];
-
   @Column({
     type: 'text',
     nullable: true,

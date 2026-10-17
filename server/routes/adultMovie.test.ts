@@ -163,95 +163,30 @@ describe('GET /adultmovie/discover', () => {
     );
   });
 
-  it('leaves out excluded and hidden movies, which ThePornDB cannot', async () => {
-    const gay = {
-      ...movie,
-      id: 'gay',
-      tags: [{ id: 1065, name: 'Gay' }],
-    };
+  it('leaves out excluded movies, which ThePornDB cannot', async () => {
     const excluded = {
       ...movie,
       id: 'excluded',
       tags: [{ id: 71, name: 'Blonde' }],
     };
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
-      data: [movie, gay, excluded],
-      meta: { current_page: 1, last_page: 1, per_page: 20, total: 3 },
-    }));
-    const agent = await loginAs('admin@seerr.dev');
-
-    const res = await agent.get(
-      '/adultmovie/discover?tags=1,2&tagsExclude=71&orientation=straight,lesbian,unidentified'
-    );
-
-    assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(
-      res.body.results.map((result: { id: string }) => result.id),
-      [MOVIE_ID]
-    );
-    // Movies need all of the picked tags
-    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.anyTag, false);
-  });
-
-  it('hides movies with any unchecked preference', async () => {
-    const female = (id: number) => ({
-      id: `p${id}`,
-      _id: id,
-      name: `P${id}`,
-      extra: { gender: 'Female' },
-    });
-    const solo = { ...movie, id: 'solo', performers: [female(1)] };
-    const straight = {
-      ...movie,
-      id: 'straight',
-      performers: [
-        female(1),
-        { id: 'm', _id: 2, name: 'M', extra: { gender: 'Male' } },
-      ],
-    };
-    mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
-      data: [solo, straight],
+      data: [movie, excluded],
       meta: { current_page: 1, last_page: 1, per_page: 20, total: 2 },
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/adultmovie/discover?orientation=straight');
+    const res = await agent.get('/adultmovie/discover?tags=1,2&tagsExclude=71');
 
     assert.strictEqual(res.status, 200);
-    // A lone woman suits lesbian too, which is hidden
-    assert.deepStrictEqual(
-      res.body.results.map((result: { id: string }) => result.id),
-      ['straight']
-    );
-  });
-
-  it('reads dense pages for unidentified movies alone', async () => {
-    const straight = {
-      ...movie,
-      id: 'straight',
-      tags: [{ id: 1, name: 'Twosome (Straight)' }],
-    };
-    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
-      data: [straight, movie],
-      meta: { current_page: 1, last_page: 167, per_page: 60, total: 10000 },
-    }));
-    const agent = await loginAs('admin@seerr.dev');
-
-    const res = await agent.get(
-      '/adultmovie/discover?orientation=unidentified'
-    );
-
-    assert.strictEqual(res.status, 200);
-    // No tag finds them, so none is asked for
-    assert.strictEqual(getMovies.mock.callCount(), 1);
-    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.perPage, 60);
-    assert.deepStrictEqual(getMovies.mock.calls[0].arguments[0]?.tagIds, []);
     assert.deepStrictEqual(
       res.body.results.map((result: { id: string }) => result.id),
       [MOVIE_ID]
     );
-    assert.deepStrictEqual(res.body.results[0].orientations, ['unidentified']);
-    assert.strictEqual(res.body.totalPages, 167);
+    const query = getMovies.mock.calls[0].arguments[0];
+    assert.strictEqual(query?.perPage, 20);
+    assert.deepStrictEqual(query?.tagIds, [1, 2]);
+    // Movies need all of the picked tags
+    assert.strictEqual(query?.anyTag, false);
   });
 
   it('finds nothing for filters that leave nothing', async () => {
@@ -265,12 +200,6 @@ describe('GET /adultmovie/discover', () => {
       '/adultmovie/discover?tags=70&tagsExclude=70',
       '/adultmovie/discover?performer=99899&performerExclude=99899',
       '/adultmovie/discover?studio=37335&studioExclude=37335',
-      // Every movie with ThePornDB's Lesbian tag is lesbian, which is hidden
-      '/adultmovie/discover?tags=8&orientation=straight',
-      // Only lesbian movies show, and those tagged Lesbian are excluded
-      '/adultmovie/discover?orientation=lesbian&tagsExclude=8',
-      '/adultmovie/discover?orientation=lesbian&tags=70&tagsExclude=8',
-      '/adultmovie/discover?orientation=lesbian,gay&tagsExclude=8,1065',
     ]) {
       const res = await agent.get(url);
 
@@ -322,9 +251,7 @@ describe('ThePornDB filter lookups', () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies');
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get(
-      '/adultmovie/tags?query=cream%20pie&tags=70&orientation=straight'
-    );
+    const res = await agent.get('/adultmovie/tags?query=cream%20pie&tags=70');
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.length, 25);

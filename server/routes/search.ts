@@ -6,8 +6,7 @@ import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
 import { linkedStashDbPerformers } from '@server/lib/adultLinks';
-import { classifyMovies, mapAdultMovieList } from '@server/lib/adultMedia';
-import { hiddenOrientations, isHidden } from '@server/lib/orientation';
+import { mapAdultMovieList } from '@server/lib/adultMedia';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
@@ -110,16 +109,11 @@ const searchAdult = async (
     ];
   });
   const performerResults = [...stashDbResults, ...tpdbResults];
-  // Disabled and unchecked sexual preferences stay out of search too
-  const hidden = hiddenOrientations(user);
-  const shownMovies = classifyMovies(movies?.data ?? []).filter(
-    ({ orientations }) => !isHidden(orientations, hidden)
-  );
 
   return {
     results: [
       ...performerResults,
-      ...(await mapAdultMovieList(shownMovies, user)),
+      ...(await mapAdultMovieList(movies?.data ?? [], user)),
     ],
     totalPages: movies?.meta.last_page ?? 0,
     totalResults: (movies?.meta.total ?? 0) + performerResults.length,

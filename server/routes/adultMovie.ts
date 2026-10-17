@@ -15,28 +15,13 @@ import {
 import {
   handleError,
   lookupQuery,
-  mergeByDate,
   pageParam,
   pageQuery,
   pickedAndExcluded,
   sharedFilters,
   tpdbDateOperations,
-  withoutSeen,
 } from '@server/lib/adultLists';
-import type { ClassifiedMovie } from '@server/lib/adultMedia';
-import {
-  classifyMovies,
-  isOnWatchlist,
-  mapAdultMovieList,
-} from '@server/lib/adultMedia';
-import type { Narrow, Orientation } from '@server/lib/orientation';
-import {
-  TPDB_ORIENTATION_TAG_IDS,
-  isHidden,
-  joinedPlan,
-  onlyUnidentified,
-  planOrientationTags,
-} from '@server/lib/orientation';
+import { isOnWatchlist, mapAdultMovieList } from '@server/lib/adultMedia';
 import logger from '@server/logger';
 import {
   mapAdultPerformerDetails,
@@ -95,78 +80,46 @@ const discoverQuery = movieFilters.extend({
 type DiscoverQuery = z.infer<typeof discoverQuery>;
 
 interface MovieListFilter {
-  hidden: Set<Orientation>;
-  exclude?: {
-    siteIds?: number[];
-    performerIds?: number[];
-    tagIds?: number[];
-  };
+  siteIds?: number[];
+  performerIds?: number[];
+  tagIds?: number[];
 }
 
-// ThePornDB has no exclusions, so excluded studios, performers and tags and
-// hidden sexual preferences are filtered here. Each movie is classified once,
-// for the filter and the results
+// ThePornDB has no exclusions, so excluded studios, performers and tags are
+// filtered here
 const filterMovies = (
   movies: TpdbMovie[],
-  { hidden, exclude }: MovieListFilter
-): ClassifiedMovie[] => {
-  const sites = new Set(exclude?.siteIds);
-  const performers = new Set(exclude?.performerIds);
-  const tags = new Set(exclude?.tagIds);
+  exclude: MovieListFilter
+): TpdbMovie[] => {
+  const sites = new Set(exclude.siteIds);
+  const performers = new Set(exclude.performerIds);
+  const tags = new Set(exclude.tagIds);
 
-  return classifyMovies(
-    movies.filter(
-      (movie) =>
-        ![movie.site?.id, movie.site?.parent_id, movie.site?.network_id].some(
-          (id) => id != null && sites.has(id)
-        ) &&
-        !movie.performers?.some(
-          (performer) =>
-            performers.has(performer._id) ||
-            (performer.parent?._id != null &&
-              performers.has(performer.parent._id))
-        ) &&
-        !movie.tags?.some((tag) => tags.has(tag.id))
-    )
-  ).filter(
-    ({ orientations }) => !(hidden.size && isHidden(orientations, hidden))
+  return movies.filter(
+    (movie) =>
+      ![movie.site?.id, movie.site?.parent_id, movie.site?.network_id].some(
+        (id) => id != null && sites.has(id)
+      ) &&
+      !movie.performers?.some(
+        (performer) =>
+          performers.has(performer._id) ||
+          (performer.parent?._id != null &&
+            performers.has(performer.parent._id))
+      ) &&
+      !movie.tags?.some((tag) => tags.has(tag.id))
   );
 };
-
-// Lists read this many movies a page when most may be filtered out here
-const DENSE_PAGE_SIZE = 60;
 
 interface MoviePlan {
   query: TpdbMovieQuery;
   filter: MovieListFilter;
-  dense: boolean;
-  // Asked for tagged movies only, which leaves out unidentified ones
-  narrowed: boolean;
   // No movie can show, like with a tag both picked and excluded
   empty: boolean;
-  // A picked tag stands for an orientation, so no movie is unidentified
-  identified: boolean;
 }
 
 // The ThePornDB query for the picked filters, and what is left to filter
 // here
-const planMovies = (
-  user: User | undefined,
-  filters: MovieFilters,
-  narrow: Narrow = 'needed'
-): MoviePlan => {
-  const { hidden, tagIds, anyTag, narrowed, empty, identified } =
-    planOrientationTags(
-      user,
-      {
-        orientation: filters.orientation,
-        picked: filters.tags ?? [],
-        excluded: filters.tagsExclude,
-      },
-      TPDB_ORIENTATION_TAG_IDS,
-      narrow
-    );
-
+const planMovies = (filters: MovieFilters): MoviePlan => {
   // ThePornDB takes one date bound; future dates are often placeholders
   // like 3024, so released lists stop at today
   let date: TpdbMovieQuery['date'];
@@ -185,29 +138,20 @@ const planMovies = (
     query: {
       siteId: filters.studio,
       performerIds: filters.performer,
-      tagIds,
-      anyTag,
+      tagIds: filters.tags,
+      anyTag: false,
       year: filters.year,
       date,
     },
     filter: {
-      hidden,
-      exclude: {
-        siteIds: filters.studioExclude,
-        performerIds: filters.performerExclude,
-        tagIds: filters.tagsExclude,
-      },
+      siteIds: filters.studioExclude,
+      performerIds: filters.performerExclude,
+      tagIds: filters.tagsExclude,
     },
-    // Hiding any without asking for tags leaves few per page, as most
-    // movies are unidentified
-    dense: hidden.size > 0 && !narrowed,
-    narrowed,
     empty:
-      empty ||
       pickedAndExcluded(filters) ||
       (filters.studio !== undefined &&
         !!filters.studioExclude?.includes(filters.studio)),
-    identified,
   };
 };
 
@@ -220,17 +164,11 @@ const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
   duration_asc: 'duration_asc',
 };
 
-// Release date orders, which joined lists keep
-const dateDirections: Partial<Record<TpdbMovieSort, 'ASC' | 'DESC'>> = {
-  recently_released: 'DESC',
-  former_released: 'ASC',
-};
-
 const discoverMovies = async (
   { page, sort, ...filters }: DiscoverQuery,
   user?: User
 ): Promise<AdultMovieListResponse> => {
-  const plan = planMovies(user, filters);
+  const plan = planMovies(filters);
 
   // Filters that leave nothing, like a tag both picked and excluded, find
   // no movie rather than pages of nothing
@@ -238,53 +176,23 @@ const discoverMovies = async (
     return { page, totalPages: 1, totalResults: 0, results: [] };
   }
 
-  const tpdb = TpdbAPI.fromSettings();
-  const query = {
+  const list = await TpdbAPI.fromSettings().getMovies({
+    ...plan.query,
     page,
+    perPage: PAGE_SIZE,
     sort: filters.upcoming ? 'former_released' : tpdbSorts[sort],
     // Some durations are far off, like 535 hours, and would lead the list
     maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
-  } as const;
-  const joined = joinedPlan(plan, (narrow) =>
-    planMovies(user, filters, narrow)
-  );
-  const [list, extra] = await Promise.all([
-    tpdb.getMovies({
-      ...plan.query,
-      ...query,
-      perPage: plan.dense ? DENSE_PAGE_SIZE : PAGE_SIZE,
-    }),
-    joined
-      ? tpdb.getMovies({
-          ...joined.query,
-          ...query,
-          perPage: DENSE_PAGE_SIZE,
-        })
-      : undefined,
-  ]);
-  const shown = filterMovies(list.data, plan.filter);
-  const rest =
-    joined && extra
-      ? filterMovies(
-          withoutSeen(
-            extra.data,
-            shown.map(({ movie }) => movie)
-          ),
-          onlyUnidentified(joined.filter)
-        )
-      : [];
-  const movies = mergeByDate(
-    shown,
-    rest,
-    ({ movie }) => movie.date,
-    dateDirections[query.sort]
-  );
+  });
 
   return {
     page,
-    totalPages: Math.max(list.meta.last_page, extra?.meta.last_page ?? 0),
+    totalPages: list.meta.last_page,
     totalResults: list.meta.total,
-    results: await mapAdultMovieList(movies, user),
+    results: await mapAdultMovieList(
+      filterMovies(list.data, plan.filter),
+      user
+    ),
   };
 };
 
@@ -306,8 +214,7 @@ adultMovieRoutes.get('/discover', async (req, res, next) => {
   }
 });
 
-// Movies for the viewer, with the viewer's defaults for lists without
-// filters
+// Movies for the viewer, with media info
 const mapMovieList = async (
   movies: TpdbMovie[],
   page: number,
@@ -318,10 +225,7 @@ const mapMovieList = async (
   page,
   totalPages,
   totalResults,
-  results: await mapAdultMovieList(
-    filterMovies(movies, planMovies(user, {}).filter),
-    user
-  ),
+  results: await mapAdultMovieList(movies, user),
 });
 
 // Lookups for the ThePornDB filters, by path: what ThePornDB's search finds

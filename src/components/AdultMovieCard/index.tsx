@@ -30,7 +30,6 @@ const AdultMovieCard = ({
     }
     canExpand={canExpand}
     mutateParent={mutateParent}
-    orientations={movie.orientations}
   />
 );
 

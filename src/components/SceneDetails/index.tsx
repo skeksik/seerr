@@ -49,7 +49,6 @@ const SceneDetails = ({ scene }: SceneDetailsProps) => {
         releaseDate: data.releaseDate,
         productionDate: data.productionDate,
         duration: data.duration,
-        orientations: data.orientations,
         studio: data.studio && {
           id: data.studio.id,
           name: data.studio.name,

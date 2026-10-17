@@ -1,8 +1,6 @@
 import { tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
-import type { Orientation } from '@server/lib/orientation';
-import { classifyMovie } from '@server/lib/orientation';
 
 export interface AdultMovieResult {
   // ThePornDB movie UUID
@@ -19,8 +17,6 @@ export interface AdultMovieResult {
   backdropUrl?: string;
   studio?: { id: number; name: string };
   mediaInfo?: Media;
-  // Sexual preferences the movie suits, set by the list routes
-  orientations?: Orientation[];
 }
 
 // A ThePornDB site
@@ -171,7 +167,6 @@ export const mapAdultMovieDetails = (
         stashDbId: links.studios.get(movie.site.id),
       }
     : undefined,
-  orientations: classifyMovie(movie),
   backCoverUrl: movie.back_image ?? undefined,
   network:
     movie.site?.network && movie.site.network.id !== movie.site.id

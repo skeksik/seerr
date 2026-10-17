@@ -93,7 +93,7 @@ const AdultTitleSlider = ({
     !!lastPage && (!paged || lastPage.page >= lastPage.totalPages);
   const reading =
     !error && (!data || data.length < size || isValidating) && !readAll;
-  // Lists filtered by sexual preference can leave pages nearly empty
+  // The hide settings can leave pages short
   const wantsMore =
     !error &&
     !!data &&

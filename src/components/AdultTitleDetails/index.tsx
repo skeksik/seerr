@@ -12,7 +12,6 @@ import PageTitle from '@app/components/Common/PageTitle';
 import type { PlayButtonLink } from '@app/components/Common/PlayButton';
 import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
-import { orientationMessages } from '@app/components/OrientationSelector';
 import RequestModal from '@app/components/RequestModal';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import PerformerSlider from '@app/components/Scenes/PerformerSlider';
@@ -30,7 +29,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type Media from '@server/entity/Media';
-import type { Orientation } from '@server/lib/orientation';
 import { mediaPermissions } from '@server/lib/permissions';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
@@ -79,7 +77,6 @@ export interface AdultTitle {
   productionDate?: string;
   // Seconds
   duration?: number;
-  orientations?: Orientation[];
   studio?: CreditLink & { id: string | number };
   network?: CreditLink;
   directors: string[];
@@ -180,20 +177,6 @@ const AdultTitleDetails = ({
   const year = data.releaseDate?.slice(0, 4);
   const minutes = data.duration ? Math.round(data.duration / 60) : undefined;
   const attributes: React.ReactNode[] = [];
-
-  // Sexual preferences, which the Filters panel goes by, boxed like a
-  // movie's certification
-  if (data.orientations?.length) {
-    attributes.push(
-      <span className="flex gap-1">
-        {data.orientations.map((orientation) => (
-          <span key={orientation} className="rounded-md border p-0.5 py-0">
-            {intl.formatMessage(orientationMessages[orientation])}
-          </span>
-        ))}
-      </span>
-    );
-  }
 
   if (minutes) {
     attributes.push(intl.formatMessage(messages.minutes, { minutes }));

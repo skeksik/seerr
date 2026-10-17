@@ -25,9 +25,6 @@ export interface UserSettingsGeneralResponse {
   globalAdultMovieQuotaDays?: number;
   watchlistSyncMovies?: boolean;
   watchlistSyncTv?: boolean;
-  // Sexual preferences; admins set the disabled ones
-  disabledOrientations?: string[];
-  uncheckedOrientations?: string[];
 }
 
 export type NotificationAgentTypes = Record<NotificationAgentKey, number>;

@@ -274,18 +274,6 @@ components:
           nullable: true
           description: 'Enable watchlist sync for TV'
           example: false
-        disabledOrientations:
-          type: array
-          items:
-            type: string
-          description: 'Sexual preferences never shown to the user; only admins set these, for other users'
-          example: ['gay']
-        uncheckedOrientations:
-          type: array
-          items:
-            type: string
-          description: 'Sexual preferences left unpicked in the filters by default'
-          example: ['trans']
     MainSettings:
       type: object
       properties:
@@ -7919,12 +7907,6 @@ paths:
           schema:
             type: string
         - in: query
-          name: orientation
-          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa, unidentified), or none; the user's defaults when left out. Titles with any other preference are left out
-          schema:
-            type: string
-            example: straight,lesbian
-        - in: query
           name: year
           schema:
             type: number
@@ -8301,12 +8283,6 @@ paths:
           description: Comma-separated StashDB tag ids to leave out
           schema:
             type: string
-        - in: query
-          name: orientation
-          description: Comma-separated sexual preferences to show (straight, lesbian, bisexual, gay, trans, futa, unidentified), or none; the user's defaults when left out. Titles with any other preference are left out
-          schema:
-            type: string
-            example: straight,lesbian
         - in: query
           name: released
           schema:

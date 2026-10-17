@@ -7,37 +7,23 @@ import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { Watchlist } from '@server/entity/Watchlist';
-import type { Orientation } from '@server/lib/orientation';
-import { classifyMovie } from '@server/lib/orientation';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
 import { mapAdultMovieResult } from '@server/models/AdultMovie';
 import { mapSceneResult } from '@server/models/Scene';
 import type { EntityManager } from 'typeorm';
 
-// A ThePornDB movie with the sexual preferences it suits, classified once
-export interface ClassifiedMovie {
-  movie: TpdbMovie;
-  orientations: Orientation[];
-}
-
-export const classifyMovies = (movies: TpdbMovie[]): ClassifiedMovie[] =>
-  movies.map((movie) => ({ movie, orientations: classifyMovie(movie) }));
-
-// Movies for the viewer, with media info and sexual preferences
+// Movies for the viewer, with media info
 export const mapAdultMovieList = async (
-  movies: ClassifiedMovie[],
+  movies: TpdbMovie[],
   user?: User
 ): Promise<AdultMovieResult[]> => {
   const media = await Media.getRelatedAdultMovies(
-    movies.map(({ movie }) => movie.id),
+    movies.map((movie) => movie.id),
     user
   );
   const byId = new Map(media.map((m) => [m.tpdbId, m]));
 
-  return movies.map(({ movie, orientations }) => ({
-    ...mapAdultMovieResult(movie, byId.get(movie.id)),
-    orientations,
-  }));
+  return movies.map((movie) => mapAdultMovieResult(movie, byId.get(movie.id)));
 };
 
 // The scene on StashDB or the movie on ThePornDB, or null when it is gone

@@ -10,7 +10,6 @@ import type {
   UserSettingsGeneralResponse,
   UserSettingsNotificationsResponse,
 } from '@server/interfaces/api/userSettingsInterfaces';
-import { isOrientation } from '@server/lib/orientation';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
@@ -72,8 +71,6 @@ userSettingsRoutes.get<{ id: string }, UserSettingsGeneralResponse>(
         globalAdultMovieQuotaLimit: defaultQuotas.adultMovie?.quotaLimit,
         watchlistSyncMovies: user.settings?.watchlistSyncMovies,
         watchlistSyncTv: user.settings?.watchlistSyncTv,
-        disabledOrientations: user.settings?.disabledOrientations ?? [],
-        uncheckedOrientations: user.settings?.uncheckedOrientations ?? [],
       });
     } catch (e) {
       next({ status: 500, message: e.message });
@@ -153,21 +150,6 @@ userSettingsRoutes.post<
       user.settings.watchlistSyncTv = req.body.watchlistSyncTv;
     }
 
-    if (Array.isArray(req.body.uncheckedOrientations)) {
-      user.settings.uncheckedOrientations =
-        req.body.uncheckedOrientations.filter(isOrientation);
-    }
-    // Like quotas, only admins take sexual preferences away, and not their own
-    if (
-      Array.isArray(req.body.disabledOrientations) &&
-      !user.hasPermission(Permission.MANAGE_USERS) &&
-      req.user?.id !== user.id &&
-      req.user?.hasPermission(Permission.MANAGE_USERS)
-    ) {
-      user.settings.disabledOrientations =
-        req.body.disabledOrientations.filter(isOrientation);
-    }
-
     const savedUser = await userRepository.save(user);
 
     return res.status(200).json({
@@ -178,8 +160,6 @@ userSettingsRoutes.post<
       originalLanguage: savedUser.settings?.originalLanguage,
       watchlistSyncMovies: savedUser.settings?.watchlistSyncMovies,
       watchlistSyncTv: savedUser.settings?.watchlistSyncTv,
-      disabledOrientations: savedUser.settings?.disabledOrientations ?? [],
-      uncheckedOrientations: savedUser.settings?.uncheckedOrientations ?? [],
       email: savedUser.email,
     });
   } catch (e) {

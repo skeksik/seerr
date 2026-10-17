@@ -1,5 +1,5 @@
-// Filtered lists end after this many empty pages in a row, as when only
-// unidentified scenes are picked, rather than read hundreds more
+// Filtered lists end after this many empty pages in a row, as when the hide
+// settings leave page after page empty, rather than read hundreds more
 export const EMPTY_PAGES_LIMIT = 3;
 
 // Whether the last pages read all came back empty, so a filtered list ends

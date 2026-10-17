@@ -393,24 +393,6 @@ class StashDbAPI extends ExternalAPI {
     return found;
   }
 
-  // Tag ids by name or alias; names StashDB does not know are left out
-  public async getTagIds(names: string[]): Promise<Record<string, string>> {
-    const data = await this.query<Record<string, { id: string } | null>>(
-      `query (${names.map((_, i) => `$t${i}: String!`).join(', ')}) {
-        ${names.map((_, i) => `t${i}: findTagOrAlias(name: $t${i}) { id }`).join('\n')}
-      }`,
-      Object.fromEntries(names.map((name, i) => [`t${i}`, name])),
-      DETAILS_TTL
-    );
-
-    return Object.fromEntries(
-      names.flatMap((name, i) => {
-        const id = data[`t${i}`]?.id;
-        return id ? [[name, id]] : [];
-      })
-    );
-  }
-
   // Networks hold no scenes of their own, so a studio filter also takes in
   // the studios under it
   public async withChildStudios(ids: string[]): Promise<string[]> {
@@ -645,22 +627,6 @@ class StashDbAPI extends ExternalAPI {
     );
 
     return data.searchTag;
-  }
-
-  // Tags whose name contains the text, like "some (" for group tags
-  public async queryTags(
-    name: string,
-    perPage = 100
-  ): Promise<{ id: string; name: string }[]> {
-    const data = await this.query<{
-      queryTags: { tags: { id: string; name: string }[] };
-    }>(
-      'query ($input: TagQueryInput!) { queryTags(input: $input) { tags { id name } } }',
-      { input: { name, per_page: perPage } },
-      DETAILS_TTL
-    );
-
-    return data.queryTags.tags;
   }
 
   public async getTag(id: string): Promise<StashDbTag | null> {
