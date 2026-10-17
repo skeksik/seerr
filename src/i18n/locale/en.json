@@ -711,6 +711,7 @@
   "components.Scenes.AdultCreditHeader.born": "Born {date}",
   "components.Scenes.AdultCreditHeader.partOf": "Part of {studio}",
   "components.Scenes.AdultCreditHeader.present": "present",
+  "components.Scenes.AdultCreditView.appearances": "Appearances",
   "components.Scenes.AdultStudioList.networks": "Networks",
   "components.Scenes.AdultStudioList.search": "Search by name",
   "components.Scenes.AdultStudioList.sortAddedAsc": "Date Added Ascending",

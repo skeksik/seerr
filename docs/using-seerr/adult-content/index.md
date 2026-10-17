@@ -71,6 +71,8 @@ Names alone never link them. Linked performers and studios have a single page, S
 
 For example, Gal Ritchie's ThePornDB profile links her StashDB profile, so she has one page, with StashDB's details, her StashDB scenes and her ThePornDB movies. Little Dragon has a profile on both, but neither links the other, so each keeps its own page. Some adult movies credit performers ThePornDB has no profile for; they show in the cast without a link.
 
+Like a person page's media type selector, the selector at the top right of a performer or studio page picks what it shows: **All** (the rows above), **Scenes** or **Adult Movies**. StashDB pages offer **Scenes**, and **Adult Movies** when a ThePornDB performer or studio is linked; ThePornDB pages offer **Adult Movies**. Picking a type shows all their titles of it in a grid, newest first, under a heading (**Appearances** for performers) that opens the browse tab filtered to them. The pick is kept in the address (`?type=scenes` or `?type=adultmovies`), so back and forward bring it back. A network's studios show under **All** only.
+
 Links on performer and studio pages show as StashDB's icon for the site, or a logo where StashDB has no icon, or by name for sites without either. A network's page also lists its studios (or a ThePornDB network its sites) and the titles of all of them. Request managers can monitor StashDB performers and studios in Whisparr from their page; see [Whisparr](/using-seerr/adult-content/whisparr#monitoring-performers-and-studios).
 
 ThePornDB can't be asked which performer links a StashDB id, so the StashDB page looks for it among the ThePornDB performers of the same name or first alias, and keeps any ThePornDB performer seen linking to it. Matches are kept for six hours, like other details.
@@ -89,9 +91,9 @@ Scene and adult movie pages are laid out like movie pages:
 - **Recommendations** lists other titles with any of the same performers. For scenes these are the most popular on StashDB, read like the Scenes tab, so with straight hidden StashDB is asked for the tagged ones; for adult movies, the newest released on ThePornDB.
 - **Similar** looks at content rather than people. For scenes, Seerr takes the 100 most popular StashDB scenes sharing at least one tag (and, with straight hidden, the 100 most popular tagged with a shown orientation), leaves out hidden sexual preferences and ranks the rest by how many tags they share (top 40). For adult movies it uses ThePornDB's own similar list, about 9 movies.
 - The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site. Sites StashDB has an icon for show it alone, named on hover.
+- Directors show under the overview, with a **View Full Crew** link to the **Full Crew** page (`/scene/<id>/crew` or `/adultmovie/<id>/crew`). Neither StashDB nor ThePornDB has crew profiles, so crew cards, like cast members without a profile, link nowhere.
 - Adult movie pages add a **Scenes** row: the StashDB scenes the movie is cut into, found by the file fingerprints and studio pages ThePornDB keeps for its scenes.
 - Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and adult movies work like movie issues, and only users with adult access see them.
-- Directors show under the overview, with a **View Full Crew** link to the **Full Crew** page (`/scene/<id>/crew` or `/adultmovie/<id>/crew`). Neither StashDB nor ThePornDB has crew profiles, so crew cards, like cast members without a profile, link nowhere.
 
 ### Requesting Scenes and Adult Movies
 

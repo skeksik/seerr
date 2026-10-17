@@ -79,6 +79,8 @@ interface AdultCreditHeaderProps {
   bio?: string;
   // Buttons below
   actions?: React.ReactNode;
+  // The media type selector, top right like the person page's
+  picker?: React.ReactNode;
 }
 
 // The person page's header, for StashDB and ThePornDB performers and studios
@@ -94,6 +96,7 @@ const AdultCreditHeader = ({
   aliases = [],
   bio,
   actions,
+  picker,
 }: AdultCreditHeaderProps) => {
   const intl = useIntl();
   const [showBio, setShowBio] = useState(false);
@@ -134,7 +137,12 @@ const AdultCreditHeader = ({
           </div>
         )}
         <div className="w-full text-center text-gray-300 lg:text-left">
-          <h1 className="text-3xl text-white lg:text-4xl">{name}</h1>
+          <div className="flex w-full items-center justify-center lg:justify-between">
+            <h1 className="text-3xl text-white lg:text-4xl">{name}</h1>
+            {picker && (
+              <div className="hidden flex-shrink-0 lg:block">{picker}</div>
+            )}
+          </div>
           <div className="mt-2">
             <AdultProfileLinks links={links} />
           </div>
@@ -168,6 +176,7 @@ const AdultCreditHeader = ({
               </div>
             )}
           </div>
+          {picker && <div className="lg:hidden">{picker}</div>}
           {bio && (
             <div className="relative text-left">
               {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
