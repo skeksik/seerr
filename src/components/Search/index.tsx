@@ -60,6 +60,7 @@ const Search = () => {
             sliderKey="search-scenes"
             title={intl.formatMessage(globalMessages.scenes)}
             url={`/api/v1/scene/search?query=${encodeURIExtraParams(query)}&page=1`}
+            applyHideSettings={false}
           />
         </div>
       )}

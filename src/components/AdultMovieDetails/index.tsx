@@ -78,12 +78,14 @@ const AdultMovieDetails = () => {
       manage={{ mediaType: 'adultmovie', data, revalidate: () => mutate() }}
       revalidate={() => mutate()}
     >
-      {/* The StashDB scenes the movie is cut into */}
+      {/* The StashDB scenes the movie is cut into, all shown like the
+          parts of a collection */}
       <AdultTitleSlider
         mediaType="scene"
         sliderKey="adult-movie-scenes"
         title={intl.formatMessage(globalMessages.scenes)}
         url={`/api/v1/scene/movie/${data.id}`}
+        applyHideSettings={false}
       />
     </AdultTitleDetails>
   );

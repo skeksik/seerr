@@ -524,29 +524,6 @@ const SettingsMain = () => {
                     />
                   </div>
                 </div>
-                {/* Safe mode hides adult settings too */}
-                {!safeMode && (
-                  <div className="form-row">
-                    <label htmlFor="enableAdult" className="checkbox-label">
-                      <span className="mr-2">
-                        {intl.formatMessage(messages.enableAdult)}
-                      </span>
-                      <span className="label-tip">
-                        {intl.formatMessage(messages.enableAdultTip)}
-                      </span>
-                    </label>
-                    <div className="form-input-area">
-                      <Field
-                        type="checkbox"
-                        id="enableAdult"
-                        name="enableAdult"
-                        onChange={() => {
-                          setFieldValue('enableAdult', !values.enableAdult);
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
                 <div className="form-row">
                   <label htmlFor="hideBlocklisted" className="checkbox-label">
                     <span className="mr-2">
@@ -590,6 +567,29 @@ const SettingsMain = () => {
                     />
                   </div>
                 </div>
+                {/* Safe mode hides adult settings too */}
+                {!safeMode && (
+                  <div className="form-row">
+                    <label htmlFor="enableAdult" className="checkbox-label">
+                      <span className="mr-2">
+                        {intl.formatMessage(messages.enableAdult)}
+                      </span>
+                      <span className="label-tip">
+                        {intl.formatMessage(messages.enableAdultTip)}
+                      </span>
+                    </label>
+                    <div className="form-input-area">
+                      <Field
+                        type="checkbox"
+                        id="enableAdult"
+                        name="enableAdult"
+                        onChange={() => {
+                          setFieldValue('enableAdult', !values.enableAdult);
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="form-row">
                   <label
                     htmlFor="partialRequestsEnabled"

@@ -46,6 +46,8 @@ Search shows matching scenes in a row above the regular results. Adult movies an
 
 Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
+The **Hide Available Media**, **Hide Requested Media** and **Hide Blocklisted Items** settings (**Settings &rarr; General**) apply to scenes and adult movies like they do to movies: in the Scenes and Adult Movies tabs, the adult Discover rows, performer and studio pages, and recommendations and similar titles. Like movies, they still show in search results, and an adult movie's page shows all of its scenes, like a collection does its movies. Users without the **Manage Blocklist** or **View Blocklist** permission never see blocklisted titles.
+
 
 ### Discover Rows
 
