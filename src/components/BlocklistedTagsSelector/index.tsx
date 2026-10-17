@@ -326,7 +326,8 @@ const BlocklistedTagImportForm = forwardRef<
   );
 });
 
-const VerifyClearIndicator = <
+// Also the clear button of the StashDB and ThePornDB tag selectors
+export const VerifyClearIndicator = <
   Option,
   IsMuti extends boolean,
   Group extends GroupBase<Option>,

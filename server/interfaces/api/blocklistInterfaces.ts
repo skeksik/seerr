@@ -10,6 +10,9 @@ export interface BlocklistItem {
   createdAt?: Date;
   user?: User;
   blocklistedTags?: string;
+  // Scenes and adult movies blocklisted by tags: the names of those tags,
+  // from the settings, as ThePornDB cannot look a tag up by id
+  blocklistedTagNames?: string[];
 }
 
 export interface BlocklistResultsResponse extends PaginatedResponse {

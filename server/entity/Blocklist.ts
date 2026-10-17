@@ -75,18 +75,28 @@ export class Blocklist implements BlocklistItem {
       externalId,
       title,
       user,
+      blocklistedTags,
     }: {
       mediaType: AdultMediaType;
       externalId: string;
       title?: string;
       user?: User;
+      // Like blocklistedTags of TMDB titles: ",tagId,", for the tags job
+      blocklistedTags?: string;
     },
     entityManager?: EntityManager
   ): Promise<void> {
     const em = entityManager ?? dataSource.manager;
-    const blocklist = await em
-      .getRepository(this)
-      .save(new this({ mediaType, externalId, tmdbId: null, title, user }));
+    const blocklist = await em.getRepository(this).save(
+      new this({
+        mediaType,
+        externalId,
+        tmdbId: null,
+        title,
+        user,
+        blocklistedTags,
+      })
+    );
     const media = await findOrCreateAdultMedia(em, mediaType, externalId);
 
     media.blocklist = Promise.resolve(blocklist);
