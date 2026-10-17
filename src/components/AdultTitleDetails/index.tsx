@@ -79,7 +79,8 @@ export interface AdultTitle {
   // Seconds
   duration?: number;
   studio?: CreditLink & { id: string | number };
-  network?: CreditLink;
+  // With its id, the banner falls back to it for a studio without a page
+  network?: CreditLink & { id?: string | number };
   directors: string[];
   tags: { id: string | number; name: string }[];
   // The browse tab filtered to the tag
@@ -136,6 +137,13 @@ const AdultTitleDetails = ({
   const [showRequest4kModal, setShowRequest4kModal] = useState(false);
   const { hasPermission } = useUser();
   const settings = useSettings();
+
+  // The studio's page, or the network's when the studio alone has none
+  const banner = data.studio?.href
+    ? { ...data.studio, href: data.studio.href }
+    : data.network?.href && data.network.id !== undefined
+      ? { ...data.network, id: data.network.id, href: data.network.href }
+      : undefined;
 
   const status = data.mediaInfo?.status ?? MediaStatus.UNKNOWN;
   const status4k = data.mediaInfo?.status4k ?? MediaStatus.UNKNOWN;
@@ -425,12 +433,13 @@ const AdultTitleDetails = ({
           )}
         </div>
         <div className="media-overview-right">
-          {/* Only studios with a page, which the banner opens */}
-          {data.studio?.href && (
+          {/* Only studios with a page, which the banner opens; a
+              network's lists its sites' titles too */}
+          {banner && (
             <StudioBanner
-              href={data.studio.href}
-              studio={data.studio.name}
-              studioId={data.studio.id}
+              href={banner.href}
+              studio={banner.name}
+              studioId={banner.id}
               mediaType={data.mediaType}
               currentId={data.id}
               fallbackImageUrl={data.backdrop?.src}

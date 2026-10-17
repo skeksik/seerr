@@ -747,6 +747,8 @@
   "components.Scenes.MonitorControls.unmonitorSuccess": "Whisparr stopped monitoring <strong>{name}</strong>.",
   "components.Scenes.NetworkStudioList.studios": "Studios",
   "components.Scenes.SceneCreditDetails.sceneCount": "{count, plural, one {# scene} other {# scenes}} on StashDB",
+  "components.Scenes.SceneCreditDetails.scenesOnlyPerformer": "Whisparr can monitor this performer's scenes only: their <stashdb>StashDB</stashdb> profile does not link ThePornDB. Add the link on <stashdb>StashDB</stashdb> to monitor their movies too.",
+  "components.Scenes.SceneCreditDetails.scenesOnlyStudio": "Whisparr can monitor this studio's scenes only: its <stashdb>StashDB</stashdb> profile does not link ThePornDB. Add the link on <stashdb>StashDB</stashdb> to monitor its movies too.",
   "components.Scenes.SceneCreditDetails.studios": "Studios",
   "components.Search.search": "Search",
   "components.Search.searchresults": "Search Results",

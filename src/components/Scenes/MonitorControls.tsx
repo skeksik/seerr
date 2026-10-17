@@ -43,6 +43,9 @@ interface MonitorControlsProps {
   id: string;
   name: string;
   status: WhisparrMonitorStatus;
+  // Whether StashDB links them to ThePornDB, which Whisparr's movies take,
+  // for the confirmation before Whisparr follows them
+  moviesLinked?: boolean;
   onChange: (status: WhisparrMonitorStatus) => void;
 }
 
@@ -53,6 +56,7 @@ const MonitorControls = ({
   id,
   name,
   status,
+  moviesLinked,
   onChange,
 }: MonitorControlsProps) => {
   const intl = useIntl();
@@ -65,10 +69,14 @@ const MonitorControls = ({
   const fullyMonitored =
     status.monitored &&
     (status.moviesMonitored || status.moviesAvailable !== true);
+  // Whisparr's word once it follows them; until then, a missing link
+  // settles it, as Whisparr cannot find the movies without one
+  const moviesAvailable =
+    status.moviesAvailable ?? (moviesLinked === false ? false : undefined);
   const description =
-    status.moviesAvailable === true
+    moviesAvailable === true
       ? messages.monitorAll
-      : status.moviesAvailable === false
+      : moviesAvailable === false
         ? messages.monitorScenesOnly
         : messages.monitorMaybeMovies;
 

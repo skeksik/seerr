@@ -31,6 +31,10 @@ import useSWR from 'swr';
 const messages = defineMessages('components.Scenes.SceneCreditDetails', {
   sceneCount: '{count, plural, one {# scene} other {# scenes}} on StashDB',
   studios: 'Studios',
+  scenesOnlyPerformer:
+    "Whisparr can monitor this performer's scenes only: their <stashdb>StashDB</stashdb> profile does not link ThePornDB. Add the link on <stashdb>StashDB</stashdb> to monitor their movies too.",
+  scenesOnlyStudio:
+    "Whisparr can monitor this studio's scenes only: its <stashdb>StashDB</stashdb> profile does not link ThePornDB. Add the link on <stashdb>StashDB</stashdb> to monitor its movies too.",
 });
 
 type CreditType = 'performer' | 'studio';
@@ -55,10 +59,12 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   const { data, error, mutate } = useSWR<CreditDetails>(
     id ? `/api/v1/scene/${type}/${id}` : null
   );
-  // Movies come from ThePornDB, where performers and studios have own ids
+  // Movies come from ThePornDB, where performers and studios have own ids.
+  // Whisparr finds them through the StashDB profile's link alone
   const { data: tpdbMatch, error: matchError } = useSWR<{
     id: number;
     url?: string;
+    via: 'stashdb' | 'tpdb' | 'network';
   }>(id ? `/api/v1/adultmovie/match/${type}/${id}` : null, {
     shouldRetryOnError: false,
   });
@@ -85,6 +91,13 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   }
 
   const hasStudios = !isPerformer(data) && data.studios.length > 0;
+  // Linked another way, Whisparr monitors their scenes only, unless it
+  // says otherwise once it follows them
+  const scenesOnly =
+    !!data.whisparr &&
+    data.whisparr.moviesAvailable !== true &&
+    !!tpdbMatch &&
+    tpdbMatch.via !== 'stashdb';
 
   return (
     <>
@@ -138,6 +151,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
               id={data.id}
               name={data.name}
               status={data.whisparr}
+              moviesLinked={tpdbMatch && tpdbMatch.via === 'stashdb'}
               onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
             />
           )
@@ -156,11 +170,36 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
         )}
         {/* Movies wait for the ThePornDB match, if there is one */}
         {tpdbMatch || matchError ? (
-          <CreditTitles
-            view={view}
-            movies={tpdbMatch && { type, id: tpdbMatch.id, browseId: data.id }}
-            scenes={{ type, id: data.id }}
-          />
+          <>
+            {scenesOnly && (
+              <p className="mb-4 text-sm text-gray-400">
+                {intl.formatMessage(
+                  type === 'performer'
+                    ? messages.scenesOnlyPerformer
+                    : messages.scenesOnlyStudio,
+                  {
+                    stashdb: (msg: React.ReactNode) => (
+                      <a
+                        href={data.stashDbUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-300 hover:underline"
+                      >
+                        {msg}
+                      </a>
+                    ),
+                  }
+                )}
+              </p>
+            )}
+            <CreditTitles
+              view={view}
+              movies={
+                tpdbMatch && { type, id: tpdbMatch.id, browseId: data.id }
+              }
+              scenes={{ type, id: data.id }}
+            />
+          </>
         ) : (
           <CreditTitlesPlaceholder />
         )}

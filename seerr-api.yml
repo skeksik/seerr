@@ -8062,7 +8062,10 @@ paths:
         The ThePornDB performer or site linked to a StashDB one, whose page adds
         its movies. They are linked when the StashDB performer or studio links
         the ThePornDB profile, or when the ThePornDB performer links the StashDB
-        one (sites keep no StashDB links). Names alone never match.
+        one (sites keep no StashDB links); a StashDB network linking no site of
+        its own gets the ThePornDB network its studios' sites belong to. Names
+        alone never match. `via` says which: Whisparr reads StashDB's links
+        only, so it monitors the movies of `stashdb` matches alone.
       tags:
         - adultmovies
       parameters:
@@ -8093,6 +8096,13 @@ paths:
                   url:
                     type: string
                     description: The performer's or site's ThePornDB page
+                  via:
+                    type: string
+                    enum: [stashdb, tpdb, network]
+                    description: >-
+                      How they are linked: by the StashDB profile's ThePornDB
+                      link, by the ThePornDB performer's StashDB link, or, for
+                      a network, by its studios' ThePornDB links
         '404':
           description: No match on ThePornDB
   /adultmovie/{adultMovieId}:

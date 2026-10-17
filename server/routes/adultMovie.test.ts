@@ -468,6 +468,20 @@ const brazzers = {
   name: 'Brazzers',
 };
 
+const VIXEN_GROUP_STASHDB = 'f2f3e3a6-5a0b-4a39-9a16-2f3b9c4d8e01';
+const vixenGroup = {
+  id: 303,
+  uuid: '6d3a5d2e-2e8f-4a0c-9c2a-1b2f3e4d5c6b',
+  short_name: 'vixengroup',
+  name: 'Vixen Media Group',
+};
+const blacked = {
+  id: 200,
+  uuid: 'b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+  short_name: 'blacked',
+  name: 'Blacked',
+};
+
 // StashDB's answer to address lookups, from the addresses it holds
 const stashDbHolding =
   (held: Record<string, string>) => async (_type: string, urls: string[]) =>
@@ -505,6 +519,7 @@ describe('linking StashDB and ThePornDB', () => {
         id: 169067,
         name: 'Sasha Paige',
         url: 'https://theporndb.net/performers/sasha',
+        via: 'stashdb',
       });
       assert.deepStrictEqual(getPerformer.mock.calls[0].arguments, [
         'sasha-paige',
@@ -528,6 +543,7 @@ describe('linking StashDB and ThePornDB', () => {
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.id, 241509);
+      assert.strictEqual(res.body.via, 'tpdb');
       assert.deepStrictEqual(search.mock.calls[0].arguments, ['Gal Ritchie']);
     });
 
@@ -576,8 +592,47 @@ describe('linking StashDB and ThePornDB', () => {
         id: 92,
         name: 'Brazzers',
         url: `https://theporndb.net/sites/${brazzers.uuid}`,
+        via: 'stashdb',
       });
       assert.deepStrictEqual(getSite.mock.calls[0].arguments, ['brazzers']);
+    });
+
+    it("gives a network linking no site its studios' ThePornDB network", async () => {
+      mock.method(StashDbAPI.prototype, 'getStudio', async () => ({
+        id: VIXEN_GROUP_STASHDB,
+        name: 'Vixen Media Group',
+        aliases: [],
+        images: [],
+        urls: [],
+        child_studios: [{ id: 'blacked', name: 'Blacked', images: [] }],
+      }));
+      mock.method(
+        StashDbAPI.prototype,
+        'studioUrls',
+        async () =>
+          new Map([['blacked', ['https://theporndb.net/sites/blacked']]])
+      );
+      mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
+      mock.method(TpdbAPI.prototype, 'getSite', async (id: string | number) =>
+        id === 'blacked'
+          ? { ...blacked, network: { id: vixenGroup.id } }
+          : id === vixenGroup.id
+            ? vixenGroup
+            : null
+      );
+      const agent = await loginAs('admin@seerr.dev');
+
+      const res = await agent.get(
+        `/adultmovie/match/studio/${VIXEN_GROUP_STASHDB}`
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.deepStrictEqual(res.body, {
+        id: vixenGroup.id,
+        name: 'Vixen Media Group',
+        url: `https://theporndb.net/sites/${vixenGroup.uuid}`,
+        via: 'network',
+      });
     });
 
     it('does not match studios on their name', async () => {

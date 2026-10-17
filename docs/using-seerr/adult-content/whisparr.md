@@ -43,6 +43,8 @@ Monitoring a performer or studio makes Whisparr add every one of their scenes an
 
 Their movies are monitored too where Whisparr can add them. Whisparr takes movies from the movie metadata source in its general settings (ThePornDB or TMDB), and adds a performer's or studio's movies only when StashDB links them to that source. The confirmation says which applies once Whisparr follows the performer or studio; for one it does not follow yet, Seerr adds them first and then turns on their movies if Whisparr found the link. Whisparr adds the movies on the refresh Seerr starts, or, if it is still busy adding a large back catalog, on its next daily refresh.
 
+A note above the titles says when Whisparr can monitor scenes only: the page is linked to ThePornDB the other way around, by the ThePornDB performer's StashDB link or, for a network, by its studios' links, and Whisparr reads the StashDB profile's own links alone. Adding the ThePornDB link to the performer's or studio's StashDB profile fixes it; Whisparr picks the link up on its next refresh of them, and the note goes once Whisparr says so. The note only shows to request managers with a Whisparr server set up.
+
 The button shows what Whisparr monitors: **Monitored in Whisparr** for scenes and, where possible, movies. **Scenes Monitored** or **Movies Monitored** means only one of them is, for example after monitoring in Whisparr itself or before this option existed; **Monitor Movies** or **Monitor Scenes** next to it turns on the other.
 
 **Stop Monitoring** turns off monitoring of both scenes and movies in Whisparr. Titles that were already added stay in Whisparr.

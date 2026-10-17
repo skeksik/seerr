@@ -47,7 +47,8 @@ const AdultMovieDetails = () => {
         duration: data.duration,
         // Like the cast, studios open their StashDB page when linked to
         // one, and are plain text otherwise. The banner lists the site's
-        // movies by its ThePornDB id
+        // movies by its ThePornDB id, or the network's, which ThePornDB
+        // lists with its sites' movies, when only the network is linked
         studio: data.studio && {
           id: data.studio.id,
           name: data.studio.name,
@@ -56,6 +57,7 @@ const AdultMovieDetails = () => {
             : null,
         },
         network: data.network && {
+          id: data.network.id,
           name: data.network.name,
           href: data.network.stashDbId
             ? creditHref('studio', data.network.stashDbId)

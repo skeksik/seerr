@@ -6,7 +6,7 @@ import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
-import type { AdultMovieIds } from '@server/lib/adultLinks';
+import type { AdultMovieIds, LinkVia } from '@server/lib/adultLinks';
 import {
   linkedStashDbPerformers,
   linkedStashDbStudios,
@@ -306,7 +306,8 @@ for (const [path, lookup] of Object.entries(lookups)) {
 }
 
 // The ThePornDB performer or site linked to a StashDB performer or studio,
-// whose movies its page adds
+// whose movies its page adds, and how they are linked, as Whisparr only
+// monitors the movies of ones StashDB links itself
 adultMovieRoutes.get<{ type: string; id: string }>(
   '/match/:type/:id',
   async (req, res, next) => {
@@ -318,24 +319,31 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 
     try {
       const stashDb = StashDbAPI.fromSettings();
-      let match: { id: number; name: string; url: string } | null = null;
+      let match: {
+        id: number;
+        name: string;
+        url: string;
+        via: LinkVia;
+      } | null = null;
 
       if (req.params.type === 'performer') {
         const found = await linkedTpdbPerformer(id.data, stashDb);
         match = found
           ? {
-              id: found._id,
-              name: found.name,
-              url: tpdbUrl('performers', found.id),
+              id: found.match._id,
+              name: found.match.name,
+              url: tpdbUrl('performers', found.match.id),
+              via: found.via,
             }
           : null;
       } else {
         const found = await linkedTpdbSite(id.data, stashDb);
         match = found
           ? {
-              id: found.id,
-              name: found.name,
-              url: tpdbUrl('sites', found.uuid),
+              id: found.match.id,
+              name: found.match.name,
+              url: tpdbUrl('sites', found.match.uuid),
+              via: found.via,
             }
           : null;
       }

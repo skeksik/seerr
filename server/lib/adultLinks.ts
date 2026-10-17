@@ -220,12 +220,23 @@ const cached = async <T>(
 // Names searched for a ThePornDB performer linking to a StashDB one
 const SEARCHED_NAMES = 2;
 
+// How a StashDB performer or studio was linked to a ThePornDB one: by its
+// own StashDB links, by the ThePornDB performer's, or, for a network, by
+// its studios'. Whisparr only reads StashDB's, so it monitors the movies
+// of the first alone
+export type LinkVia = 'stashdb' | 'tpdb' | 'network';
+
+export interface TpdbLink<T> {
+  match: T;
+  via: LinkVia;
+}
+
 // The ThePornDB performer linked to a StashDB performer: one StashDB links
 // to, or one whose StashDB link is this performer. ThePornDB cannot be asked
 // for that link, so its performers of the same name or alias are checked
 export const tpdbPerformerFor = async (
   performer: StashDbPerformer
-): Promise<TpdbPerformerSummary | null> => {
+): Promise<TpdbLink<TpdbPerformerSummary> | null> => {
   const host = stashDbHost();
 
   if (!host || !TpdbAPI.isConfigured()) {
@@ -233,29 +244,36 @@ export const tpdbPerformerFor = async (
   }
 
   const tpdb = TpdbAPI.fromSettings();
+  // Site performers point to the performer across all sites
+  const acrossSites = async (linked: TpdbPerformerSummary) =>
+    linked.parent?._id
+      ? ((await tpdb.getPerformer(linked.parent._id)) ?? linked)
+      : linked;
 
-  return cached(`link:performer:${performer.id}`, async () => {
-    const remembered = cache().get<number>(rememberKey(performer.id));
+  // link2: the kept match says how it was found; link: did not
+  return cached(`link2:performer:${performer.id}`, async () => {
     const linked = await firstFound(
-      [
-        ...tpdbProfileIds(performer.urls, 'performer'),
-        ...(remembered ? [remembered] : []),
-      ],
+      tpdbProfileIds(performer.urls, 'performer'),
       (id) => tpdb.getPerformer(id)
     );
 
     if (linked) {
-      // Site performers point to the performer across all sites
-      return linked.parent?._id
-        ? ((await tpdb.getPerformer(linked.parent._id)) ?? linked)
-        : linked;
+      return { match: await acrossSites(linked), via: 'stashdb' };
+    }
+
+    // One seen linking back, in a list
+    const remembered = cache().get<number>(rememberKey(performer.id));
+    const seen = remembered ? await tpdb.getPerformer(remembered) : null;
+
+    if (seen) {
+      return { match: await acrossSites(seen), via: 'tpdb' };
     }
 
     const names = [...new Set([performer.name, ...performer.aliases])].slice(
       0,
       SEARCHED_NAMES
     );
-    return firstFound(names, async (name) => {
+    const found = await firstFound(names, async (name) => {
       const found = await tpdb.searchPerformers(String(name));
       return (
         found.find(
@@ -264,6 +282,7 @@ export const tpdbPerformerFor = async (
         ) ?? null
       );
     });
+    return found && { match: found, via: 'tpdb' };
   });
 };
 
@@ -358,7 +377,7 @@ export const tpdbNetworkFor = async (
 export const linkedTpdbPerformer = async (
   id: string,
   stashDb: StashDbAPI
-): Promise<TpdbPerformerSummary | null> => {
+): Promise<TpdbLink<TpdbPerformerSummary> | null> => {
   const performer = await stashDb.getPerformer(id);
   return performer && tpdbPerformerFor(performer);
 };
@@ -368,12 +387,21 @@ export const linkedTpdbPerformer = async (
 export const linkedTpdbSite = async (
   id: string,
   stashDb: StashDbAPI
-): Promise<TpdbSiteSummary | null> => {
+): Promise<TpdbLink<TpdbSiteSummary> | null> => {
   const studio = await stashDb.getStudio(id);
-  return (
-    studio &&
-    ((await tpdbSiteFor(studio)) ?? (await tpdbNetworkFor(studio, stashDb)))
-  );
+
+  if (!studio) {
+    return null;
+  }
+
+  const site = await tpdbSiteFor(studio);
+
+  if (site) {
+    return { match: site, via: 'stashdb' };
+  }
+
+  const network = await tpdbNetworkFor(studio, stashDb);
+  return network && { match: network, via: 'network' };
 };
 
 // A studio or performer the Adult Movies list is filtered by: a StashDB id
@@ -410,9 +438,10 @@ export const tpdbFilterIds = async <T extends AdultMovieRefs>(
     typeof ref === 'number'
       ? ref
       : type === 'studio'
-        ? ((await linkedTpdbSite(ref, StashDbAPI.fromSettings()))?.id ?? null)
-        : ((await linkedTpdbPerformer(ref, StashDbAPI.fromSettings()))?._id ??
-          null);
+        ? ((await linkedTpdbSite(ref, StashDbAPI.fromSettings()))?.match.id ??
+          null)
+        : ((await linkedTpdbPerformer(ref, StashDbAPI.fromSettings()))?.match
+            ._id ?? null);
   const resolveAll = (type: 'performer' | 'studio', list?: AdultMovieRef[]) =>
     list ? Promise.all(list.map((ref) => resolve(type, ref))) : undefined;
 
