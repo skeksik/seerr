@@ -357,6 +357,28 @@ describe('GET /adultmovie/:id', () => {
     assert.strictEqual(res.body.studio.name, 'The Classic Porn');
   });
 
+  it('shows the large poster on the page and the medium one in lists', async () => {
+    const posters = {
+      large: 'https://cdn.theporndb.net/scene/a/large.jpg',
+      medium: 'https://cdn.theporndb.net/scene/a/medium.jpg',
+    };
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      ...movie,
+      posters,
+    }));
+    mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [{ ...movie, posters }],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const page = await agent.get(`/adultmovie/${MOVIE_ID}`);
+    const list = await agent.get('/adultmovie/discover');
+
+    assert.strictEqual(page.body.posterUrl, posters.large);
+    assert.strictEqual(list.body.results[0].posterUrl, posters.medium);
+  });
+
   it('returns 404 for ids that are not UUIDs', async () => {
     const agent = await loginAs('admin@seerr.dev');
 

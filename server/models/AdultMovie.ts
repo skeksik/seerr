@@ -69,6 +69,11 @@ const pickPoster = (movie: TpdbMovie): string | undefined =>
   movie.image ??
   undefined;
 
+// Cards are a few hundred pixels wide, so lists take the medium poster
+// (530x750, a third of the large one's size) where there is one
+const pickCardPoster = (movie: TpdbMovie): string | undefined =>
+  movie.posters?.medium ?? pickPoster(movie);
+
 // Some ThePornDB durations are far off, like 535 hours; longer than a day
 // they are left out
 export const MAX_DURATION = 24 * 60 * 60;
@@ -86,7 +91,7 @@ export const mapAdultMovieResult = (
   releaseDate: movie.date ?? undefined,
   duration: saneDuration(movie.duration),
   overview: movie.description || undefined,
-  posterUrl: pickPoster(movie),
+  posterUrl: pickCardPoster(movie),
   backdropUrl: movie.background?.large ?? movie.background?.full ?? undefined,
   studio: movie.site ? { id: movie.site.id, name: movie.site.name } : undefined,
   mediaInfo: media,
@@ -118,6 +123,8 @@ export const mapAdultMovieDetails = (
   links: AdultMovieLinks = { performers: new Map(), studios: new Map() }
 ): AdultMovieDetails => ({
   ...mapAdultMovieResult(movie, media),
+  // The page shows it larger
+  posterUrl: pickPoster(movie),
   studio: movie.site
     ? {
         id: movie.site.id,
