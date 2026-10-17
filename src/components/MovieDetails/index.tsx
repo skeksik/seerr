@@ -621,12 +621,9 @@ const MovieDetails = ({ movie }: MovieDetailsProps) => {
                 )}
               </>
             )}
-          {/* Spaced only when shown, so a title without one keeps even gaps */}
-          {mediaLinks.length > 0 && (
-            <div className="z-20 mr-2">
-              <PlayButton links={mediaLinks} />
-            </div>
-          )}
+          <div className="z-20">
+            <PlayButton links={mediaLinks} />
+          </div>
           <RequestButton
             mediaType="movie"
             media={data.mediaInfo}

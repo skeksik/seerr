@@ -332,11 +332,10 @@ const AdultTitleDetails = ({
             onUserWatchlist={data.onUserWatchlist}
             onChange={revalidate}
           />
-          {mediaLinks.length > 0 && (
-            <div className="z-20">
-              <PlayButton links={mediaLinks} />
-            </div>
-          )}
+          {/* Kept without links, like a movie's, for the same gap */}
+          <div className="z-20">
+            <PlayButton links={mediaLinks} />
+          </div>
           {firstButton && (
             <ButtonWithDropdown
               text={
