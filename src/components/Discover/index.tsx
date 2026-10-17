@@ -12,8 +12,15 @@ import RecentRequestsSlider from '@app/components/Discover/RecentRequestsSlider'
 import RecentlyAddedSlider from '@app/components/Discover/RecentlyAddedSlider';
 import StudioSlider from '@app/components/Discover/StudioSlider';
 import TvGenreSlider from '@app/components/Discover/TvGenreSlider';
-import { sliderTitles } from '@app/components/Discover/constants';
+import {
+  adultMovieTagsLink,
+  decodeAdultMovieTags,
+  sliderTitles,
+} from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
+import AdultStudioSlider from '@app/components/Scenes/AdultStudioSlider';
+import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
+import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -27,7 +34,10 @@ import {
   PencilIcon,
   PlusIcon,
 } from '@heroicons/react/24/solid';
-import { DiscoverSliderType } from '@server/constants/discover';
+import {
+  DiscoverSliderType,
+  isAdultSliderType,
+} from '@server/constants/discover';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -56,6 +66,7 @@ const Discover = () => {
   const intl = useIntl();
   const { hasPermission } = useUser();
   const { addToast } = useToasts();
+  const canViewAdult = useAdult();
   const {
     data: discoverData,
     error: discoverError,
@@ -210,6 +221,11 @@ const Discover = () => {
       )}
       {(isEditing ? sliders : discoverData)?.map((slider, index) => {
         let sliderComponent: React.ReactNode;
+
+        // Adult rows stay hidden, editing included, without adult access
+        if (slider.type && isAdultSliderType(slider.type) && !canViewAdult) {
+          return null;
+        }
 
         switch (slider.type) {
           case DiscoverSliderType.RECENTLY_ADDED:
@@ -395,6 +411,199 @@ const Discover = () => {
                 linkUrl={`/discover/tv?watchRegion=${
                   slider.data?.split(',')[0]
                 }&watchProviders=${slider.data?.split(',')[1]}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.TRENDING_SCENES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey="trending-scenes"
+                title={intl.formatMessage(sliderTitles.trendingScenes)}
+                url="/api/v1/scene/discover?sortBy=trending.desc&page=1"
+                linkUrl="/discover/scenes/trending"
+              />
+            );
+            break;
+          case DiscoverSliderType.POPULAR_SCENES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey="popular-scenes"
+                title={intl.formatMessage(sliderTitles.popularScenes)}
+                url="/api/v1/scene/discover?sortBy=popularity.desc&page=1"
+                linkUrl="/discover/scenes"
+              />
+            );
+            break;
+          case DiscoverSliderType.NEW_SCENES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey="new-scenes"
+                title={intl.formatMessage(sliderTitles.newScenes)}
+                url={`/api/v1/scene/discover?sortBy=release_date.desc&released=lt&releaseDate=${upcomingDate}&page=1`}
+                linkUrl={`/discover/scenes?sortBy=release_date.desc&released=lt&releaseDate=${upcomingDate}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.UPCOMING_SCENES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey="upcoming-scenes"
+                title={intl.formatMessage(sliderTitles.upcomingScenes)}
+                url="/api/v1/scene/discover?upcoming=true&page=1"
+                linkUrl={`/discover/scenes?sortBy=release_date.asc&releaseDate=${upcomingDate}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_STUDIOS:
+            sliderComponent = (
+              <AdultStudioSlider
+                type="studios"
+                title={intl.formatMessage(sliderTitles.adultStudios)}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_NETWORKS:
+            sliderComponent = (
+              <AdultStudioSlider
+                type="networks"
+                title={intl.formatMessage(sliderTitles.adultNetworks)}
+              />
+            );
+            break;
+          case DiscoverSliderType.NEW_ADULT_MOVIES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey="new-adult-movies"
+                title={intl.formatMessage(sliderTitles.newAdultMovies)}
+                url="/api/v1/adultmovie/discover?sortBy=release_date.desc&page=1"
+                linkUrl="/discover/adultmovies"
+              />
+            );
+            break;
+          case DiscoverSliderType.UPCOMING_ADULT_MOVIES:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey="upcoming-adult-movies"
+                title={intl.formatMessage(sliderTitles.upcomingAdultMovies)}
+                url="/api/v1/adultmovie/discover?upcoming=true&page=1"
+                linkUrl={`/discover/adultmovies?sortBy=release_date.asc&releaseDate=${upcomingDate}`}
+              />
+            );
+            break;
+          // The custom adult rows, newest first; like the TMDB keyword rows,
+          // their See More opens the browse tab filtered the same way
+          case DiscoverSliderType.SCENE_TAG:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/scene/discover?tags=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&sortBy=release_date.desc&page=1`}
+                linkUrl={`/discover/scenes?sortBy=release_date.desc&tags=${slider.data}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.SCENE_PERFORMER:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/scene/discover?performer=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&sortBy=release_date.desc&page=1`}
+                linkUrl={`/discover/scenes?sortBy=release_date.desc&performer=${slider.data}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.SCENE_STUDIO:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/scene/discover?studio=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&sortBy=release_date.desc&page=1`}
+                linkUrl={`/discover/scenes?sortBy=release_date.desc&studio=${slider.data}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.SCENE_SEARCH:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="scene"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/scene/search?query=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&page=1`}
+                linkUrl={`/search?query=${slider.data}`}
+                applyHideSettings={false}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_MOVIE_TAG: {
+            const tags = decodeAdultMovieTags(slider.data);
+
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/adultmovie/discover?tags=${tags
+                  .map((tag) => tag.id)
+                  .join(',')}&sortBy=release_date.desc&page=1`}
+                linkUrl={adultMovieTagsLink(tags)}
+              />
+            );
+            break;
+          }
+          case DiscoverSliderType.ADULT_MOVIE_PERFORMER:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/adultmovie/discover?performer=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&sortBy=release_date.desc&page=1`}
+                linkUrl={`/discover/adultmovies?sortBy=release_date.desc&performer=${slider.data}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_MOVIE_STUDIO:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/adultmovie/discover?studio=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&sortBy=release_date.desc&page=1`}
+                linkUrl={`/discover/adultmovies?sortBy=release_date.desc&studio=${slider.data}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.ADULT_MOVIE_SEARCH:
+            sliderComponent = (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url={`/api/v1/adultmovie/search?query=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}&page=1`}
+                linkUrl={`/search?query=${slider.data}`}
+                applyHideSettings={false}
               />
             );
             break;

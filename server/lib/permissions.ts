@@ -28,12 +28,135 @@ export enum Permission {
   RECENT_VIEW = 67108864,
   WATCHLIST_VIEW = 134217728,
   MANAGE_BLOCKLIST = 268435456,
+  // View and request adult content; only applies while enableAdult is on
+  ADULT = 536870912,
   VIEW_BLOCKLIST = 1073741824,
+  // Past 2^30, beyond the 32 bits JavaScript's bitwise operators handle;
+  // test and combine them with the helpers below
+  REQUEST_SCENE = 2147483648,
+  REQUEST_ADULT_MOVIE = 4294967296,
+  AUTO_APPROVE_SCENE = 8589934592,
+  AUTO_APPROVE_ADULT_MOVIE = 17179869184,
+  AUTO_REQUEST_SCENE = 34359738368,
+  AUTO_REQUEST_ADULT_MOVIE = 68719476736,
+  REQUEST_4K_SCENE = 137438953472,
+  REQUEST_4K_ADULT_MOVIE = 274877906944,
+  AUTO_APPROVE_4K_SCENE = 549755813888,
+  AUTO_APPROVE_4K_ADULT_MOVIE = 1099511627776,
 }
 
 export interface PermissionCheckOptions {
   type: 'and' | 'or';
 }
+
+const NO_BITS = BigInt(0);
+
+// Permission values go past 32 bits, which JavaScript's bitwise operators
+// truncate to, so bits are combined as BigInts
+const toBits = (value: number): bigint =>
+  Number.isSafeInteger(value) && value > 0 ? BigInt(value) : NO_BITS;
+
+// Whether a permission value has any bit of the permission, without the
+// Admin bypass of hasPermission
+export const includesPermission = (
+  value: number,
+  permission: Permission
+): boolean => (toBits(value) & toBits(permission)) !== NO_BITS;
+
+export const addPermissions = (
+  value: number,
+  ...permissions: Permission[]
+): number =>
+  Number(
+    permissions.reduce(
+      (bits, permission) => bits | toBits(permission),
+      toBits(value)
+    )
+  );
+
+export const removePermissions = (
+  value: number,
+  ...permissions: Permission[]
+): number =>
+  Number(
+    permissions.reduce(
+      (bits, permission) => bits & ~toBits(permission),
+      toBits(value)
+    )
+  );
+
+export type PermissionKind =
+  | 'request'
+  | 'request4k'
+  | 'autoApprove'
+  | 'autoApprove4k'
+  | 'autoRequest';
+
+type PermissionMediaType = 'movie' | 'tv' | 'scene' | 'adultmovie';
+
+// Each kind's parent permission, which grants it for every media type, and
+// its permission per media type
+const typedPermissions: Record<
+  PermissionKind,
+  [Permission, Record<PermissionMediaType, Permission>]
+> = {
+  request: [
+    Permission.REQUEST,
+    {
+      movie: Permission.REQUEST_MOVIE,
+      tv: Permission.REQUEST_TV,
+      scene: Permission.REQUEST_SCENE,
+      adultmovie: Permission.REQUEST_ADULT_MOVIE,
+    },
+  ],
+  request4k: [
+    Permission.REQUEST_4K,
+    {
+      movie: Permission.REQUEST_4K_MOVIE,
+      tv: Permission.REQUEST_4K_TV,
+      scene: Permission.REQUEST_4K_SCENE,
+      adultmovie: Permission.REQUEST_4K_ADULT_MOVIE,
+    },
+  ],
+  autoApprove: [
+    Permission.AUTO_APPROVE,
+    {
+      movie: Permission.AUTO_APPROVE_MOVIE,
+      tv: Permission.AUTO_APPROVE_TV,
+      scene: Permission.AUTO_APPROVE_SCENE,
+      adultmovie: Permission.AUTO_APPROVE_ADULT_MOVIE,
+    },
+  ],
+  autoApprove4k: [
+    Permission.AUTO_APPROVE_4K,
+    {
+      movie: Permission.AUTO_APPROVE_4K_MOVIE,
+      tv: Permission.AUTO_APPROVE_4K_TV,
+      scene: Permission.AUTO_APPROVE_4K_SCENE,
+      adultmovie: Permission.AUTO_APPROVE_4K_ADULT_MOVIE,
+    },
+  ],
+  autoRequest: [
+    Permission.AUTO_REQUEST,
+    {
+      movie: Permission.AUTO_REQUEST_MOVIE,
+      tv: Permission.AUTO_REQUEST_TV,
+      scene: Permission.AUTO_REQUEST_SCENE,
+      adultmovie: Permission.AUTO_REQUEST_ADULT_MOVIE,
+    },
+  ],
+};
+
+// The permissions that each allow a kind of request for a media type, to
+// check with { type: 'or' }: the parent, e.g. Request, or the media type's
+// own, e.g. Request Scenes
+export const mediaPermissions = (
+  kind: PermissionKind,
+  mediaType: PermissionMediaType
+): Permission[] => {
+  const [parent, children] = typedPermissions[kind];
+  return [parent, children[mediaType]];
+};
 
 /**
  * Takes a Permission and the users permission value and determines
@@ -57,18 +180,25 @@ export const hasPermission = (
   }
 
   if (Array.isArray(permissions)) {
-    if (value & Permission.ADMIN) {
+    if (includesPermission(value, Permission.ADMIN)) {
       return true;
     }
     switch (options.type) {
       case 'and':
-        return permissions.every((permission) => !!(value & permission));
+        return permissions.every((permission) =>
+          includesPermission(value, permission)
+        );
       case 'or':
-        return permissions.some((permission) => !!(value & permission));
+        return permissions.some((permission) =>
+          includesPermission(value, permission)
+        );
     }
   } else {
     total = permissions;
   }
 
-  return !!(value & Permission.ADMIN) || !!(value & total);
+  return (
+    includesPermission(value, Permission.ADMIN) ||
+    includesPermission(value, total)
+  );
 };

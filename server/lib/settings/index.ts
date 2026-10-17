@@ -65,6 +65,30 @@ export interface TautulliSettings {
   externalUrl?: string;
 }
 
+// Any stash-box instance works; StashDB is the default
+export interface StashDbSettings {
+  endpoint: string;
+  apiKey: string;
+}
+
+// ThePornDB's REST API. Its stash-box GraphQL endpoint finds movies but
+// returns no lists, which browsing needs
+export interface TpdbSettings {
+  url: string;
+  apiKey: string;
+}
+
+// Stash is a companion library for scenes, not a login media server.
+// Entered like the Jellyfin server, address part by part
+export interface StashSettings {
+  hostname: string;
+  port: number;
+  useSsl: boolean;
+  urlBase?: string;
+  apiKey: string;
+  externalUrl?: string;
+}
+
 export interface DVRSettings {
   id: number;
   name: string;
@@ -89,6 +113,9 @@ export interface DVRSettings {
 export interface RadarrSettings extends DVRSettings {
   minimumAvailability: string;
 }
+
+// Whisparr v3 handles both scenes and adult TMDB movies
+export type WhisparrSettings = DVRSettings;
 
 export interface SonarrSettings extends DVRSettings {
   seriesType: 'standard' | 'daily' | 'anime';
@@ -134,10 +161,14 @@ export interface MainSettings {
   applicationTitle: string;
   applicationUrl: string;
   cacheImages: boolean;
+  enableAdult: boolean;
   defaultPermissions: number;
   defaultQuotas: {
     movie: Quota;
     tv: Quota;
+    // Optional so settings files from before adult content still type-check
+    scene?: Quota;
+    adultMovie?: Quota;
   };
   hideAvailable: boolean;
   hideBlocklisted: boolean;
@@ -152,6 +183,14 @@ export interface MainSettings {
   blocklistLanguage: string;
   blocklistedTags: string;
   blocklistedTagsLimit: number;
+  // StashDB tag UUIDs and ThePornDB tag ids, comma separated like
+  // blocklistedTags, with their names joined by | in the same order, as
+  // ThePornDB cannot look a tag up by id. Optional so settings files from
+  // before them still type-check
+  blocklistedSceneTags?: string;
+  blocklistedSceneTagNames?: string;
+  blocklistedAdultMovieTags?: string;
+  blocklistedAdultMovieTagNames?: string;
   mediaServerType: number;
   partialRequestsEnabled: boolean;
   enableSpecialEpisodes: boolean;
@@ -193,6 +232,7 @@ interface PublicSettings {
 interface FullPublicSettings extends PublicSettings {
   applicationTitle: string;
   applicationUrl: string;
+  enableAdult: boolean;
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;
@@ -200,6 +240,8 @@ interface FullPublicSettings extends PublicSettings {
   mediaServerLogin: boolean;
   movie4kEnabled: boolean;
   series4kEnabled: boolean;
+  // A default 4K Whisparr server takes 4K scene and adult movie requests
+  adult4kEnabled: boolean;
   discoverRegion: string;
   streamingRegion: string;
   originalLanguage: string;
@@ -366,6 +408,8 @@ export type JobId =
   | 'plex-refresh-token'
   | 'radarr-scan'
   | 'sonarr-scan'
+  | 'whisparr-scan'
+  | 'stash-scan'
   | 'download-sync'
   | 'download-sync-reset'
   | 'jellyfin-recently-added-scan'
@@ -383,7 +427,11 @@ export interface AllSettings {
   plex: PlexSettings;
   jellyfin: JellyfinSettings;
   tautulli: TautulliSettings;
+  stashdb: StashDbSettings;
+  stash: StashSettings;
+  tpdb: TpdbSettings;
   radarr: RadarrSettings[];
+  whisparr: WhisparrSettings[];
   sonarr: SonarrSettings[];
   public: PublicSettings;
   notifications: NotificationSettings;
@@ -412,10 +460,13 @@ class Settings {
         applicationTitle: 'Seerr',
         applicationUrl: '',
         cacheImages: false,
+        enableAdult: false,
         defaultPermissions: Permission.REQUEST,
         defaultQuotas: {
           movie: {},
           tv: {},
+          scene: {},
+          adultMovie: {},
         },
         hideAvailable: false,
         hideBlocklisted: false,
@@ -430,6 +481,10 @@ class Settings {
         blocklistLanguage: '',
         blocklistedTags: '',
         blocklistedTagsLimit: 50,
+        blocklistedSceneTags: '',
+        blocklistedSceneTagNames: '',
+        blocklistedAdultMovieTags: '',
+        blocklistedAdultMovieTagNames: '',
         mediaServerType: MediaServerType.NOT_CONFIGURED,
         partialRequestsEnabled: true,
         enableSpecialEpisodes: false,
@@ -457,11 +512,27 @@ class Settings {
         apiKey: '',
       },
       tautulli: {},
+      stashdb: {
+        endpoint: 'https://stashdb.org/graphql',
+        apiKey: '',
+      },
+      stash: {
+        hostname: '',
+        port: 9999,
+        useSsl: false,
+        urlBase: '',
+        apiKey: '',
+      },
+      tpdb: {
+        url: 'https://api.theporndb.net',
+        apiKey: '',
+      },
       metadataSettings: {
         tv: MetadataProviderType.TMDB,
         anime: MetadataProviderType.TMDB,
       },
       radarr: [],
+      whisparr: [],
       sonarr: [],
       public: {
         initialized: false,
@@ -593,6 +664,12 @@ class Settings {
         'sonarr-scan': {
           schedule: '0 30 4 * * *',
         },
+        'whisparr-scan': {
+          schedule: '0 45 4 * * *',
+        },
+        'stash-scan': {
+          schedule: '0 */15 * * * *',
+        },
         'availability-sync': {
           schedule: '0 0 5 * * *',
         },
@@ -675,6 +752,30 @@ class Settings {
     this.data.tautulli = mergeSettings(this.data.tautulli, data);
   }
 
+  get stashdb(): StashDbSettings {
+    return this.data.stashdb;
+  }
+
+  set stashdb(data: StashDbSettings) {
+    this.data.stashdb = mergeSettings(this.data.stashdb, data);
+  }
+
+  get tpdb(): TpdbSettings {
+    return this.data.tpdb;
+  }
+
+  set tpdb(data: TpdbSettings) {
+    this.data.tpdb = mergeSettings(this.data.tpdb, data);
+  }
+
+  get stash(): StashSettings {
+    return this.data.stash;
+  }
+
+  set stash(data: StashSettings) {
+    this.data.stash = mergeSettings(this.data.stash, data);
+  }
+
   get metadataSettings(): MetadataSettings {
     return this.data.metadataSettings;
   }
@@ -692,6 +793,14 @@ class Settings {
 
   set radarr(data: RadarrSettings[]) {
     this.data.radarr = data;
+  }
+
+  get whisparr(): WhisparrSettings[] {
+    return this.data.whisparr;
+  }
+
+  set whisparr(data: WhisparrSettings[]) {
+    this.data.whisparr = data;
   }
 
   get sonarr(): SonarrSettings[] {
@@ -715,6 +824,7 @@ class Settings {
       ...this.data.public,
       applicationTitle: this.data.main.applicationTitle,
       applicationUrl: this.data.main.applicationUrl,
+      enableAdult: this.data.main.enableAdult,
       hideAvailable: this.data.main.hideAvailable,
       hideBlocklisted: this.data.main.hideBlocklisted,
       hideRequested: this.data.main.hideRequested,
@@ -728,6 +838,11 @@ class Settings {
       series4kEnabled: this.data.sonarr.some(
         (sonarr) => sonarr.is4k && sonarr.isDefault
       ),
+      adult4kEnabled:
+        this.data.main.enableAdult &&
+        this.data.whisparr.some(
+          (whisparr) => whisparr.is4k && whisparr.isDefault
+        ),
       discoverRegion: this.data.main.discoverRegion,
       streamingRegion: this.data.main.streamingRegion,
       originalLanguage: this.data.main.originalLanguage,

@@ -1,11 +1,18 @@
 import Button from '@app/components/Common/Button';
 import Tooltip from '@app/components/Common/Tooltip';
-import { sliderTitles } from '@app/components/Discover/constants';
+import {
+  decodeAdultMovieTags,
+  encodeAdultMovieTags,
+  sliderTitles,
+} from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
+import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import { WatchProviderSelector } from '@app/components/Selector';
+import useAdult from '@app/hooks/useAdult';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
 import useToasts from '@app/hooks/useToasts';
 import defineMessages from '@app/utils/defineMessages';
+import type { StashDbLookup } from '@server/api/stashdb';
 import type {
   TmdbCompanySearchResponse,
   TmdbGenre,
@@ -31,6 +38,8 @@ const messages = defineMessages('components.Discover.CreateSlider', {
   providetmdbsearch: 'Provide a search query',
   providetmdbstudio: 'Provide TMDB Studio ID',
   providetmdbnetwork: 'Provide TMDB Network ID',
+  providescenesearch: 'Provide a scene search query',
+  provideadultmoviesearch: 'Provide an adult movie search query',
   addsuccess: 'Created new slider and saved discover customization settings.',
   addfail: 'Failed to create new slider.',
   editsuccess: 'Edited slider and saved discover customization settings.',
@@ -42,6 +51,8 @@ const messages = defineMessages('components.Discover.CreateSlider', {
   searchKeywords: 'Search keywords…',
   searchGenres: 'Search genres…',
   searchStudios: 'Search studios…',
+  searchTags: 'Search tags…',
+  searchPerformers: 'Search performers…',
   starttyping: 'Starting typing to search.',
   nooptions: 'No results.',
 });
@@ -58,14 +69,39 @@ type CreateOption = {
   params?: string;
   titlePlaceholderText: string;
   dataPlaceholderText?: string;
+  // Set for the adult rows, whose lists are not TMDB's
+  mediaType?: 'scene' | 'adultmovie';
+};
+
+// What an Adult Movie Tag row's data sends to the API: its tag ids
+const adultMovieTagIds = (data: string): string =>
+  decodeAdultMovieTags(data)
+    .map((tag) => tag.id)
+    .join(',');
+
+// A StashDB studio, performer or tag, as its page names it
+const stashDbName = async (
+  type: 'studio' | 'performer' | 'tag',
+  id: string
+): Promise<{ label: string; value: string }> => {
+  try {
+    const response = await axios.get<{ name: string }>(
+      `/api/v1/scene/${type}/${id}`
+    );
+
+    return { label: response.data.name, value: id };
+  } catch {
+    return { label: id, value: id };
+  }
 };
 
 const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
   const intl = useIntl();
   const { addToast } = useToasts();
+  const showAdult = useAdult();
   const [resultCount, setResultCount] = useState(0);
   const [defaultDataValue, setDefaultDataValue] = useState<
-    { label: string; value: number }[] | null
+    { label: string; value: number | string }[] | null
   >(null);
 
   useEffect(() => {
@@ -138,6 +174,35 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
         ]);
       };
 
+      // StashDB names its studios, performers and tags by id, for the scene
+      // rows and the adult movie rows alike, as the latter pick StashDB's
+      const loadDefaultStashDb = async (
+        type: 'studio' | 'performer' | 'tag'
+      ): Promise<void> => {
+        if (!slider.data) {
+          return;
+        }
+
+        setDefaultDataValue(
+          await Promise.all(
+            slider.data
+              .split(',')
+              .filter(Boolean)
+              .map((id) => stashDbName(type, id))
+          )
+        );
+      };
+
+      // ThePornDB cannot name a tag by id, so the names come with the data
+      const loadDefaultAdultMovieTags = (): void => {
+        setDefaultDataValue(
+          decodeAdultMovieTags(slider.data).map((tag) => ({
+            label: tag.name,
+            value: tag.id,
+          }))
+        );
+      };
+
       switch (slider.type) {
         case DiscoverSliderType.TMDB_MOVIE_KEYWORD:
         case DiscoverSliderType.TMDB_TV_KEYWORD:
@@ -149,6 +214,20 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
           break;
         case DiscoverSliderType.TMDB_STUDIO:
           loadDefaultCompany();
+          break;
+        case DiscoverSliderType.SCENE_TAG:
+          loadDefaultStashDb('tag');
+          break;
+        case DiscoverSliderType.SCENE_PERFORMER:
+        case DiscoverSliderType.ADULT_MOVIE_PERFORMER:
+          loadDefaultStashDb('performer');
+          break;
+        case DiscoverSliderType.SCENE_STUDIO:
+        case DiscoverSliderType.ADULT_MOVIE_STUDIO:
+          loadDefaultStashDb('studio');
+          break;
+        case DiscoverSliderType.ADULT_MOVIE_TAG:
+          loadDefaultAdultMovieTags();
           break;
       }
     }
@@ -228,6 +307,100 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
     }));
   };
 
+  // Autocomplete from a StashDB or ThePornDB lookup, which answers with
+  // what the source finds for the text
+  const loadLookupOptions =
+    (url: string) =>
+    async (inputValue: string): Promise<{ label: string; value: string }[]> => {
+      // The lookups want some text
+      if (inputValue.trim() === '') {
+        return [];
+      }
+
+      const results = await axios.get<StashDbLookup[]>(url, {
+        params: { query: inputValue.trim() },
+      });
+
+      return results.data.map((result) => ({
+        label: result.disambiguation
+          ? `${result.name} (${result.disambiguation})`
+          : result.name,
+        value: String(result.id),
+      }));
+    };
+
+  // Each kind of row for scenes, then for adult movies; the adult movie
+  // studios and performers are StashDB's linked to ThePornDB, its tags
+  // ThePornDB's own
+  const adultOptions: CreateOption[] = [
+    {
+      type: DiscoverSliderType.SCENE_TAG,
+      title: intl.formatMessage(sliderTitles.sceneTag),
+      dataUrl: '/api/v1/scene/discover',
+      params: 'tags=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'scene',
+    },
+    {
+      type: DiscoverSliderType.ADULT_MOVIE_TAG,
+      title: intl.formatMessage(sliderTitles.adultMovieTag),
+      dataUrl: '/api/v1/adultmovie/discover',
+      params: 'tags=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'adultmovie',
+    },
+    {
+      type: DiscoverSliderType.SCENE_PERFORMER,
+      title: intl.formatMessage(sliderTitles.scenePerformer),
+      dataUrl: '/api/v1/scene/discover',
+      params: 'performer=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'scene',
+    },
+    {
+      type: DiscoverSliderType.ADULT_MOVIE_PERFORMER,
+      title: intl.formatMessage(sliderTitles.adultMoviePerformer),
+      dataUrl: '/api/v1/adultmovie/discover',
+      params: 'performer=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'adultmovie',
+    },
+    {
+      type: DiscoverSliderType.SCENE_STUDIO,
+      title: intl.formatMessage(sliderTitles.sceneStudio),
+      dataUrl: '/api/v1/scene/discover',
+      params: 'studio=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'scene',
+    },
+    {
+      type: DiscoverSliderType.ADULT_MOVIE_STUDIO,
+      title: intl.formatMessage(sliderTitles.adultMovieStudio),
+      dataUrl: '/api/v1/adultmovie/discover',
+      params: 'studio=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'adultmovie',
+    },
+    {
+      type: DiscoverSliderType.SCENE_SEARCH,
+      title: intl.formatMessage(sliderTitles.sceneSearch),
+      dataUrl: '/api/v1/scene/search',
+      params: 'query=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      dataPlaceholderText: intl.formatMessage(messages.providescenesearch),
+      mediaType: 'scene',
+    },
+    {
+      type: DiscoverSliderType.ADULT_MOVIE_SEARCH,
+      title: intl.formatMessage(sliderTitles.adultMovieSearch),
+      dataUrl: '/api/v1/adultmovie/search',
+      params: 'query=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      dataPlaceholderText: intl.formatMessage(messages.provideadultmoviesearch),
+      mediaType: 'adultmovie',
+    },
+  ];
+
   const options: CreateOption[] = [
     {
       type: DiscoverSliderType.TMDB_MOVIE_KEYWORD,
@@ -295,6 +468,8 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       params: 'watchRegion=$regionValue&watchProviders=$providersValue',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
+    // Only while adult content is enabled and the admin's safe mode is off
+    ...(showAdult ? adultOptions : []),
   ];
 
   return (
@@ -453,6 +628,82 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
               />
             );
             break;
+          case DiscoverSliderType.SCENE_TAG:
+          case DiscoverSliderType.ADULT_MOVIE_TAG:
+            dataInput = (
+              <AsyncSelect
+                key={`adult-tag-select-${activeOption.type}-${defaultDataValue}`}
+                inputId="data"
+                isMulti
+                className="react-select-container"
+                classNamePrefix="react-select"
+                noOptionsMessage={({ inputValue }) =>
+                  inputValue === ''
+                    ? intl.formatMessage(messages.starttyping)
+                    : intl.formatMessage(messages.nooptions)
+                }
+                defaultValue={defaultDataValue}
+                loadOptions={loadLookupOptions(
+                  activeOption.type === DiscoverSliderType.SCENE_TAG
+                    ? '/api/v1/scene/lookup/tags'
+                    : '/api/v1/adultmovie/tags'
+                )}
+                placeholder={intl.formatMessage(messages.searchTags)}
+                onChange={(value) => {
+                  setFieldValue(
+                    'data',
+                    activeOption.type === DiscoverSliderType.SCENE_TAG
+                      ? value.map((item) => item.value).join(',')
+                      : encodeAdultMovieTags(
+                          value.map((item) => ({
+                            id: item.value,
+                            name: item.label,
+                          }))
+                        )
+                  );
+                }}
+              />
+            );
+            break;
+          case DiscoverSliderType.SCENE_PERFORMER:
+          case DiscoverSliderType.ADULT_MOVIE_PERFORMER:
+          case DiscoverSliderType.SCENE_STUDIO:
+          case DiscoverSliderType.ADULT_MOVIE_STUDIO: {
+            const isPerformer =
+              activeOption.type === DiscoverSliderType.SCENE_PERFORMER ||
+              activeOption.type === DiscoverSliderType.ADULT_MOVIE_PERFORMER;
+            const lookupBase =
+              activeOption.mediaType === 'scene'
+                ? '/api/v1/scene/lookup'
+                : '/api/v1/adultmovie';
+
+            dataInput = (
+              <AsyncSelect
+                key={`adult-${isPerformer ? 'performer' : 'studio'}-select-${activeOption.type}-${defaultDataValue}`}
+                inputId="data"
+                className="react-select-container"
+                classNamePrefix="react-select"
+                noOptionsMessage={({ inputValue }) =>
+                  inputValue === ''
+                    ? intl.formatMessage(messages.starttyping)
+                    : intl.formatMessage(messages.nooptions)
+                }
+                defaultValue={defaultDataValue?.[0]}
+                loadOptions={loadLookupOptions(
+                  `${lookupBase}/${isPerformer ? 'performers' : 'studios'}`
+                )}
+                placeholder={intl.formatMessage(
+                  isPerformer
+                    ? messages.searchPerformers
+                    : messages.searchStudios
+                )}
+                onChange={(value) => {
+                  setFieldValue('data', value?.value ?? '');
+                }}
+              />
+            );
+            break;
+          }
           case DiscoverSliderType.TMDB_TV_STREAMING_SERVICES:
             dataInput = (
               <WatchProviderSelector
@@ -532,38 +783,59 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
               )}
             </div>
 
-            {activeOption && values.title && values.data && (
+            {activeOption?.mediaType && values.title && values.data && (
               <div className="relative py-4">
-                <MediaSlider
+                <AdultTitleSlider
+                  mediaType={activeOption.mediaType}
                   sliderKey={`preview-${values.title}`}
                   title={values.title}
-                  url={activeOption?.dataUrl.replace(
+                  url={`${activeOption.dataUrl}?${activeOption.params?.replace(
                     '$value',
-                    encodeURIExtraParams(values.data)
-                  )}
-                  extraParams={
-                    activeOption.type ===
-                      DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES ||
-                    activeOption.type ===
-                      DiscoverSliderType.TMDB_TV_STREAMING_SERVICES
-                      ? activeOption.params
-                          ?.replace(
-                            '$regionValue',
-                            encodeURIExtraParams(values?.data.split(',')[0])
-                          )
-                          .replace(
-                            '$providersValue',
-                            encodeURIExtraParams(values?.data.split(',')[1])
-                          )
-                      : activeOption.params?.replace(
-                          '$value',
-                          encodeURIExtraParams(values.data)
-                        )
-                  }
+                    encodeURIExtraParams(
+                      activeOption.type === DiscoverSliderType.ADULT_MOVIE_TAG
+                        ? adultMovieTagIds(values.data)
+                        : values.data
+                    )
+                  )}&page=1`}
                   onNewTitles={updateResultCount}
                 />
               </div>
             )}
+            {activeOption &&
+              !activeOption.mediaType &&
+              values.title &&
+              values.data && (
+                <div className="relative py-4">
+                  <MediaSlider
+                    sliderKey={`preview-${values.title}`}
+                    title={values.title}
+                    url={activeOption?.dataUrl.replace(
+                      '$value',
+                      encodeURIExtraParams(values.data)
+                    )}
+                    extraParams={
+                      activeOption.type ===
+                        DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES ||
+                      activeOption.type ===
+                        DiscoverSliderType.TMDB_TV_STREAMING_SERVICES
+                        ? activeOption.params
+                            ?.replace(
+                              '$regionValue',
+                              encodeURIExtraParams(values?.data.split(',')[0])
+                            )
+                            .replace(
+                              '$providersValue',
+                              encodeURIExtraParams(values?.data.split(',')[1])
+                            )
+                        : activeOption.params?.replace(
+                            '$value',
+                            encodeURIExtraParams(values.data)
+                          )
+                    }
+                    onNewTitles={updateResultCount}
+                  />
+                </div>
+              )}
           </Form>
         );
       }}

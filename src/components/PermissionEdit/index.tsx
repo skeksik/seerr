@@ -1,5 +1,6 @@
 import type { PermissionItem } from '@app/components/PermissionOption';
 import PermissionOption from '@app/components/PermissionOption';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import type { User } from '@app/hooks/useUser';
 import { Permission } from '@app/hooks/useUser';
@@ -82,9 +83,42 @@ export const messages = defineMessages('components.PermissionEdit', {
   manageblocklistDescription: 'Grant permission to manage blocklisted media.',
   blocklistedItems: 'Blocklist media.',
   blocklistedItemsDescription: 'Grant permission to blocklist media.',
+  adult: 'Adult Content',
+  adultDescription:
+    'Grant permission to view and request adult content. Request and auto-approve permissions still apply.',
   viewblocklistedItems: 'View blocklisted media.',
   viewblocklistedItemsDescription:
     'Grant permission to view blocklisted media.',
+  requestScenes: 'Request Scenes',
+  requestScenesDescription:
+    'Grant permission to submit requests for non-4K scenes.',
+  requestAdultMovies: 'Request Adult Movies',
+  requestAdultMoviesDescription:
+    'Grant permission to submit requests for non-4K adult movies.',
+  autoapproveScenes: 'Auto-Approve Scenes',
+  autoapproveScenesDescription:
+    'Grant automatic approval for non-4K scene requests.',
+  autoapproveAdultMovies: 'Auto-Approve Adult Movies',
+  autoapproveAdultMoviesDescription:
+    'Grant automatic approval for non-4K adult movie requests.',
+  autorequestScenes: 'Auto-Request Scenes',
+  autorequestScenesDescription:
+    "Grant permission to automatically submit requests for non-4K scenes via Plex Watchlist. Scenes can't be on the Plex Watchlist, so this has no effect yet.",
+  autorequestAdultMovies: 'Auto-Request Adult Movies',
+  autorequestAdultMoviesDescription:
+    "Grant permission to automatically submit requests for non-4K adult movies via Plex Watchlist. Adult movies can't be on the Plex Watchlist, so this has no effect yet.",
+  request4kScenes: 'Request 4K Scenes',
+  request4kScenesDescription:
+    'Grant permission to submit requests for 4K scenes.',
+  request4kAdultMovies: 'Request 4K Adult Movies',
+  request4kAdultMoviesDescription:
+    'Grant permission to submit requests for 4K adult movies.',
+  autoapprove4kScenes: 'Auto-Approve 4K Scenes',
+  autoapprove4kScenesDescription:
+    'Grant automatic approval for 4K scene requests.',
+  autoapprove4kAdultMovies: 'Auto-Approve 4K Adult Movies',
+  autoapprove4kAdultMoviesDescription:
+    'Grant automatic approval for 4K adult movie requests.',
 });
 
 interface PermissionEditProps {
@@ -101,7 +135,13 @@ export const PermissionEdit = ({
   onUpdate,
 }: PermissionEditProps) => {
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const settings = useSettings();
+  // Scene and adult movie options only show with adult content, like the
+  // Adult Content permission
+  const showAdult = settings.currentSettings.enableAdult && !safeMode;
+  const adultOptions = (options: PermissionItem[]): PermissionItem[] =>
+    showAdult ? options : [];
 
   const permissionList: PermissionItem[] = [
     {
@@ -182,6 +222,22 @@ export const PermissionEdit = ({
           description: intl.formatMessage(messages.requestTvDescription),
           permission: Permission.REQUEST_TV,
         },
+        ...adultOptions([
+          {
+            id: 'request-scenes',
+            name: intl.formatMessage(messages.requestScenes),
+            description: intl.formatMessage(messages.requestScenesDescription),
+            permission: Permission.REQUEST_SCENE,
+          },
+          {
+            id: 'request-adultmovies',
+            name: intl.formatMessage(messages.requestAdultMovies),
+            description: intl.formatMessage(
+              messages.requestAdultMoviesDescription
+            ),
+            permission: Permission.REQUEST_ADULT_MOVIE,
+          },
+        ]),
       ],
     },
     {
@@ -219,6 +275,39 @@ export const PermissionEdit = ({
             },
           ],
         },
+        ...adultOptions([
+          {
+            id: 'autoapprovescenes',
+            name: intl.formatMessage(messages.autoapproveScenes),
+            description: intl.formatMessage(
+              messages.autoapproveScenesDescription
+            ),
+            permission: Permission.AUTO_APPROVE_SCENE,
+            requires: [
+              {
+                permissions: [Permission.REQUEST, Permission.REQUEST_SCENE],
+                type: 'or',
+              },
+            ],
+          },
+          {
+            id: 'autoapproveadultmovies',
+            name: intl.formatMessage(messages.autoapproveAdultMovies),
+            description: intl.formatMessage(
+              messages.autoapproveAdultMoviesDescription
+            ),
+            permission: Permission.AUTO_APPROVE_ADULT_MOVIE,
+            requires: [
+              {
+                permissions: [
+                  Permission.REQUEST,
+                  Permission.REQUEST_ADULT_MOVIE,
+                ],
+                type: 'or',
+              },
+            ],
+          },
+        ]),
       ],
     },
     {
@@ -256,6 +345,39 @@ export const PermissionEdit = ({
             },
           ],
         },
+        ...adultOptions([
+          {
+            id: 'autorequestscenes',
+            name: intl.formatMessage(messages.autorequestScenes),
+            description: intl.formatMessage(
+              messages.autorequestScenesDescription
+            ),
+            permission: Permission.AUTO_REQUEST_SCENE,
+            requires: [
+              {
+                permissions: [Permission.REQUEST, Permission.REQUEST_SCENE],
+                type: 'or',
+              },
+            ],
+          },
+          {
+            id: 'autorequestadultmovies',
+            name: intl.formatMessage(messages.autorequestAdultMovies),
+            description: intl.formatMessage(
+              messages.autorequestAdultMoviesDescription
+            ),
+            permission: Permission.AUTO_REQUEST_ADULT_MOVIE,
+            requires: [
+              {
+                permissions: [
+                  Permission.REQUEST,
+                  Permission.REQUEST_ADULT_MOVIE,
+                ],
+                type: 'or',
+              },
+            ],
+          },
+        ]),
       ],
     },
     {
@@ -276,6 +398,24 @@ export const PermissionEdit = ({
           description: intl.formatMessage(messages.request4kTvDescription),
           permission: Permission.REQUEST_4K_TV,
         },
+        ...adultOptions([
+          {
+            id: 'request4k-scenes',
+            name: intl.formatMessage(messages.request4kScenes),
+            description: intl.formatMessage(
+              messages.request4kScenesDescription
+            ),
+            permission: Permission.REQUEST_4K_SCENE,
+          },
+          {
+            id: 'request4k-adultmovies',
+            name: intl.formatMessage(messages.request4kAdultMovies),
+            description: intl.formatMessage(
+              messages.request4kAdultMoviesDescription
+            ),
+            permission: Permission.REQUEST_4K_ADULT_MOVIE,
+          },
+        ]),
       ],
     },
     {
@@ -317,6 +457,42 @@ export const PermissionEdit = ({
             },
           ],
         },
+        ...adultOptions([
+          {
+            id: 'autoapprove4k-scenes',
+            name: intl.formatMessage(messages.autoapprove4kScenes),
+            description: intl.formatMessage(
+              messages.autoapprove4kScenesDescription
+            ),
+            permission: Permission.AUTO_APPROVE_4K_SCENE,
+            requires: [
+              {
+                permissions: [
+                  Permission.REQUEST_4K,
+                  Permission.REQUEST_4K_SCENE,
+                ],
+                type: 'or',
+              },
+            ],
+          },
+          {
+            id: 'autoapprove4k-adultmovies',
+            name: intl.formatMessage(messages.autoapprove4kAdultMovies),
+            description: intl.formatMessage(
+              messages.autoapprove4kAdultMoviesDescription
+            ),
+            permission: Permission.AUTO_APPROVE_4K_ADULT_MOVIE,
+            requires: [
+              {
+                permissions: [
+                  Permission.REQUEST_4K,
+                  Permission.REQUEST_4K_ADULT_MOVIE,
+                ],
+                type: 'or',
+              },
+            ],
+          },
+        ]),
       ],
     },
     {
@@ -355,6 +531,14 @@ export const PermissionEdit = ({
         },
       ],
     },
+    ...adultOptions([
+      {
+        id: 'adult',
+        name: intl.formatMessage(messages.adult),
+        description: intl.formatMessage(messages.adultDescription),
+        permission: Permission.ADULT,
+      },
+    ]),
   ];
 
   return (

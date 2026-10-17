@@ -13,6 +13,7 @@ import type {
   GenreSliderItem,
   WatchlistResponse,
 } from '@server/interfaces/api/discoverInterfaces';
+import { adultWatchlistWhere } from '@server/lib/adult';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapProductionCompany } from '@server/models/Movie';
@@ -955,7 +956,10 @@ discoverRoutes.get<Record<string, unknown>, WatchlistResponse>(
     if (activeUser && !activeUser?.plexToken) {
       // Non-Plex users can only see their own watchlist
       const [result, total] = await getRepository(Watchlist).findAndCount({
-        where: { requestedBy: { id: activeUser?.id } },
+        where: {
+          requestedBy: { id: activeUser?.id },
+          ...adultWatchlistWhere(req.user),
+        },
         relations: {
           /*requestedBy: true,media:true*/
         },

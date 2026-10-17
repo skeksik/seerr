@@ -150,7 +150,11 @@ class SonarrScanner
           ? this.processing4kTmdbIds
           : this.processingTmdbIds;
 
-        return scanComplete && !processingIds.has(media.tmdbId);
+        return (
+          scanComplete &&
+          media.tmdbId !== null &&
+          !processingIds.has(media.tmdbId)
+        );
       });
 
       await this.cleanupOrphanedShows();

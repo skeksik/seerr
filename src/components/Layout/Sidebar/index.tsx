@@ -1,5 +1,6 @@
 import Badge from '@app/components/Common/Badge';
 import VersionStatus from '@app/components/Layout/VersionStatus';
+import useAdult from '@app/hooks/useAdult';
 import useClickOutside from '@app/hooks/useClickOutside';
 import { Permission, useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
@@ -10,9 +11,11 @@ import {
   ExclamationTriangleIcon,
   EyeSlashIcon,
   FilmIcon,
+  FireIcon,
   SparklesIcon,
   TvIcon,
   UsersIcon,
+  VideoCameraIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import Image from 'next/image';
@@ -25,6 +28,8 @@ export const menuMessages = defineMessages('components.Layout.Sidebar', {
   dashboard: 'Discover',
   browsemovies: 'Movies',
   browsetv: 'Series',
+  browseadultmovies: 'Adult Movies',
+  browsescenes: 'Scenes',
   requests: 'Requests',
   blocklist: 'Blocklist',
   issues: 'Issues',
@@ -49,6 +54,7 @@ interface SidebarLinkProps {
   as?: string;
   requiredPermission?: Permission | Permission[];
   permissionType?: 'and' | 'or';
+  requiresAdult?: boolean;
   dataTestId?: string;
 }
 
@@ -70,6 +76,20 @@ const SidebarLinks: SidebarLinkProps[] = [
     messagesKey: 'browsetv',
     svgIcon: <TvIcon className="mr-3 h-6 w-6" />,
     activeRegExp: /^\/discover\/tv$/,
+  },
+  {
+    href: '/discover/scenes',
+    messagesKey: 'browsescenes',
+    svgIcon: <VideoCameraIcon className="mr-3 h-6 w-6" />,
+    activeRegExp: /^\/discover\/scenes$/,
+    requiresAdult: true,
+  },
+  {
+    href: '/discover/adultmovies',
+    messagesKey: 'browseadultmovies',
+    svgIcon: <FireIcon className="mr-3 h-6 w-6" />,
+    activeRegExp: /^\/discover\/adultmovies$/,
+    requiresAdult: true,
   },
   {
     href: '/requests',
@@ -130,6 +150,7 @@ const Sidebar = ({
   const router = useRouter();
   const intl = useIntl();
   const { hasPermission } = useUser();
+  const canViewAdult = useAdult();
   useClickOutside(navRef, () => setClosed());
 
   useEffect(() => {
@@ -198,11 +219,13 @@ const Sidebar = ({
                     </div>
                     <nav className="mt-10 flex-1 space-y-4 px-4">
                       {SidebarLinks.filter((link) =>
-                        link.requiredPermission
-                          ? hasPermission(link.requiredPermission, {
-                              type: link.permissionType ?? 'and',
-                            })
-                          : true
+                        link.requiresAdult && !canViewAdult
+                          ? false
+                          : link.requiredPermission
+                            ? hasPermission(link.requiredPermission, {
+                                type: link.permissionType ?? 'and',
+                              })
+                            : true
                       ).map((sidebarLink) => {
                         return (
                           <Link
@@ -266,11 +289,13 @@ const Sidebar = ({
               </div>
               <nav className="mt-8 flex-1 space-y-4 px-4">
                 {SidebarLinks.filter((link) =>
-                  link.requiredPermission
-                    ? hasPermission(link.requiredPermission, {
-                        type: link.permissionType ?? 'and',
-                      })
-                    : true
+                  link.requiresAdult && !canViewAdult
+                    ? false
+                    : link.requiredPermission
+                      ? hasPermission(link.requiredPermission, {
+                          type: link.permissionType ?? 'and',
+                        })
+                      : true
                 ).map((sidebarLink) => {
                   return (
                     <Link

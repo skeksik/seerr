@@ -10,6 +10,7 @@ import type {
   Language,
   RadarrSettings,
   SonarrSettings,
+  WhisparrSettings,
 } from '@server/lib/settings';
 import type { Keyword } from '@server/models/common';
 import axios from 'axios';
@@ -41,6 +42,7 @@ interface OverrideRuleTilesProps {
   revalidate: () => void;
   radarrServices: RadarrSettings[];
   sonarrServices: SonarrSettings[];
+  whisparrServices: WhisparrSettings[];
 }
 
 const OverrideRuleTiles = ({
@@ -49,6 +51,7 @@ const OverrideRuleTiles = ({
   revalidate,
   radarrServices,
   sonarrServices,
+  whisparrServices,
 }: OverrideRuleTilesProps) => {
   const intl = useIntl();
   const [users, setUsers] = useState<User[] | null>(null);
@@ -60,46 +63,47 @@ const OverrideRuleTiles = ({
   >([]);
 
   const getServiceInfos = useCallback(async () => {
-    const results: (DVRTestResponse & { type: string; id: number })[] = [];
-    const services: DVRSettings[] = [...radarrServices, ...sonarrServices];
-    for (const service of services) {
-      const { hostname, port, apiKey, baseUrl, useSsl = false } = service;
-      try {
-        const response = await axios.post<DVRTestResponse>(
-          `/api/v1/settings/${
-            radarrServices.includes(service as RadarrSettings)
-              ? 'radarr'
-              : 'sonarr'
-          }/test`,
-          {
-            hostname,
-            apiKey,
-            port: Number(port),
-            baseUrl,
-            useSsl,
-          }
-        );
-        results.push({
-          type: radarrServices.includes(service as RadarrSettings)
-            ? 'radarr'
-            : 'sonarr',
-          id: service.id,
-          ...response.data,
-        });
-      } catch {
-        results.push({
-          type: radarrServices.includes(service as RadarrSettings)
-            ? 'radarr'
-            : 'sonarr',
-          id: service.id,
-          profiles: [],
-          rootFolders: [],
-          tags: [],
-        });
-      }
-    }
+    const services: { type: string; service: DVRSettings }[] = [
+      ...radarrServices.map((service) => ({ type: 'radarr', service })),
+      ...sonarrServices.map((service) => ({ type: 'sonarr', service })),
+      ...whisparrServices.map((service) => ({ type: 'whisparr', service })),
+    ];
+    const results = await Promise.all(
+      services.map(async ({ type, service }) => {
+        const { hostname, port, apiKey, baseUrl, useSsl = false } = service;
+        try {
+          const response = await axios.post<DVRTestResponse>(
+            `/api/v1/settings/${type}/test`,
+            {
+              hostname,
+              apiKey,
+              port: Number(port),
+              baseUrl,
+              useSsl,
+            }
+          );
+          return { type, id: service.id, ...response.data };
+        } catch {
+          return {
+            type,
+            id: service.id,
+            profiles: [],
+            rootFolders: [],
+            tags: [],
+          };
+        }
+      })
+    );
     setTestResponses(results);
-  }, [radarrServices, sonarrServices]);
+  }, [radarrServices, sonarrServices, whisparrServices]);
+
+  const ruleService = (rule: OverrideRule) =>
+    testResponses.find(
+      (r) =>
+        (r.id === rule.radarrServiceId && r.type === 'radarr') ||
+        (r.id === rule.sonarrServiceId && r.type === 'sonarr') ||
+        (r.id === rule.whisparrServiceId && r.type === 'whisparr')
+    );
 
   useEffect(() => {
     getServiceInfos();
@@ -231,15 +235,9 @@ const OverrideRuleTiles = ({
                   <span className="mr-2 font-bold">
                     {intl.formatMessage(messages.qualityprofile)}
                   </span>
-                  {testResponses
-                    .find(
-                      (r) =>
-                        (r.id === rule.radarrServiceId &&
-                          r.type === 'radarr') ||
-                        (r.id === rule.sonarrServiceId && r.type === 'sonarr')
-                    )
-                    ?.profiles.find((profile) => rule.profileId === profile.id)
-                    ?.name || rule.profileId}
+                  {ruleService(rule)?.profiles.find(
+                    (profile) => rule.profileId === profile.id
+                  )?.name || rule.profileId}
                 </p>
               )}
               {rule.rootFolder && (
@@ -258,16 +256,9 @@ const OverrideRuleTiles = ({
                   <div className="inline-flex gap-2">
                     {rule.tags.split(',').map((tag) => (
                       <span>
-                        {testResponses
-                          .find(
-                            (r) =>
-                              (r.id === rule.radarrServiceId &&
-                                r.type === 'radarr') ||
-                              (r.id === rule.sonarrServiceId &&
-                                r.type === 'sonarr')
-                          )
-                          ?.tags?.find((t) => t.id === Number(tag))?.label ||
-                          tag}
+                        {ruleService(rule)?.tags?.find(
+                          (t) => t.id === Number(tag)
+                        )?.label || tag}
                       </span>
                     ))}
                   </div>

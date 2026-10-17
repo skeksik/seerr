@@ -627,6 +627,8 @@ describe('GET /auth/me', () => {
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(Object.keys(res.body.settings).sort(), [
+      'adultSafeMode',
+      'blurAdultImages',
       'discoverRegion',
       'locale',
       'notificationTypes',

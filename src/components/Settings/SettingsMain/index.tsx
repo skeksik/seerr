@@ -1,4 +1,5 @@
 import BlocklistedTagsSelector from '@app/components/BlocklistedTagsSelector';
+import AdultBlocklistedTagsSelector from '@app/components/BlocklistedTagsSelector/AdultBlocklistedTagsSelector';
 import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
@@ -8,6 +9,7 @@ import RegionSelector from '@app/components/RegionSelector';
 import CopyButton from '@app/components/Settings/CopyButton';
 import SettingsBadge from '@app/components/Settings/SettingsBadge';
 import { availableLanguages } from '@app/context/LanguageContext';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useLocale from '@app/hooks/useLocale';
 import useToasts from '@app/hooks/useToasts';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -47,6 +49,12 @@ const messages = defineMessages('components.Settings.SettingsMain', {
   blocklistedTags: 'Blocklist Content with Tags',
   blocklistedTagsTip:
     'Automatically add content with tags to the blocklist using the "Process Blocklisted Tags" job',
+  blocklistedSceneTags: 'Blocklist Scenes with StashDB Tags',
+  blocklistedSceneTagsTip:
+    'Automatically add scenes with StashDB tags to the blocklist using the "Process Blocklisted Tags" job',
+  blocklistedAdultMovieTags: 'Blocklist Adult Movies with ThePornDB Tags',
+  blocklistedAdultMovieTagsTip:
+    'Automatically add adult movies with ThePornDB tags to the blocklist using the "Process Blocklisted Tags" job',
   blocklistedTagsLimit: 'Limit Content Blocklisted per Tag',
   blocklistedTagsLimitTip:
     'The "Process Blocklisted Tags" job will blocklist this many pages into each sort. Larger numbers will create a more accurate blocklist, but use more space.',
@@ -59,6 +67,9 @@ const messages = defineMessages('components.Settings.SettingsMain', {
   toastApiKeyFailure: 'Something went wrong while generating a new API key.',
   toastSettingsSuccess: 'Settings saved successfully!',
   toastSettingsFailure: 'Something went wrong while saving settings.',
+  enableAdult: 'Enable Adult Content',
+  enableAdultTip:
+    'Allow users with the Adult Content permission to browse and request adult scenes and movies',
   hideAvailable: 'Hide Available Media',
   hideAvailableTip:
     'Hide available media from the discover pages but not search results',
@@ -86,6 +97,7 @@ const SettingsMain = () => {
   const { addToast } = useToasts();
   const { user: currentUser, hasPermission: userHasPermission } = useUser();
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const { setLocale } = useLocale();
   const {
     data,
@@ -167,6 +179,7 @@ const SettingsMain = () => {
           initialValues={{
             applicationTitle: data?.applicationTitle,
             applicationUrl: data?.applicationUrl,
+            enableAdult: data?.enableAdult,
             hideAvailable: data?.hideAvailable,
             hideBlocklisted: data?.hideBlocklisted,
             hideRequested: data?.hideRequested,
@@ -178,6 +191,11 @@ const SettingsMain = () => {
             blocklistLanguage: data?.blocklistLanguage || '',
             blocklistedTags: data?.blocklistedTags,
             blocklistedTagsLimit: data?.blocklistedTagsLimit || 50,
+            blocklistedSceneTags: data?.blocklistedSceneTags ?? '',
+            blocklistedSceneTagNames: data?.blocklistedSceneTagNames ?? '',
+            blocklistedAdultMovieTags: data?.blocklistedAdultMovieTags ?? '',
+            blocklistedAdultMovieTagNames:
+              data?.blocklistedAdultMovieTagNames ?? '',
             partialRequestsEnabled: data?.partialRequestsEnabled,
             enableSpecialEpisodes: data?.enableSpecialEpisodes,
             cacheImages: data?.cacheImages,
@@ -191,6 +209,7 @@ const SettingsMain = () => {
               await axios.post('/api/v1/settings/main', {
                 applicationTitle: values.applicationTitle,
                 applicationUrl: values.applicationUrl,
+                enableAdult: values.enableAdult,
                 hideAvailable: values.hideAvailable,
                 hideBlocklisted: values.hideBlocklisted,
                 hideRequested: values.hideRequested,
@@ -202,6 +221,11 @@ const SettingsMain = () => {
                 blocklistLanguage: values.blocklistLanguage,
                 blocklistedTags: values.blocklistedTags,
                 blocklistedTagsLimit: values.blocklistedTagsLimit,
+                blocklistedSceneTags: values.blocklistedSceneTags,
+                blocklistedSceneTagNames: values.blocklistedSceneTagNames,
+                blocklistedAdultMovieTags: values.blocklistedAdultMovieTags,
+                blocklistedAdultMovieTagNames:
+                  values.blocklistedAdultMovieTagNames,
                 partialRequestsEnabled: values.partialRequestsEnabled,
                 enableSpecialEpisodes: values.enableSpecialEpisodes,
                 cacheImages: values.cacheImages,
@@ -468,6 +492,51 @@ const SettingsMain = () => {
                     </div>
                   </div>
                 </div>
+                {/* Their tags are looked up once adult content is saved on */}
+                {!safeMode && data?.enableAdult && (
+                  <>
+                    <div className="form-row">
+                      <label
+                        htmlFor="blocklistedSceneTags"
+                        className="text-label"
+                      >
+                        <span>
+                          {intl.formatMessage(messages.blocklistedSceneTags)}
+                        </span>
+                        <span className="label-tip">
+                          {intl.formatMessage(messages.blocklistedSceneTagsTip)}
+                        </span>
+                      </label>
+                      <div className="form-input-area">
+                        <div className="form-input-field relative z-[9]">
+                          <AdultBlocklistedTagsSelector mediaType="scene" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <label
+                        htmlFor="blocklistedAdultMovieTags"
+                        className="text-label"
+                      >
+                        <span>
+                          {intl.formatMessage(
+                            messages.blocklistedAdultMovieTags
+                          )}
+                        </span>
+                        <span className="label-tip">
+                          {intl.formatMessage(
+                            messages.blocklistedAdultMovieTagsTip
+                          )}
+                        </span>
+                      </label>
+                      <div className="form-input-area">
+                        <div className="form-input-field relative z-[8]">
+                          <AdultBlocklistedTagsSelector mediaType="adultmovie" />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div className="form-row">
                   <label htmlFor="blocklistedTagsLimit" className="text-label">
                     <span className="mr-2">
@@ -560,6 +629,29 @@ const SettingsMain = () => {
                     />
                   </div>
                 </div>
+                {/* Safe mode hides adult settings too */}
+                {!safeMode && (
+                  <div className="form-row">
+                    <label htmlFor="enableAdult" className="checkbox-label">
+                      <span className="mr-2">
+                        {intl.formatMessage(messages.enableAdult)}
+                      </span>
+                      <span className="label-tip">
+                        {intl.formatMessage(messages.enableAdultTip)}
+                      </span>
+                    </label>
+                    <div className="form-input-area">
+                      <Field
+                        type="checkbox"
+                        id="enableAdult"
+                        name="enableAdult"
+                        onChange={() => {
+                          setFieldValue('enableAdult', !values.enableAdult);
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="form-row">
                   <label
                     htmlFor="partialRequestsEnabled"

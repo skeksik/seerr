@@ -1,17 +1,28 @@
 import TheMovieDb from '@server/api/themoviedb';
 import {
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
 } from '@server/constants/media';
-import { getRepository } from '@server/datasource';
-import type { MediaRequestBody } from '@server/interfaces/api/requestInterfaces';
+import dataSource, { getRepository } from '@server/datasource';
+import type {
+  AdultRequestBody,
+  MediaRequestBody,
+} from '@server/interfaces/api/requestInterfaces';
+import { canViewAdult } from '@server/lib/adult';
+import {
+  describeAdultMedia,
+  findOrCreateAdultMedia,
+  lookupAdultTitle,
+} from '@server/lib/adultMedia';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import overrideRules from '@server/lib/overrideRules';
-import { Permission } from '@server/lib/permissions';
+import { mediaPermissions, Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
   mediaKey,
   mediaLock,
@@ -24,8 +35,10 @@ import {
   AfterUpdate,
   Column,
   Entity,
+  In,
   Index,
   ManyToOne,
+  Not,
   OneToMany,
   PrimaryGeneratedColumn,
   RelationCount,
@@ -48,10 +61,35 @@ type MediaRequestOptions = {
 @Entity()
 export class MediaRequest {
   public static async request(
-    requestBody: MediaRequestBody,
+    requestBody: MediaRequestBody | AdultRequestBody,
     user: User,
     options: MediaRequestOptions = {}
   ): Promise<MediaRequest> {
+    if (
+      requestBody.mediaType === MediaType.SCENE ||
+      requestBody.mediaType === MediaType.ADULT_MOVIE
+    ) {
+      const adultBody = requestBody;
+      const adultLockUserId =
+        adultBody.userId &&
+        user.hasPermission([
+          Permission.MANAGE_USERS,
+          Permission.MANAGE_REQUESTS,
+        ])
+          ? adultBody.userId
+          : user.id;
+      const externalId =
+        adultBody.mediaType === MediaType.SCENE
+          ? adultBody.stashId
+          : adultBody.tpdbId;
+
+      return requestLock.dispatch(userKey(adultLockUserId), () =>
+        mediaLock.dispatch(mediaKey(adultBody.mediaType, externalId), () =>
+          MediaRequest.createAdultRequest(adultBody, user, options)
+        )
+      );
+    }
+
     // is4k is optional, and an undefined one binds as null in the duplicate query
     const body = { ...requestBody, is4k: !!requestBody.is4k };
 
@@ -69,6 +107,180 @@ export class MediaRequest {
         MediaRequest.createRequest(body, user, options)
       )
     );
+  }
+
+  // Scenes and adult movies: keyed by an external id, always sent to Whisparr
+  private static async createAdultRequest(
+    requestBody: AdultRequestBody,
+    user: User,
+    options: MediaRequestOptions
+  ): Promise<MediaRequest> {
+    const isScene = requestBody.mediaType === MediaType.SCENE;
+    const is4k = !!requestBody.is4k;
+    const statusKey = is4k ? 'status4k' : 'status';
+    const mediaRepository = getRepository(Media);
+    const requestRepository = getRepository(MediaRequest);
+
+    let requestUser = user;
+
+    if (
+      requestBody.userId &&
+      !user.hasPermission([Permission.MANAGE_USERS, Permission.MANAGE_REQUESTS])
+    ) {
+      throw new RequestPermissionError(
+        'You do not have permission to modify the request user.'
+      );
+    } else if (requestBody.userId) {
+      requestUser = await getRepository(User).findOneOrFail({
+        where: { id: requestBody.userId },
+      });
+    }
+
+    // Request grants every media type, Request Scenes and Request Adult
+    // Movies only theirs; the same goes for 4K
+    if (
+      !canViewAdult(requestUser) ||
+      !requestUser.hasPermission(
+        mediaPermissions(is4k ? 'request4k' : 'request', requestBody.mediaType),
+        { type: 'or' }
+      )
+    ) {
+      throw new RequestPermissionError(
+        `You do not have permission to make ${is4k ? '4K ' : ''}${
+          isScene ? 'scene' : 'adult movie'
+        } requests.`
+      );
+    }
+
+    const quotas = await requestUser.getQuota();
+    const quota = isScene ? quotas.scene : quotas.adultMovie;
+    const canBypassQuota = user.hasPermission(Permission.MANAGE_REQUESTS);
+    const ignoreQuota =
+      requestBody.ignoreQuota === true &&
+      canBypassQuota &&
+      (quota.limit ?? 0) > 0;
+
+    if (requestBody.ignoreQuota && !canBypassQuota) {
+      throw new RequestPermissionError(
+        'You do not have permission to bypass user quota limits.'
+      );
+    } else if (!ignoreQuota && quota.restricted) {
+      throw new QuotaRestrictedError(
+        `${isScene ? 'Scene' : 'Adult Movie'} Quota exceeded.`
+      );
+    }
+
+    const found = await lookupAdultTitle(
+      requestBody.mediaType,
+      isScene ? requestBody.stashId : requestBody.tpdbId
+    );
+
+    if (!found) {
+      throw new Error(
+        isScene
+          ? 'Scene not found on StashDB.'
+          : 'Movie not found on ThePornDB.'
+      );
+    }
+
+    const media = await findOrCreateAdultMedia(
+      dataSource.manager,
+      requestBody.mediaType,
+      found.id
+    );
+
+    if (!media.id) {
+      media.status = is4k ? MediaStatus.UNKNOWN : MediaStatus.PENDING;
+      media.status4k = is4k ? MediaStatus.PENDING : MediaStatus.UNKNOWN;
+    } else {
+      if (media.status === MediaStatus.BLOCKLISTED) {
+        throw new BlocklistedMediaError('This media is blocklisted.');
+      }
+
+      const active = await requestRepository.exist({
+        where: {
+          media: { id: media.id },
+          is4k,
+          status: Not(
+            In([MediaRequestStatus.DECLINED, MediaRequestStatus.COMPLETED])
+          ),
+        },
+      });
+
+      if (active) {
+        logger.warn('Duplicate adult request blocked', {
+          mediaType: requestBody.mediaType,
+          externalId: found.id,
+          is4k,
+          label: 'Media Request',
+        });
+        throw new DuplicateMediaRequestError(
+          'Request for this media already exists.'
+        );
+      }
+
+      if (
+        media[statusKey] === MediaStatus.UNKNOWN ||
+        media[statusKey] === MediaStatus.DELETED
+      ) {
+        media[statusKey] = MediaStatus.PENDING;
+      }
+    }
+
+    await mediaRepository.save(media);
+
+    // Same precedence as movies: advanced users keep what they picked
+    const ruleResult = await overrideRules({
+      mediaType: requestBody.mediaType,
+      is4k,
+      requestUser,
+      tags: requestBody.tags,
+    });
+    const isAdvanced = user.hasPermission(
+      [Permission.MANAGE_REQUESTS, Permission.REQUEST_ADVANCED],
+      { type: 'or' }
+    );
+    const profileId =
+      (isAdvanced && requestBody.profileId) ||
+      ruleResult.profileId ||
+      requestBody.profileId;
+    const rootFolder =
+      (isAdvanced && requestBody.rootFolder) ||
+      ruleResult.rootFolder ||
+      requestBody.rootFolder;
+    const tags =
+      (isAdvanced && requestBody.tags) || ruleResult.tags || requestBody.tags;
+
+    const autoApprove = user.hasPermission(
+      [
+        ...mediaPermissions(
+          is4k ? 'autoApprove4k' : 'autoApprove',
+          requestBody.mediaType
+        ),
+        Permission.MANAGE_REQUESTS,
+      ],
+      { type: 'or' }
+    );
+
+    const request = new MediaRequest({
+      type: requestBody.mediaType,
+      media,
+      requestedBy: requestUser,
+      status: autoApprove
+        ? MediaRequestStatus.APPROVED
+        : MediaRequestStatus.PENDING,
+      modifiedBy: autoApprove ? user : undefined,
+      is4k,
+      serverId: requestBody.serverId,
+      profileId: profileId || undefined,
+      rootFolder: rootFolder || undefined,
+      tags: tags ?? undefined,
+      isAutoRequest: options.isAutoRequest ?? false,
+      ignoreQuota,
+    });
+
+    await requestRepository.save(request);
+    return request;
   }
 
   private static async createRequest(
@@ -712,7 +924,14 @@ export class MediaRequest {
     const tmdb = new TheMovieDb();
 
     try {
-      const mediaType = entity.type === MediaType.MOVIE ? 'Movie' : 'Series';
+      const mediaType =
+        entity.type === MediaType.MOVIE
+          ? 'Movie'
+          : entity.type === MediaType.SCENE
+            ? 'Scene'
+            : entity.type === MediaType.ADULT_MOVIE
+              ? 'Adult Movie'
+              : 'Series';
       let event: string | undefined;
       let notifyAdmin = true;
       let notifySystem = true;
@@ -751,7 +970,7 @@ export class MediaRequest {
       }
 
       if (entity.type === MediaType.MOVIE) {
-        const movie = await tmdb.getMovie({ movieId: media.tmdbId });
+        const movie = await tmdb.getMovie({ movieId: requireTmdbId(media) });
         notificationManager.sendNotification(type, {
           media,
           request: entity,
@@ -770,7 +989,7 @@ export class MediaRequest {
           image: `https://image.tmdb.org/t/p/w600_and_h900_bestv2${movie.poster_path}`,
         });
       } else if (entity.type === MediaType.TV) {
-        const tv = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const tv = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
         notificationManager.sendNotification(type, {
           media,
           request: entity,
@@ -795,6 +1014,25 @@ export class MediaRequest {
                 .join(', '),
             },
           ],
+        });
+      } else if (isAdultMediaType(entity.type)) {
+        const { title, image, overview, studio } =
+          await describeAdultMedia(media);
+        notificationManager.sendNotification(type, {
+          media,
+          request: entity,
+          notifyAdmin,
+          notifySystem,
+          notifyUser: notifyAdmin ? undefined : entity.requestedBy,
+          event,
+          subject: title,
+          message: truncate(overview ?? '', {
+            length: 500,
+            separator: /\s/,
+            omission: '…',
+          }),
+          image,
+          extra: studio ? [{ name: 'Studio', value: studio }] : [],
         });
       }
     } catch (e) {

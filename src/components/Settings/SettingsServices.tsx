@@ -10,13 +10,18 @@ import OverrideRuleModal from '@app/components/Settings/OverrideRule/OverrideRul
 import OverrideRuleTiles from '@app/components/Settings/OverrideRule/OverrideRuleTiles';
 import RadarrModal from '@app/components/Settings/RadarrModal';
 import SonarrModal from '@app/components/Settings/SonarrModal';
+import { useSafeMode } from '@app/hooks/useAdult';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import type OverrideRule from '@server/entity/OverrideRule';
 import type { OverrideRuleResultsResponse } from '@server/interfaces/api/overrideRuleInterfaces';
-import type { RadarrSettings, SonarrSettings } from '@server/lib/settings';
+import type {
+  RadarrSettings,
+  SonarrSettings,
+  WhisparrSettings,
+} from '@server/lib/settings';
 import axios from 'axios';
 import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -62,6 +67,7 @@ interface ServerInstanceProps {
   externalUrl?: string;
   profileName: string;
   isSonarr?: boolean;
+  logo?: React.ReactNode;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -93,7 +99,7 @@ export type SonarrTestResponse = DVRTestResponse & {
     | null;
 };
 
-const ServerInstance = ({
+export const ServerInstance = ({
   name,
   hostname,
   port,
@@ -102,6 +108,7 @@ const ServerInstance = ({
   isDefault = false,
   isSSL = false,
   isSonarr = false,
+  logo,
   externalUrl,
   onEdit,
   onDelete,
@@ -170,11 +177,12 @@ const ServerInstance = ({
           rel="noopener noreferrer"
           className="opacity-50 hover:opacity-100"
         >
-          {isSonarr ? (
-            <SonarrLogo className="h-10 w-10 flex-shrink-0" />
-          ) : (
-            <RadarrLogo className="h-10 w-10 flex-shrink-0" />
-          )}
+          {logo ??
+            (isSonarr ? (
+              <SonarrLogo className="h-10 w-10 flex-shrink-0" />
+            ) : (
+              <RadarrLogo className="h-10 w-10 flex-shrink-0" />
+            ))}
         </a>
       </div>
       <div className="border-t border-gray-500">
@@ -203,7 +211,16 @@ const ServerInstance = ({
   );
 };
 
-const SettingsServices = () => {
+// One empty list, so the override rule tiles don't test the servers again
+// on every render
+const noServers: WhisparrSettings[] = [];
+
+interface SettingsServicesProps {
+  // More servers, shown above the override rules that apply to them
+  extraServices?: React.ReactNode;
+}
+
+const SettingsServices = ({ extraServices }: SettingsServicesProps) => {
   const intl = useIntl();
   const {
     data: radarrData,
@@ -215,6 +232,12 @@ const SettingsServices = () => {
     error: sonarrError,
     mutate: revalidateSonarr,
   } = useSWR<SonarrSettings[]>('/api/v1/settings/sonarr');
+  // Safe mode hides the Whisparr servers; override rules don't wait for them
+  const safeMode = useSafeMode();
+  const { data: whisparrServers } = useSWR<WhisparrSettings[]>(
+    safeMode ? null : '/api/v1/settings/whisparr'
+  );
+  const whisparrData = whisparrServers ?? noServers;
   const { data: rules, mutate: revalidate } =
     useSWR<OverrideRuleResultsResponse>('/api/v1/overrideRule');
   const [editRadarrModal, setEditRadarrModal] = useState<{
@@ -499,6 +522,7 @@ const SettingsServices = () => {
           </>
         )}
       </div>
+      {extraServices}
       <div className="mb-6 mt-10">
         <h3 className="heading">
           {intl.formatMessage(messages.overrideRules)}
@@ -516,6 +540,7 @@ const SettingsServices = () => {
               rules={rules}
               radarrServices={radarrData}
               sonarrServices={sonarrData}
+              whisparrServices={whisparrData}
               setOverrideRuleModal={setOverrideRuleModal}
               revalidate={revalidate}
             />
@@ -524,7 +549,11 @@ const SettingsServices = () => {
             <div className="flex h-full w-full items-center justify-center">
               <Button
                 buttonType="ghost"
-                disabled={!radarrData?.length && !sonarrData?.length}
+                disabled={
+                  !radarrData?.length &&
+                  !sonarrData?.length &&
+                  !whisparrData?.length
+                }
                 onClick={() =>
                   setOverrideRuleModal({
                     open: true,
@@ -551,6 +580,7 @@ const SettingsServices = () => {
           }}
           radarrServices={radarrData}
           sonarrServices={sonarrData}
+          whisparrServices={whisparrData}
         />
       )}
     </>

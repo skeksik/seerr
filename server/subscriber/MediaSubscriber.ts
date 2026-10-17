@@ -1,4 +1,5 @@
 import {
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -73,7 +74,8 @@ export class MediaSubscriber implements EntitySubscriberInterface<Media> {
             MediaStatus.AVAILABLE ||
             event[request.is4k ? 'status4k' : 'status'] ===
               MediaStatus.DELETED) &&
-          event.mediaType === MediaType.MOVIE
+          (event.mediaType === MediaType.MOVIE ||
+            isAdultMediaType(event.mediaType))
         ) {
           shouldComplete = true;
         } else if (event.mediaType === 'tv') {

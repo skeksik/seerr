@@ -5,6 +5,7 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import PermissionEdit from '@app/components/PermissionEdit';
 import QuotaSelector from '@app/components/QuotaSelector';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
@@ -38,6 +39,8 @@ const messages = defineMessages('components.Settings.SettingsUsers', {
     'Allow {mediaServerName} users to sign in without first being imported',
   movieRequestLimitLabel: 'Global Movie Request Limit',
   tvRequestLimitLabel: 'Global Series Request Limit',
+  sceneRequestLimitLabel: 'Global Scene Request Limit',
+  adultMovieRequestLimitLabel: 'Global Adult Movie Request Limit',
   defaultPermissions: 'Default Permissions',
   defaultPermissionsTip: 'Initial permissions assigned to new users',
   disabledMediaServerLoginWarning:
@@ -47,6 +50,7 @@ const messages = defineMessages('components.Settings.SettingsUsers', {
 const SettingsUsers = () => {
   const { addToast } = useToasts();
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const {
     data,
     error,
@@ -114,6 +118,11 @@ const SettingsUsers = () => {
             movieQuotaDays: data?.defaultQuotas.movie.quotaDays ?? 7,
             tvQuotaLimit: data?.defaultQuotas.tv.quotaLimit ?? 0,
             tvQuotaDays: data?.defaultQuotas.tv.quotaDays ?? 7,
+            sceneQuotaLimit: data?.defaultQuotas.scene?.quotaLimit ?? 0,
+            sceneQuotaDays: data?.defaultQuotas.scene?.quotaDays ?? 7,
+            adultMovieQuotaLimit:
+              data?.defaultQuotas.adultMovie?.quotaLimit ?? 0,
+            adultMovieQuotaDays: data?.defaultQuotas.adultMovie?.quotaDays ?? 7,
             defaultPermissions: data?.defaultPermissions ?? 0,
           }}
           validationSchema={schema}
@@ -132,6 +141,14 @@ const SettingsUsers = () => {
                   tv: {
                     quotaLimit: values.tvQuotaLimit,
                     quotaDays: values.tvQuotaDays,
+                  },
+                  scene: {
+                    quotaLimit: values.sceneQuotaLimit,
+                    quotaDays: values.sceneQuotaDays,
+                  },
+                  adultMovie: {
+                    quotaLimit: values.adultMovieQuotaLimit,
+                    quotaDays: values.adultMovieQuotaDays,
                   },
                 },
                 defaultPermissions: values.defaultPermissions,
@@ -276,6 +293,42 @@ const SettingsUsers = () => {
                     />
                   </div>
                 </div>
+                {data?.enableAdult && !safeMode && (
+                  <>
+                    <div className="form-row">
+                      <label htmlFor="applicationTitle" className="text-label">
+                        {intl.formatMessage(messages.sceneRequestLimitLabel)}
+                      </label>
+                      <div className="form-input-area">
+                        <QuotaSelector
+                          onChange={setFieldValue}
+                          dayFieldName="sceneQuotaDays"
+                          limitFieldName="sceneQuotaLimit"
+                          mediaType="scene"
+                          defaultDays={values.sceneQuotaDays}
+                          defaultLimit={values.sceneQuotaLimit}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="applicationTitle" className="text-label">
+                        {intl.formatMessage(
+                          messages.adultMovieRequestLimitLabel
+                        )}
+                      </label>
+                      <div className="form-input-area">
+                        <QuotaSelector
+                          onChange={setFieldValue}
+                          dayFieldName="adultMovieQuotaDays"
+                          limitFieldName="adultMovieQuotaLimit"
+                          mediaType="adultmovie"
+                          defaultDays={values.adultMovieQuotaDays}
+                          defaultLimit={values.adultMovieQuotaLimit}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div
                   role="group"
                   aria-labelledby="group-label"

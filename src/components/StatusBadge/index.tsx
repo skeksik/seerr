@@ -5,10 +5,16 @@ import DownloadBlock from '@app/components/DownloadBlock';
 import useSettings from '@app/hooks/useSettings';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
+import {
+  arrName,
+  isAdultMediaType,
+  mediaTypeMessage,
+} from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
-import { MediaStatus } from '@server/constants/media';
+import { MediaStatus, type MediaType } from '@server/constants/media';
 import { MediaServerType } from '@server/constants/server';
 import type { DownloadingItem } from '@server/lib/downloadtracker';
+import { mediaPermissions } from '@server/lib/permissions';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.StatusBadge', {
@@ -28,8 +34,10 @@ interface StatusBadgeProps {
   inProgress?: boolean;
   plexUrl?: string;
   serviceUrl?: string;
-  tmdbId?: number;
-  mediaType?: 'movie' | 'tv';
+  tmdbId?: number | null;
+  // StashDB scene or ThePornDB movie UUID, for their manage links
+  externalId?: string | null;
+  mediaType?: `${MediaType}`;
   title?: string | string[];
   statusLabelOverride?: string;
 }
@@ -42,6 +50,7 @@ const StatusBadge = ({
   plexUrl,
   serviceUrl,
   tmdbId,
+  externalId,
   mediaType,
   title,
   statusLabelOverride,
@@ -61,49 +70,55 @@ const StatusBadge = ({
     mediaType &&
     plexUrl &&
     hasPermission(
-      is4k
-        ? [
-            Permission.REQUEST_4K,
-            mediaType === 'movie'
-              ? Permission.REQUEST_4K_MOVIE
-              : Permission.REQUEST_4K_TV,
-          ]
-        : [
-            Permission.REQUEST,
-            mediaType === 'movie'
-              ? Permission.REQUEST_MOVIE
-              : Permission.REQUEST_TV,
-          ],
+      isAdultMediaType(mediaType)
+        ? mediaPermissions(is4k ? 'request4k' : 'request', mediaType)
+        : is4k
+          ? [
+              Permission.REQUEST_4K,
+              mediaType === 'movie'
+                ? Permission.REQUEST_4K_MOVIE
+                : Permission.REQUEST_4K_TV,
+            ]
+          : [
+              Permission.REQUEST,
+              mediaType === 'movie'
+                ? Permission.REQUEST_MOVIE
+                : Permission.REQUEST_TV,
+            ],
       {
         type: 'or',
       }
     ) &&
     (!is4k ||
-      (mediaType === 'movie'
-        ? settings.currentSettings.movie4kEnabled
-        : settings.currentSettings.series4kEnabled))
+      (isAdultMediaType(mediaType)
+        ? settings.currentSettings.adult4kEnabled
+        : mediaType === 'movie'
+          ? settings.currentSettings.movie4kEnabled
+          : settings.currentSettings.series4kEnabled))
   ) {
     mediaLink = plexUrl;
     mediaLinkDescription = intl.formatMessage(messages.playonplex, {
       mediaServerName:
-        settings.currentSettings.mediaServerType === MediaServerType.EMBY
-          ? 'Emby'
-          : settings.currentSettings.mediaServerType === MediaServerType.PLEX
-            ? 'Plex'
-            : 'Jellyfin',
+        mediaType === 'scene'
+          ? 'Stash'
+          : settings.currentSettings.mediaServerType === MediaServerType.EMBY
+            ? 'Emby'
+            : settings.currentSettings.mediaServerType === MediaServerType.PLEX
+              ? 'Plex'
+              : 'Jellyfin',
     });
   } else if (hasPermission(Permission.MANAGE_REQUESTS)) {
-    if (mediaType && tmdbId) {
-      mediaLink = `/${mediaType}/${tmdbId}?manage=1`;
+    const manageId = isAdultMediaType(mediaType) ? externalId : tmdbId;
+
+    if (mediaType && manageId) {
+      mediaLink = `/${mediaType}/${manageId}?manage=1`;
       mediaLinkDescription = intl.formatMessage(messages.managemedia, {
-        mediaType: intl.formatMessage(
-          mediaType === 'movie' ? globalMessages.movie : globalMessages.tvshow
-        ),
+        mediaType: intl.formatMessage(mediaTypeMessage(mediaType)),
       });
     } else if (hasPermission(Permission.ADMIN) && serviceUrl) {
       mediaLink = serviceUrl;
       mediaLinkDescription = intl.formatMessage(messages.openinarr, {
-        arr: mediaType === 'movie' ? 'Radarr' : 'Sonarr',
+        arr: arrName({ mediaType }),
       });
     }
   }

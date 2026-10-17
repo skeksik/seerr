@@ -7,14 +7,20 @@ const messages = defineMessages('components.QuotaSelector', {
     '{quotaLimit} <quotaUnits>{movies} per {quotaDays} {days}</quotaUnits>',
   tvRequests:
     '{quotaLimit} <quotaUnits>{seasons} per {quotaDays} {days}</quotaUnits>',
+  sceneRequests:
+    '{quotaLimit} <quotaUnits>{scenes} per {quotaDays} {days}</quotaUnits>',
+  adultMovieRequests:
+    '{quotaLimit} <quotaUnits>{adultMovies} per {quotaDays} {days}</quotaUnits>',
   movies: '{count, plural, one {movie} other {movies}}',
   seasons: '{count, plural, one {season} other {seasons}}',
+  scenes: '{count, plural, one {scene} other {scenes}}',
+  adultMovies: '{count, plural, one {adult movie} other {adult movies}}',
   days: '{count, plural, one {day} other {days}}',
   unlimited: 'Unlimited',
 });
 
 interface QuotaSelectorProps {
-  mediaType: 'movie' | 'tv';
+  mediaType: 'movie' | 'tv' | 'scene' | 'adultmovie';
   defaultDays?: number;
   defaultLimit?: number;
   dayOverride?: number;
@@ -53,7 +59,13 @@ const QuotaSelector = ({
   return (
     <div className={`${isDisabled ? 'opacity-50' : ''}`}>
       {intl.formatMessage(
-        mediaType === 'movie' ? messages.movieRequests : messages.tvRequests,
+        mediaType === 'movie'
+          ? messages.movieRequests
+          : mediaType === 'scene'
+            ? messages.sceneRequests
+            : mediaType === 'adultmovie'
+              ? messages.adultMovieRequests
+              : messages.tvRequests,
         {
           quotaLimit: (
             <select
@@ -91,6 +103,10 @@ const QuotaSelector = ({
           ),
           movies: intl.formatMessage(messages.movies, { count: quotaLimit }),
           seasons: intl.formatMessage(messages.seasons, { count: quotaLimit }),
+          scenes: intl.formatMessage(messages.scenes, { count: quotaLimit }),
+          adultMovies: intl.formatMessage(messages.adultMovies, {
+            count: quotaLimit,
+          }),
           days: intl.formatMessage(messages.days, { count: quotaDays }),
           quotaUnits: function quotaUnits(msg) {
             return (

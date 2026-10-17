@@ -11,6 +11,7 @@ import {
   MediaRequestStatus,
   MediaStatus,
   MediaType,
+  isAdultMediaType,
 } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
@@ -19,8 +20,11 @@ import Season from '@server/entity/Season';
 import SeasonRequest from '@server/entity/SeasonRequest';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { getSettings } from '@server/lib/settings';
+import { sendToWhisparr } from '@server/lib/whisparrRequest';
 import logger from '@server/logger';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import { withNestedTransaction } from '@server/utils/nestedTransaction';
+import { sanitizeDisplayName } from '@server/utils/sanitizeDisplayName';
 import { isEqual, truncate } from 'lodash';
 import type {
   EntityManager,
@@ -30,16 +34,6 @@ import type {
   UpdateEvent,
 } from 'typeorm';
 import { EventSubscriber, Not } from 'typeorm';
-
-const sanitizeDisplayName = (displayName: string): string => {
-  return displayName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/gi, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-};
 
 @EventSubscriber()
 export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRequest> {
@@ -73,7 +67,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
 
     try {
       const movie = await tmdb.getMovie({
-        movieId: entity.media.tmdbId,
+        movieId: requireTmdbId(entity.media),
       });
 
       notificationManager.sendNotification(Notification.MEDIA_AVAILABLE, {
@@ -99,6 +93,26 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         errorMessage: e.message,
         mediaId: entity.id,
       });
+    }
+  }
+
+  private async notifyAvailableScene(
+    entity: MediaRequest,
+    event: UpdateEvent<MediaRequest>
+  ) {
+    const latestMedia = await event.manager.findOne(Media, {
+      where: { id: entity.media.id },
+    });
+
+    if (
+      latestMedia?.[entity.is4k ? 'status4k' : 'status'] ===
+      MediaStatus.AVAILABLE
+    ) {
+      await MediaRequest.sendNotification(
+        entity,
+        latestMedia,
+        Notification.MEDIA_AVAILABLE
+      );
     }
   }
 
@@ -145,7 +159,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     const tmdb = new TheMovieDb();
 
     try {
-      const tv = await tmdb.getTvShow({ tvId: entity.media.tmdbId });
+      const tv = await tmdb.getTvShow({ tvId: requireTmdbId(entity.media) });
 
       notificationManager.sendNotification(Notification.MEDIA_AVAILABLE, {
         event: `${entity.is4k ? '4K ' : ''}Series Request Now Available`,
@@ -317,7 +331,9 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
           apiKey: radarrSettings.apiKey,
           url: RadarrAPI.buildUrl(radarrSettings, '/api/v3'),
         });
-        const movie = await tmdb.getMovie({ movieId: entity.media.tmdbId });
+        const movie = await tmdb.getMovie({
+          movieId: requireTmdbId(entity.media),
+        });
 
         if (radarrSettings.tagRequests) {
           const radarrTags = await radarr.getTags();
@@ -572,7 +588,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
           apiKey: sonarrSettings.apiKey,
           url: SonarrAPI.buildUrl(sonarrSettings, '/api/v3'),
         });
-        const series = await tmdb.getTvShow({ tvId: media.tmdbId });
+        const series = await tmdb.getTvShow({ tvId: requireTmdbId(media) });
         const tvdbId = series.external_ids.tvdb_id ?? media.tvdbId;
 
         if (!tvdbId) {
@@ -862,7 +878,8 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     }
 
     if (
-      media.mediaType === MediaType.MOVIE &&
+      (media.mediaType === MediaType.MOVIE ||
+        isAdultMediaType(media.mediaType)) &&
       entity.status === MediaRequestStatus.DECLINED &&
       media[statusKey] !== MediaStatus.DELETED
     ) {
@@ -1060,6 +1077,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     try {
       await this.sendToRadarr(event.entity as MediaRequest, event.manager);
       await this.sendToSonarr(event.entity as MediaRequest, event.manager);
+      await sendToWhisparr(event.entity as MediaRequest, event.manager);
     } catch (e) {
       logger.error('Error while sending to *arr in afterUpdate subscriber', {
         label: 'Media Request',
@@ -1079,6 +1097,9 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
         }
         if (event.entity.media.mediaType === MediaType.TV) {
           await this.notifyAvailableSeries(event.entity as MediaRequest, event);
+        }
+        if (isAdultMediaType(event.entity.media.mediaType)) {
+          await this.notifyAvailableScene(event.entity as MediaRequest, event);
         }
       }
     } catch (e) {
@@ -1101,6 +1122,7 @@ export class MediaRequestSubscriber implements EntitySubscriberInterface<MediaRe
     try {
       await this.sendToRadarr(event.entity as MediaRequest, event.manager);
       await this.sendToSonarr(event.entity as MediaRequest, event.manager);
+      await sendToWhisparr(event.entity as MediaRequest, event.manager);
     } catch (e) {
       logger.error('Error while sending to *arr in afterInsert subscriber', {
         label: 'Media Request',

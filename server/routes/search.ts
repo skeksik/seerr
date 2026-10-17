@@ -1,10 +1,82 @@
+import StashDbAPI from '@server/api/stashdb';
 import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbSearchMultiResponse } from '@server/api/themoviedb/interfaces';
+import TpdbAPI from '@server/api/tpdb';
 import Media from '@server/entity/Media';
+import type { User } from '@server/entity/User';
+import { canViewAdult } from '@server/lib/adult';
+import { mapAdultMovieList } from '@server/lib/adultMedia';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
+import type { PerformerResult } from '@server/models/Scene';
 import { mapSearchResults } from '@server/models/Search';
 import { Router } from 'express';
+
+const PERFORMER_LIMIT = 10;
+
+interface AdultSearchResults {
+  results: (PerformerResult | AdultMovieResult)[];
+  totalPages: number;
+  totalResults: number;
+}
+
+// An unconfigured or failing adult source leaves the TMDB results intact
+const tryAdultSource = async <T>(
+  source: string,
+  load: () => Promise<T>
+): Promise<T | null> => {
+  try {
+    return await load();
+  } catch (e) {
+    logger.debug(`Unable to search ${source}`, {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return null;
+  }
+};
+
+// StashDB performers lead the first page; ThePornDB movies join TMDB's
+// results page by page
+const searchAdult = async (
+  query: string,
+  page: number,
+  user?: User
+): Promise<AdultSearchResults> => {
+  if (!canViewAdult(user)) {
+    return { results: [], totalPages: 0, totalResults: 0 };
+  }
+
+  const [performers, movies] = await Promise.all([
+    page === 1
+      ? tryAdultSource('StashDB performers', () =>
+          StashDbAPI.fromSettings().searchPerformers(query)
+        )
+      : null,
+    tryAdultSource('ThePornDB movies', () =>
+      TpdbAPI.fromSettings().getMovies({ query, page, perPage: 20 })
+    ),
+  ]);
+  const performerResults = (performers ?? []).slice(0, PERFORMER_LIMIT).map(
+    (performer): PerformerResult => ({
+      id: performer.id,
+      mediaType: 'performer',
+      name: performer.name,
+      disambiguation: performer.disambiguation ?? undefined,
+      imageUrl: performer.imageUrl,
+    })
+  );
+
+  return {
+    results: [
+      ...performerResults,
+      ...(await mapAdultMovieList(movies?.data ?? [], user)),
+    ],
+    totalPages: movies?.meta.last_page ?? 0,
+    totalResults: (movies?.meta.total ?? 0) + performerResults.length,
+  };
+};
 
 const searchRoutes = Router();
 
@@ -12,6 +84,7 @@ searchRoutes.get('/', async (req, res, next) => {
   const queryString = req.query.query as string;
   const searchProvider = findSearchProvider(queryString.toLowerCase());
   let results: TmdbSearchMultiResponse;
+  let adult: AdultSearchResults | undefined;
 
   try {
     if (searchProvider) {
@@ -26,11 +99,16 @@ searchRoutes.get('/', async (req, res, next) => {
     } else {
       const tmdb = new TheMovieDb();
 
-      results = await tmdb.searchMulti({
-        query: queryString,
-        page: Number(req.query.page),
-        language: (req.query.language as string) ?? req.locale,
-      });
+      [results, adult] = await Promise.all([
+        tmdb.searchMulti({
+          query: queryString,
+          page: Number(req.query.page),
+          // Adult TMDB titles, for those who may see adult content
+          includeAdult: canViewAdult(req.user),
+          language: (req.query.language as string) ?? req.locale,
+        }),
+        searchAdult(queryString, Number(req.query.page) || 1, req.user),
+      ]);
     }
 
     const media = await Media.getRelatedMedia(
@@ -43,9 +121,12 @@ searchRoutes.get('/', async (req, res, next) => {
 
     return res.status(200).json({
       page: results.page,
-      totalPages: results.total_pages,
-      totalResults: results.total_results,
-      results: mapSearchResults(results.results, media),
+      totalPages: Math.max(results.total_pages, adult?.totalPages ?? 0),
+      totalResults: results.total_results + (adult?.totalResults ?? 0),
+      results: [
+        ...mapSearchResults(results.results, media),
+        ...(adult?.results ?? []),
+      ],
     });
   } catch (e) {
     logger.debug('Something went wrong retrieving search results', {

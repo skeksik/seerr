@@ -1,18 +1,24 @@
 import Modal from '@app/components/Common/Modal';
 import globalMessages from '@app/i18n/globalMessages';
+import { isAdultMediaType, mediaTypeMessage } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
+import { adultArtwork } from '@app/utils/stashImage';
 import { Transition } from '@headlessui/react';
 
+import type { AdultMovieDetails } from '@server/models/AdultMovie';
 import type { Collection } from '@server/models/Collection';
 import type { MovieDetails } from '@server/models/Movie';
+import type { SceneDetails } from '@server/models/Scene';
 import type { TvDetails } from '@server/models/Tv';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 interface BlocklistModalProps {
-  tmdbId: number;
-  type: 'movie' | 'tv' | 'collection';
+  // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
+  id?: number | string;
+  // Old name of id, which the upstream detail pages still pass
+  tmdbId?: number;
+  type: 'movie' | 'tv' | 'collection' | 'scene' | 'adultmovie';
   show: boolean;
   onComplete?: () => void;
   onCancel?: () => void;
@@ -23,24 +29,15 @@ const messages = defineMessages('component.BlocklistModal', {
   blocklisting: 'Blocklisting',
 });
 
-const isCollection = (
-  data: MovieDetails | TvDetails | Collection | null
-): data is Collection => {
-  return (
-    data !== null &&
-    data !== undefined &&
-    (data as Collection).parts !== undefined
-  );
-};
-
-const isMovie = (
-  movie: MovieDetails | TvDetails | Collection | null
-): movie is MovieDetails => {
-  if (!movie) return false;
-  return (movie as MovieDetails).title !== undefined;
-};
+type BlocklistTitle =
+  | MovieDetails
+  | TvDetails
+  | Collection
+  | SceneDetails
+  | AdultMovieDetails;
 
 const BlocklistModal = ({
+  id,
   tmdbId,
   type,
   show,
@@ -49,23 +46,14 @@ const BlocklistModal = ({
   isUpdating,
 }: BlocklistModalProps) => {
   const intl = useIntl();
-  const [data, setData] = useState<
-    TvDetails | MovieDetails | Collection | null
-  >(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      if (!show) return;
-      try {
-        setError(null);
-        const response = await axios.get(`/api/v1/${type}/${tmdbId}`);
-        setData(response.data);
-      } catch (err) {
-        setError(err);
-      }
-    })();
-  }, [show, tmdbId, type]);
+  const itemId = id ?? tmdbId;
+  const { data, error } = useSWR<BlocklistTitle>(
+    show && itemId !== undefined ? `/api/v1/${type}/${itemId}` : null
+  );
+  const artwork =
+    data && isAdultMediaType(type)
+      ? adultArtwork(data as SceneDetails | AdultMovieDetails)
+      : undefined;
 
   return (
     <Transition
@@ -81,20 +69,10 @@ const BlocklistModal = ({
       <Modal
         loading={!data && !error}
         backgroundClickable
-        title={`${intl.formatMessage(globalMessages.blocklist)} ${
-          type === 'collection'
-            ? intl.formatMessage(globalMessages.collection)
-            : isMovie(data)
-              ? intl.formatMessage(globalMessages.movie)
-              : intl.formatMessage(globalMessages.tvshow)
-        }`}
-        subTitle={`${
-          isCollection(data)
-            ? data.name
-            : isMovie(data)
-              ? data.title
-              : data?.name
-        }`}
+        title={`${intl.formatMessage(
+          globalMessages.blocklist
+        )} ${intl.formatMessage(mediaTypeMessage(type))}`}
+        subTitle={`${data && 'title' in data ? data.title : data?.name}`}
         onCancel={onCancel}
         onOk={onComplete}
         okText={
@@ -104,7 +82,13 @@ const BlocklistModal = ({
         }
         okButtonType="danger"
         okDisabled={isUpdating}
-        backdrop={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${data?.backdropPath}`}
+        {...(artwork
+          ? { backdrop: artwork.backdrop, backdropType: artwork.imageType }
+          : {
+              backdrop: `https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${
+                (data as MovieDetails | undefined)?.backdropPath
+              }`,
+            })}
       />
     </Transition>
   );

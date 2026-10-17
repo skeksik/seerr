@@ -1,8 +1,14 @@
-import { MediaStatus, type MediaType } from '@server/constants/media';
+import {
+  MediaStatus,
+  type AdultMediaType,
+  type MediaType,
+  type TmdbMediaType,
+} from '@server/constants/media';
 import dataSource from '@server/datasource';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
 import type { BlocklistItem } from '@server/interfaces/api/blocklistInterfaces';
+import { findOrCreateAdultMedia } from '@server/lib/adultMedia';
 import { DbAwareColumn } from '@server/utils/DbColumnHelper';
 import type { EntityManager } from 'typeorm';
 import {
@@ -19,6 +25,7 @@ import type { ZodNumber, ZodOptional, ZodString } from 'zod';
 
 @Entity()
 @Unique(['tmdbId', 'mediaType'])
+@Unique(['externalId', 'mediaType'])
 export class Blocklist implements BlocklistItem {
   @PrimaryGeneratedColumn()
   public id: number;
@@ -29,9 +36,15 @@ export class Blocklist implements BlocklistItem {
   @Column({ nullable: true, type: 'varchar' })
   title?: string;
 
-  @Column()
+  // Null for scenes and adult movies, which are keyed by externalId
+  @Column({ type: 'int', nullable: true })
   @Index()
-  public tmdbId: number;
+  public tmdbId: number | null;
+
+  // StashDB scene or ThePornDB movie UUID
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  public externalId: string | null;
 
   @ManyToOne(() => User, (user) => user.id, {
     eager: true,
@@ -55,12 +68,50 @@ export class Blocklist implements BlocklistItem {
     Object.assign(this, init);
   }
 
+  // Scenes and adult movies: their media row is keyed by the external id
+  public static async addAdultToBlocklist(
+    {
+      mediaType,
+      externalId,
+      title,
+      user,
+      blocklistedTags,
+    }: {
+      mediaType: AdultMediaType;
+      externalId: string;
+      title?: string;
+      user?: User;
+      // Like blocklistedTags of TMDB titles: ",tagId,", for the tags job
+      blocklistedTags?: string;
+    },
+    entityManager?: EntityManager
+  ): Promise<void> {
+    const em = entityManager ?? dataSource.manager;
+    const blocklist = await em.getRepository(this).save(
+      new this({
+        mediaType,
+        externalId,
+        tmdbId: null,
+        title,
+        user,
+        blocklistedTags,
+      })
+    );
+    const media = await findOrCreateAdultMedia(em, mediaType, externalId);
+
+    media.blocklist = Promise.resolve(blocklist);
+    media.status = MediaStatus.BLOCKLISTED;
+    media.status4k = MediaStatus.BLOCKLISTED;
+
+    await em.getRepository(Media).save(media);
+  }
+
   public static async addToBlocklist(
     {
       blocklistRequest,
     }: {
       blocklistRequest: {
-        mediaType: MediaType;
+        mediaType: TmdbMediaType;
         title?: ZodOptional<ZodString>['_output'];
         tmdbId: ZodNumber['_output'];
         blocklistedTags?: string;

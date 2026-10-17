@@ -36,6 +36,8 @@ export interface UserSettings {
   notificationTypes: Partial<NotificationAgentTypes>;
   watchlistSyncMovies?: boolean;
   watchlistSyncTv?: boolean;
+  adultSafeMode?: boolean;
+  blurAdultImages?: boolean;
 }
 
 interface UserHookResponse {

@@ -1,6 +1,8 @@
 import ImageProxy from '@server/lib/imageproxy';
+import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { Router } from 'express';
+import mime from 'mime';
 
 const router = Router();
 
@@ -30,6 +32,42 @@ function initTvdbImageProxy() {
   return _tvdbImageProxy;
 }
 
+// The stash-box endpoint is configurable, so rebuild the proxy when it moves
+let _stashDbImageProxy: { origin: string; proxy: ImageProxy } | undefined;
+function initStashDbImageProxy() {
+  const origin = new URL(getSettings().stashdb.endpoint).origin;
+  if (_stashDbImageProxy?.origin !== origin) {
+    _stashDbImageProxy = {
+      origin,
+      proxy: new ImageProxy('stashdb', origin, {
+        rateLimitOptions: {
+          maxRequests: 4,
+          maxRPS: 4,
+        },
+      }),
+    };
+  }
+  return _stashDbImageProxy.proxy;
+}
+
+const stashDbImageSizes = ['300', '600', '1280'];
+
+let _tpdbImageProxy: ImageProxy;
+function initTpdbImageProxy() {
+  if (!_tpdbImageProxy) {
+    _tpdbImageProxy = new ImageProxy('tpdb', 'https://cdn.theporndb.net', {
+      rateLimitOptions: {
+        maxRequests: 4,
+        maxRPS: 4,
+      },
+    });
+  }
+  return _tpdbImageProxy;
+}
+
+// ThePornDB CDN paths, e.g. /scene/ff/a2/04/<hash>/background/c/<file>.jpg
+const tpdbImagePath = /^\/(scene|movie|performer|sites)\/[\w\-.%[\]()/]+$/;
+
 router.get<{
   type: string;
   path: string[];
@@ -47,6 +85,22 @@ router.get<{
       imageData = await initTmdbImageProxy().getImage(imagePath);
     } else if (req.params.type === 'tvdb') {
       imageData = await initTvdbImageProxy().getImage(imagePath);
+    } else if (
+      req.params.type === 'stashdb' &&
+      /^\/images\/(site\/)?[0-9a-f-]+$/.test(imagePath)
+    ) {
+      const size = String(req.query.size ?? '');
+      imageData = await initStashDbImageProxy().getImage(
+        stashDbImageSizes.includes(size)
+          ? `${imagePath}?size=${size}`
+          : imagePath
+      );
+    } else if (
+      req.params.type === 'tpdb' &&
+      tpdbImagePath.test(imagePath) &&
+      !imagePath.includes('..')
+    ) {
+      imageData = await initTpdbImageProxy().getImage(imagePath);
     } else {
       logger.error('Unsupported image type', {
         imagePath,
@@ -56,7 +110,15 @@ router.get<{
     }
 
     res.writeHead(200, {
-      'Content-Type': `image/${imageData.meta.extension}`,
+      // svg needs its full type (image/svg+xml) for browsers to render it
+      'Content-Type':
+        mime.getType(imageData.meta.extension ?? '') ??
+        `image/${imageData.meta.extension}`,
+      // Studio logos are user-uploaded SVGs; never let one run script when
+      // opened directly on this origin
+      'Content-Security-Policy':
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      'X-Content-Type-Options': 'nosniff',
       'Content-Length': imageData.imageBuffer.length,
       'Cache-Control': `public, max-age=${imageData.meta.curRevalidate}`,
       'OS-Cache-Key': imageData.meta.cacheKey,

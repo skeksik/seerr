@@ -128,7 +128,8 @@
   }
 
   .media-page-bg-image {
-    @apply absolute inset-0 h-full w-full;
+    /* Blurred artwork bleeds past its box, leaving a seam at its edge */
+    @apply absolute inset-0 h-full w-full overflow-hidden;
     z-index: -10;
   }
 
@@ -585,4 +586,16 @@
 
 .ptr--box {
   margin-bottom: -13px !important;
+}
+
+/* Adult artwork blurred on request; hovering the image or its card shows it */
+.adult-blur {
+  filter: blur(24px);
+  transition: filter 300ms ease-in-out;
+}
+
+.adult-blur:hover,
+.group:hover .adult-blur,
+.group:focus-visible .adult-blur {
+  filter: none;
 }

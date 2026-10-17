@@ -26,6 +26,12 @@ const BlocklistedTagsBadge = ({ data }: BlocklistedTagsBadgeProps) => {
       return;
     }
 
+    // Scenes and adult movies come with their StashDB or ThePornDB tags named
+    if (data.blocklistedTagNames) {
+      setTagNamesBlocklistedFor(data.blocklistedTagNames.join(', '));
+      return;
+    }
+
     const keywordIds = data.blocklistedTags.slice(1, -1).split(',');
     Promise.all(
       keywordIds.map(async (keywordId) => {
@@ -37,7 +43,7 @@ const BlocklistedTagsBadge = ({ data }: BlocklistedTagsBadgeProps) => {
     ).then((keywords) => {
       setTagNamesBlocklistedFor(keywords.join(', '));
     });
-  }, [data.blocklistedTags]);
+  }, [data.blocklistedTags, data.blocklistedTagNames]);
 
   return (
     <Tooltip

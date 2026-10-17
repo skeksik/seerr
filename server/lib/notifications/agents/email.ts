@@ -1,14 +1,15 @@
 import { IssueType, IssueTypeName } from '@server/constants/issue';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { User } from '@server/entity/User';
 import { defineMessages, getIntl } from '@server/i18n';
-import globalMessages from '@server/i18n/globalMessages';
+import { mediaTypeMessage } from '@server/i18n/globalMessages';
 import PreparedEmail from '@server/lib/email';
 import type { NotificationAgentEmail } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
+import { getMediaPath } from '@server/utils/mediaIds';
 import type { EmailOptions } from 'email-templates';
 import path from 'path';
 import validator from 'validator';
@@ -124,9 +125,7 @@ class EmailAgent
     }
 
     const mediaType = payload.media
-      ? payload.media.mediaType === MediaType.MOVIE
-        ? intl.formatMessage(globalMessages.movie)
-        : intl.formatMessage(globalMessages.series)
+      ? intl.formatMessage(mediaTypeMessage(payload.media.mediaType))
       : undefined;
     const is4k = payload.request?.is4k;
 
@@ -176,9 +175,11 @@ class EmailAgent
             {
               mediaType,
               service:
-                payload.media?.mediaType === MediaType.MOVIE
-                  ? 'Radarr'
-                  : 'Sonarr',
+                payload.media && isAdultMediaType(payload.media.mediaType)
+                  ? 'Whisparr'
+                  : payload.media?.mediaType === MediaType.MOVIE
+                    ? 'Radarr'
+                    : 'Sonarr',
             }
           );
           break;
@@ -200,9 +201,10 @@ class EmailAgent
           imageUrl: embedPoster ? payload.image : undefined,
           timestamp: new Date().toTimeString(),
           requestedBy: payload.request.requestedBy.displayName,
-          actionUrl: applicationUrl
-            ? `${applicationUrl}/${payload.media?.mediaType}/${payload.media?.tmdbId}`
-            : undefined,
+          actionUrl:
+            applicationUrl && payload.media
+              ? `${applicationUrl}${getMediaPath(payload.media)}`
+              : undefined,
           applicationUrl,
           applicationTitle,
           logoUrl,

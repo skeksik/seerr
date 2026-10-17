@@ -28,6 +28,8 @@ const KeyMap: Record<string, string | KeyMapFunction> = {
   media_imdbid: 'media.imdbId',
   media_tmdbid: 'media.tmdbId',
   media_tvdbid: 'media.tvdbId',
+  media_stashid: 'media.stashId',
+  media_tpdbid: 'media.tpdbId',
   media_type: 'media.mediaType',
   media_jellyfinMediaId: (payload) =>
     payload.media?.jellyfinMediaId ?? payload.media?.jellyfinMediaId4k ?? '',

@@ -1,15 +1,16 @@
 import { IssueType, IssueTypeName } from '@server/constants/issue';
-import { MediaRequestStatus, MediaType } from '@server/constants/media';
+import { MediaRequestStatus } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import MediaRequest from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
 import { UserPushSubscription } from '@server/entity/UserPushSubscription';
 import { defineMessages, getIntl } from '@server/i18n';
-import globalMessages from '@server/i18n/globalMessages';
+import globalMessages, { mediaTypeMessage } from '@server/i18n/globalMessages';
 import type { NotificationAgentConfig } from '@server/lib/settings';
 import { NotificationAgentKey, getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import type { AvailableLocale } from '@server/types/languages';
+import { getMediaPath } from '@server/utils/mediaIds';
 import webpush from 'web-push';
 import { Notification, shouldSendAdminNotification } from '..';
 import type { NotificationAgent, NotificationPayload } from './agent';
@@ -77,9 +78,7 @@ class WebPushAgent
     const { embedPoster } = getSettings().notifications.agents.webpush;
 
     const mediaType = payload.media
-      ? payload.media.mediaType === MediaType.MOVIE
-        ? intl.formatMessage(globalMessages.movie)
-        : intl.formatMessage(globalMessages.series)
+      ? intl.formatMessage(mediaTypeMessage(payload.media.mediaType))
       : undefined;
     const is4k = payload.request?.is4k;
     const quality = is4k ? '4K ' : '';
@@ -175,7 +174,7 @@ class WebPushAgent
     const actionUrl = payload.issue
       ? `/issues/${payload.issue.id}`
       : payload.media
-        ? `/${payload.media.mediaType}/${payload.media.tmdbId}`
+        ? getMediaPath(payload.media)
         : undefined;
 
     const actionUrlTitle = actionUrl

@@ -10,6 +10,7 @@ import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { AfterDate } from '@server/utils/dateHelpers';
+import { isPgsql } from '@server/utils/dbType';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { nanoid } from 'nanoid';
@@ -18,6 +19,7 @@ import {
   AfterLoad,
   Column,
   Entity,
+  In,
   Not,
   OneToMany,
   OneToOne,
@@ -103,7 +105,17 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   public plexToken?: string | null;
 
-  @Column({ type: 'integer', default: 0 })
+  // Permissions go past 32 bits: Postgres needs a bigint, which it returns as
+  // a string, while SQLite integers are 64-bit already
+  @Column({
+    type: isPgsql ? 'bigint' : 'integer',
+    default: 0,
+    transformer: {
+      from: (value: string | number | null) =>
+        value == null ? value : Number(value),
+      to: (value?: number | null) => value,
+    },
+  })
   public permissions = 0;
 
   @Column()
@@ -135,6 +147,18 @@ export class User {
 
   @Column({ nullable: true })
   public tvQuotaDays?: number;
+
+  @Column({ nullable: true })
+  public sceneQuotaLimit?: number;
+
+  @Column({ nullable: true })
+  public sceneQuotaDays?: number;
+
+  @Column({ nullable: true })
+  public adultMovieQuotaLimit?: number;
+
+  @Column({ nullable: true })
+  public adultMovieQuotaDays?: number;
 
   @OneToOne(() => UserSettings, (settings) => settings.user, {
     cascade: true,
@@ -291,30 +315,66 @@ export class User {
       type: 'or',
     });
 
+    // Movies, scenes and adult movies count one per request; series count
+    // seasons below
+    const countRequests = async (
+      types: MediaType[],
+      limit: number | undefined,
+      days: number | undefined
+    ): Promise<number> => {
+      if (!limit) {
+        return 0;
+      }
+
+      const since = new Date();
+      if (days) {
+        since.setDate(since.getDate() - days);
+      }
+
+      return requestRepository.count({
+        where: {
+          requestedBy: {
+            id: this.id,
+          },
+          ...(days ? { createdAt: AfterDate(since) } : {}),
+          type: In(types),
+          status: Not(MediaRequestStatus.DECLINED),
+          ignoreQuota: false,
+        },
+      });
+    };
+
     const movieQuotaLimit = !canBypass
       ? (this.movieQuotaLimit ?? defaultQuotas.movie.quotaLimit)
       : 0;
     const movieQuotaDays = this.movieQuotaDays ?? defaultQuotas.movie.quotaDays;
+    const movieQuotaUsed = await countRequests(
+      [MediaType.MOVIE],
+      movieQuotaLimit,
+      movieQuotaDays
+    );
 
-    // Count movie requests made during quota period
-    const movieDate = new Date();
-    if (movieQuotaDays) {
-      movieDate.setDate(movieDate.getDate() - movieQuotaDays);
-    }
-
-    const movieQuotaUsed = movieQuotaLimit
-      ? await requestRepository.count({
-          where: {
-            requestedBy: {
-              id: this.id,
-            },
-            ...(movieQuotaDays ? { createdAt: AfterDate(movieDate) } : {}),
-            type: MediaType.MOVIE,
-            status: Not(MediaRequestStatus.DECLINED),
-            ignoreQuota: false,
-          },
-        })
+    const sceneQuotaLimit = !canBypass
+      ? (this.sceneQuotaLimit ?? defaultQuotas.scene?.quotaLimit)
       : 0;
+    const sceneQuotaDays =
+      this.sceneQuotaDays ?? defaultQuotas.scene?.quotaDays;
+    const sceneQuotaUsed = await countRequests(
+      [MediaType.SCENE],
+      sceneQuotaLimit,
+      sceneQuotaDays
+    );
+
+    const adultMovieQuotaLimit = !canBypass
+      ? (this.adultMovieQuotaLimit ?? defaultQuotas.adultMovie?.quotaLimit)
+      : 0;
+    const adultMovieQuotaDays =
+      this.adultMovieQuotaDays ?? defaultQuotas.adultMovie?.quotaDays;
+    const adultMovieQuotaUsed = await countRequests(
+      [MediaType.ADULT_MOVIE],
+      adultMovieQuotaLimit,
+      adultMovieQuotaDays
+    );
 
     const tvQuotaLimit = !canBypass
       ? (this.tvQuotaLimit ?? defaultQuotas.tv.quotaLimit)
@@ -383,6 +443,29 @@ export class User {
           ? Math.max(0, tvQuotaLimit - tvQuotaUsed)
           : undefined,
         restricted: !!(tvQuotaLimit && tvQuotaLimit - tvQuotaUsed <= 0),
+      },
+      scene: {
+        days: sceneQuotaDays,
+        limit: sceneQuotaLimit,
+        used: sceneQuotaUsed,
+        remaining: sceneQuotaLimit
+          ? Math.max(0, sceneQuotaLimit - sceneQuotaUsed)
+          : undefined,
+        restricted: !!(
+          sceneQuotaLimit && sceneQuotaLimit - sceneQuotaUsed <= 0
+        ),
+      },
+      adultMovie: {
+        days: adultMovieQuotaDays,
+        limit: adultMovieQuotaLimit,
+        used: adultMovieQuotaUsed,
+        remaining: adultMovieQuotaLimit
+          ? Math.max(0, adultMovieQuotaLimit - adultMovieQuotaUsed)
+          : undefined,
+        restricted: !!(
+          adultMovieQuotaLimit &&
+          adultMovieQuotaLimit - adultMovieQuotaUsed <= 0
+        ),
       },
     };
   }

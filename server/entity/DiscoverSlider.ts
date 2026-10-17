@@ -1,11 +1,12 @@
 import type { DiscoverSliderType } from '@server/constants/discover';
-import { defaultSliders } from '@server/constants/discover';
+import { defaultSliders, retiredSliderTypes } from '@server/constants/discover';
 import { getRepository } from '@server/datasource';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import {
   Column,
   Entity,
+  In,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -14,6 +15,16 @@ import {
 class DiscoverSlider {
   public static async bootstrapSliders(): Promise<void> {
     const sliderRepository = getRepository(DiscoverSlider);
+
+    const retired = await sliderRepository.delete({
+      type: In(retiredSliderTypes),
+    });
+    if (retired.affected) {
+      logger.info('Removed retired discovery sliders', {
+        label: 'Discover Slider',
+        count: retired.affected,
+      });
+    }
 
     for (const slider of defaultSliders) {
       const existingSlider = await sliderRepository.findOne({

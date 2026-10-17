@@ -57,10 +57,18 @@ userSettingsRoutes.get<{ id: string }, UserSettingsGeneralResponse>(
         movieQuotaDays: user.movieQuotaDays,
         tvQuotaLimit: user.tvQuotaLimit,
         tvQuotaDays: user.tvQuotaDays,
+        sceneQuotaLimit: user.sceneQuotaLimit,
+        sceneQuotaDays: user.sceneQuotaDays,
+        adultMovieQuotaLimit: user.adultMovieQuotaLimit,
+        adultMovieQuotaDays: user.adultMovieQuotaDays,
         globalMovieQuotaDays: defaultQuotas.movie.quotaDays,
         globalMovieQuotaLimit: defaultQuotas.movie.quotaLimit,
         globalTvQuotaDays: defaultQuotas.tv.quotaDays,
         globalTvQuotaLimit: defaultQuotas.tv.quotaLimit,
+        globalSceneQuotaDays: defaultQuotas.scene?.quotaDays,
+        globalSceneQuotaLimit: defaultQuotas.scene?.quotaLimit,
+        globalAdultMovieQuotaDays: defaultQuotas.adultMovie?.quotaDays,
+        globalAdultMovieQuotaLimit: defaultQuotas.adultMovie?.quotaLimit,
         watchlistSyncMovies: user.settings?.watchlistSyncMovies,
         watchlistSyncTv: user.settings?.watchlistSyncTv,
       });
@@ -117,6 +125,10 @@ userSettingsRoutes.post<
       user.movieQuotaLimit = req.body.movieQuotaLimit;
       user.tvQuotaDays = req.body.tvQuotaDays;
       user.tvQuotaLimit = req.body.tvQuotaLimit;
+      user.sceneQuotaDays = req.body.sceneQuotaDays;
+      user.sceneQuotaLimit = req.body.sceneQuotaLimit;
+      user.adultMovieQuotaDays = req.body.adultMovieQuotaDays;
+      user.adultMovieQuotaLimit = req.body.adultMovieQuotaLimit;
     }
 
     if (!user.settings) {
@@ -158,6 +170,45 @@ userSettingsRoutes.post<
       });
     }
     return next({ status: 500, message: e.message });
+  }
+});
+
+// Adult content preferences, toggled from the user menu
+userSettingsRoutes.post<
+  { id: string },
+  { adultSafeMode: boolean; blurAdultImages: boolean },
+  { adultSafeMode?: boolean; blurAdultImages?: boolean }
+>('/adult', isOwnProfileOrAdmin(), async (req, res, next) => {
+  const userRepository = getRepository(User);
+
+  try {
+    const user = await userRepository.findOne({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!user) {
+      return next({ status: 404, message: 'User not found.' });
+    }
+
+    if (!user.settings) {
+      user.settings = new UserSettings({ user });
+    }
+
+    if (typeof req.body.adultSafeMode === 'boolean') {
+      user.settings.adultSafeMode = req.body.adultSafeMode;
+    }
+    if (typeof req.body.blurAdultImages === 'boolean') {
+      user.settings.blurAdultImages = req.body.blurAdultImages;
+    }
+
+    await userRepository.save(user);
+
+    return res.status(200).json({
+      adultSafeMode: user.settings.adultSafeMode,
+      blurAdultImages: user.settings.blurAdultImages,
+    });
+  } catch (e) {
+    next({ status: 500, message: e.message });
   }
 });
 

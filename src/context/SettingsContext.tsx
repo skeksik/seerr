@@ -8,10 +8,11 @@ export interface SettingsContextProps {
   children?: React.ReactNode;
 }
 
-const defaultSettings = {
+const defaultSettings: PublicSettingsResponse = {
   initialized: false,
   applicationTitle: 'Seerr',
   applicationUrl: '',
+  enableAdult: false,
   hideAvailable: false,
   hideBlocklisted: false,
   hideRequested: false,
@@ -19,6 +20,7 @@ const defaultSettings = {
   mediaServerLogin: true,
   movie4kEnabled: false,
   series4kEnabled: false,
+  adult4kEnabled: false,
   discoverRegion: '',
   streamingRegion: '',
   originalLanguage: '',

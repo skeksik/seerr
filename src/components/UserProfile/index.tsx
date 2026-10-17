@@ -6,6 +6,7 @@ import RequestCard from '@app/components/RequestCard';
 import Slider from '@app/components/Slider';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import ProfileHeader from '@app/components/UserProfile/ProfileHeader';
+import useAdult from '@app/hooks/useAdult';
 import { Permission, UserType, useUser } from '@app/hooks/useUser';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
@@ -33,6 +34,8 @@ const messages = defineMessages('components.UserProfile', {
   pastdays: '{type} (past {days} days)',
   movierequests: 'Movie Requests',
   seriesrequest: 'Series Requests',
+  scenerequests: 'Scene Requests',
+  adultmovierequests: 'Adult Movie Requests',
   recentlywatched: 'Recently Watched',
   plexwatchlist: 'Plex Watchlist',
   localWatchlist: "{username}'s Watchlist",
@@ -49,6 +52,7 @@ const UserProfile = () => {
     id: Number(router.query.userId),
   });
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
+  const canViewAdult = useAdult();
   const [availableTitles, setAvailableTitles] = useState<
     Record<number, MediaTitle>
   >({});
@@ -73,6 +77,10 @@ const UserProfile = () => {
       ? `/api/v1/user/${user.id}/quota`
       : null
   );
+  // Like the movie and series ones, while adult content is visible
+  const showSceneQuota = canViewAdult && !!quota?.scene;
+  const showAdultMovieQuota = canViewAdult && !!quota?.adultMovie;
+  const quotaCards = 3 + Number(showSceneQuota) + Number(showAdultMovieQuota);
   const { data: watchData, error: watchDataError } =
     useSWR<UserWatchDataResponse>(
       user?.userType === UserType.PLEX &&
@@ -152,7 +160,15 @@ const UserProfile = () => {
             { type: 'and' }
           )) && (
           <div className="relative z-40">
-            <dl className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <dl
+              className={`mt-5 grid grid-cols-1 gap-5 ${
+                quotaCards === 5
+                  ? 'lg:grid-cols-5'
+                  : quotaCards === 4
+                    ? 'lg:grid-cols-4'
+                    : 'lg:grid-cols-3'
+              }`}
+            >
               <div className="overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ring-gray-700 sm:p-6">
                 <dt className="truncate text-sm font-bold text-gray-300">
                   {intl.formatMessage(messages.totalrequests)}
@@ -172,116 +188,79 @@ const UserProfile = () => {
                   </Link>
                 </dd>
               </div>
-              <div
-                className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
-                  quota.movie.restricted
-                    ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
-                    : 'ring-gray-700'
-                } sm:p-6`}
-              >
-                <dt
-                  className={`truncate text-sm font-bold ${
-                    quota.movie.restricted ? 'text-red-500' : 'text-gray-300'
-                  }`}
-                >
-                  {quota.movie.limit
-                    ? intl.formatMessage(messages.pastdays, {
-                        type: intl.formatMessage(messages.movierequests),
-                        days: quota?.movie.days,
-                      })
-                    : intl.formatMessage(messages.movierequests)}
-                </dt>
-                <dd
-                  className={`mt-1 flex items-center text-sm ${
-                    quota.movie.restricted ? 'text-red-500' : 'text-white'
-                  }`}
-                >
-                  {quota.movie.limit ? (
-                    <>
-                      <ProgressCircle
-                        progress={Math.round(
-                          ((quota?.movie.remaining ?? 0) /
-                            (quota?.movie.limit ?? 1)) *
-                            100
-                        )}
-                        useHeatLevel
-                        className="mr-2 h-8 w-8"
-                      />
-                      <div>
-                        {intl.formatMessage(messages.requestsperdays, {
-                          limit: (
-                            <span className="text-3xl font-semibold">
-                              {intl.formatMessage(messages.limit, {
-                                remaining: quota.movie.remaining,
-                                limit: quota.movie.limit,
-                              })}
-                            </span>
-                          ),
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-3xl font-semibold">
-                      {intl.formatMessage(messages.unlimited)}
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div
-                className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
-                  quota.tv.restricted
-                    ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
-                    : 'ring-gray-700'
-                } sm:p-6`}
-              >
-                <dt
-                  className={`truncate text-sm font-bold ${
-                    quota.tv.restricted ? 'text-red-500' : 'text-gray-300'
-                  }`}
-                >
-                  {quota.tv.limit
-                    ? intl.formatMessage(messages.pastdays, {
-                        type: intl.formatMessage(messages.seriesrequest),
-                        days: quota?.tv.days,
-                      })
-                    : intl.formatMessage(messages.seriesrequest)}
-                </dt>
-                <dd
-                  className={`mt-1 flex items-center text-sm ${
-                    quota.tv.restricted ? 'text-red-500' : 'text-white'
-                  }`}
-                >
-                  {quota.tv.limit ? (
-                    <>
-                      <ProgressCircle
-                        progress={Math.round(
-                          ((quota?.tv.remaining ?? 0) /
-                            (quota?.tv.limit ?? 1)) *
-                            100
-                        )}
-                        useHeatLevel
-                        className="mr-2 h-8 w-8"
-                      />
-                      <div>
-                        {intl.formatMessage(messages.requestsperdays, {
-                          limit: (
-                            <span className="text-3xl font-semibold">
-                              {intl.formatMessage(messages.limit, {
-                                remaining: quota.tv.remaining,
-                                limit: quota.tv.limit,
-                              })}
-                            </span>
-                          ),
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-3xl font-semibold">
-                      {intl.formatMessage(messages.unlimited)}
-                    </span>
-                  )}
-                </dd>
-              </div>
+              {(
+                [
+                  ['movie', messages.movierequests],
+                  ['tv', messages.seriesrequest],
+                  ...(showSceneQuota
+                    ? [['scene', messages.scenerequests] as const]
+                    : []),
+                  ...(showAdultMovieQuota
+                    ? [['adultMovie', messages.adultmovierequests] as const]
+                    : []),
+                ] as const
+              ).map(([type, title]) => {
+                const typeQuota = quota[type];
+
+                return (
+                  <div
+                    key={type}
+                    className={`overflow-hidden rounded-lg bg-gray-800/50 px-4 py-5 shadow ring-1 ${
+                      typeQuota.restricted
+                        ? 'bg-gradient-to-t from-red-900 to-transparent ring-red-500'
+                        : 'ring-gray-700'
+                    } sm:p-6`}
+                  >
+                    <dt
+                      className={`truncate text-sm font-bold ${
+                        typeQuota.restricted ? 'text-red-500' : 'text-gray-300'
+                      }`}
+                    >
+                      {typeQuota.limit
+                        ? intl.formatMessage(messages.pastdays, {
+                            type: intl.formatMessage(title),
+                            days: typeQuota.days,
+                          })
+                        : intl.formatMessage(title)}
+                    </dt>
+                    <dd
+                      className={`mt-1 flex items-center text-sm ${
+                        typeQuota.restricted ? 'text-red-500' : 'text-white'
+                      }`}
+                    >
+                      {typeQuota.limit ? (
+                        <>
+                          <ProgressCircle
+                            progress={Math.round(
+                              ((typeQuota.remaining ?? 0) /
+                                (typeQuota.limit ?? 1)) *
+                                100
+                            )}
+                            useHeatLevel
+                            className="mr-2 h-8 w-8"
+                          />
+                          <div>
+                            {intl.formatMessage(messages.requestsperdays, {
+                              limit: (
+                                <span className="text-3xl font-semibold">
+                                  {intl.formatMessage(messages.limit, {
+                                    remaining: typeQuota.remaining,
+                                    limit: typeQuota.limit,
+                                  })}
+                                </span>
+                              ),
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-3xl font-semibold">
+                          {intl.formatMessage(messages.unlimited)}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
           </div>
         )}
@@ -366,9 +345,10 @@ const UserProfile = () => {
               })}
               items={watchlistItems?.results.map((item) => (
                 <TmdbTitleCard
-                  id={item.tmdbId}
-                  key={`watchlist-slider-item-${item.ratingKey}`}
+                  id={item.tmdbId ?? item.id}
+                  key={`watchlist-slider-item-${item.mediaType}-${item.id}-${item.ratingKey}`}
                   tmdbId={item.tmdbId}
+                  externalId={item.externalId}
                   type={item.mediaType}
                 />
               ))}

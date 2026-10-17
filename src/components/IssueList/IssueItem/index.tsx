@@ -3,19 +3,16 @@ import Button from '@app/components/Common/Button';
 import CachedImage from '@app/components/Common/CachedImage';
 import Tooltip from '@app/components/Common/Tooltip';
 import { issueOptions } from '@app/components/IssueModal/constants';
+import useMediaTitle from '@app/hooks/useMediaTitle';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { EyeIcon } from '@heroicons/react/24/solid';
 import { IssueStatus } from '@server/constants/issue';
-import { MediaType } from '@server/constants/media';
 import type Issue from '@server/entity/Issue';
-import type { MovieDetails } from '@server/models/Movie';
-import type { TvDetails } from '@server/models/Tv';
 import Link from 'next/link';
 import { useInView } from 'react-intersection-observer';
 import { FormattedRelativeTime, useIntl } from 'react-intl';
-import useSWR from 'swr';
 
 const messages = defineMessages('components.IssueList.IssueItem', {
   openeduserdate: '{date} by {user}',
@@ -30,10 +27,6 @@ const messages = defineMessages('components.IssueList.IssueItem', {
   descriptionpreview: 'Issue Description',
 });
 
-const isMovie = (movie: MovieDetails | TvDetails): movie is MovieDetails => {
-  return (movie as MovieDetails).title !== undefined;
-};
-
 interface IssueItemProps {
   issue: Issue;
 }
@@ -44,15 +37,9 @@ const IssueItem = ({ issue }: IssueItemProps) => {
   const { ref, inView } = useInView({
     triggerOnce: true,
   });
-  const url =
-    issue.media.mediaType === 'movie'
-      ? `/api/v1/movie/${issue.media.tmdbId}`
-      : `/api/v1/tv/${issue.media.tmdbId}`;
-  const { data: title, error } = useSWR<MovieDetails | TvDetails>(
-    inView ? url : null
-  );
+  const title = useMediaTitle(issue.media, inView);
 
-  if (!title && !error) {
+  if (!inView || title.loading) {
     return (
       <div
         className="h-64 w-full animate-pulse rounded-xl bg-gray-800 xl:h-28"
@@ -61,7 +48,7 @@ const IssueItem = ({ issue }: IssueItemProps) => {
     );
   }
 
-  if (!title) {
+  if (!title.found) {
     return <div>uh oh</div>;
   }
 
@@ -71,7 +58,7 @@ const IssueItem = ({ issue }: IssueItemProps) => {
 
   const problemSeasonEpisodeLine: React.ReactNode[] = [];
 
-  if (!isMovie(title) && issue) {
+  if (title.isTv && issue) {
     problemSeasonEpisodeLine.push(
       <>
         <span className="card-field-name">
@@ -118,11 +105,11 @@ const IssueItem = ({ issue }: IssueItemProps) => {
 
   return (
     <div className="relative flex w-full flex-col justify-between overflow-hidden rounded-xl bg-gray-800 py-4 text-gray-400 shadow-md ring-1 ring-gray-700 xl:flex-row">
-      {title.backdropPath && (
+      {title.backdropUrl && (
         <div className="absolute inset-0 z-0 w-full bg-cover bg-center xl:w-2/3">
           <CachedImage
-            type="tmdb"
-            src={`https://image.tmdb.org/t/p/w1920_and_h800_multi_faces/${title.backdropPath}`}
+            type={title.imageType}
+            src={title.backdropUrl}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
@@ -139,43 +126,30 @@ const IssueItem = ({ issue }: IssueItemProps) => {
       <div className="relative flex w-full flex-col justify-between overflow-hidden sm:flex-row">
         <div className="relative z-10 flex w-full items-center overflow-hidden pl-4 pr-4 sm:pr-0 xl:w-7/12 2xl:w-2/3">
           <Link
-            href={
-              issue.media.mediaType === MediaType.MOVIE
-                ? `/movie/${issue.media.tmdbId}`
-                : `/tv/${issue.media.tmdbId}`
-            }
-            className="relative h-auto w-12 flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105"
+            href={title.href}
+            className={`relative h-auto flex-shrink-0 scale-100 transform-gpu overflow-hidden rounded-md transition duration-300 hover:scale-105 ${
+              title.portrait ? 'w-12' : 'w-20'
+            }`}
           >
             <CachedImage
-              type="tmdb"
-              src={
-                title.posterPath
-                  ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${title.posterPath}`
-                  : '/images/seerr_poster_not_found.png'
-              }
+              type={title.posterUrl ? title.imageType : 'tmdb'}
+              src={title.posterUrl ?? '/images/seerr_poster_not_found.png'}
               alt=""
               sizes="100vw"
               style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-              width={600}
-              height={900}
+              width={title.portrait ? 600 : 640}
+              height={title.portrait ? 900 : 360}
             />
           </Link>
           <div className="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
             <div className="pt-0.5 text-xs text-white sm:pt-1">
-              {(isMovie(title) ? title.releaseDate : title.firstAirDate)?.slice(
-                0,
-                4
-              )}
+              {title.year}
             </div>
             <Link
-              href={
-                issue.media.mediaType === MediaType.MOVIE
-                  ? `/movie/${issue.media.tmdbId}`
-                  : `/tv/${issue.media.tmdbId}`
-              }
+              href={title.href}
               className="mr-2 min-w-0 truncate text-lg font-bold text-white hover:underline xl:text-xl"
             >
-              {isMovie(title) ? title.title : title.name}
+              {title.title}
             </Link>
             {description && (
               <div className="mt-1 max-w-full">

@@ -40,6 +40,10 @@ tags:
     description: Collection of media to watch later
   - name: blocklist
     description: Blocklisted media from discovery page.
+  - name: scenes
+    description: Endpoints related to adult scenes from StashDB. Requires adult content to be enabled and the Adult Content permission.
+  - name: adultmovies
+    description: Endpoints related to adult movies from ThePornDB. Requires adult content to be enabled and the Adult Content permission.
 servers:
   - url: '{server}/api/v1'
     variables:
@@ -53,7 +57,15 @@ components:
       properties:
         tmdbId:
           type: number
+          nullable: true
           example: 1
+        externalId:
+          type: string
+          nullable: true
+          description: StashDB scene or ThePornDB movie UUID, for scenes and adult movies
+        mediaType:
+          type: string
+          enum: [movie, tv, scene, adultmovie]
         title:
           type: string
         media:
@@ -70,7 +82,15 @@ components:
           readOnly: true
         tmdbId:
           type: number
+          nullable: true
           example: 1
+        externalId:
+          type: string
+          nullable: true
+          description: StashDB scene or ThePornDB movie UUID, for scenes and adult movies
+        mediaType:
+          type: string
+          enum: [movie, tv, scene, adultmovie]
         ratingKey:
           type: string
         type:
@@ -184,6 +204,26 @@ components:
           nullable: true
           description: 'Time period in days for TV quota'
           example: 14
+        sceneQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Maximum number of scene requests allowed'
+          example: 5
+        sceneQuotaDays:
+          type: number
+          nullable: true
+          description: 'Time period in days for scene quota'
+          example: 7
+        adultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Maximum number of adult movie requests allowed'
+          example: 5
+        adultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Time period in days for adult movie quota'
+          example: 7
         globalMovieQuotaDays:
           type: number
           nullable: true
@@ -204,6 +244,26 @@ components:
           nullable: true
           description: 'Global TV quota days setting'
           example: 14
+        globalSceneQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Global scene quota limit setting'
+          example: 5
+        globalSceneQuotaDays:
+          type: number
+          nullable: true
+          description: 'Global scene quota days setting'
+          example: 7
+        globalAdultMovieQuotaLimit:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota limit setting'
+          example: 5
+        globalAdultMovieQuotaDays:
+          type: number
+          nullable: true
+          description: 'Global adult movie quota days setting'
+          example: 7
         watchlistSyncMovies:
           type: boolean
           nullable: true
@@ -229,6 +289,9 @@ components:
         applicationUrl:
           type: string
           example: https://os.example.com
+        enableAdult:
+          type: boolean
+          example: false
         hideAvailable:
           type: boolean
           example: false
@@ -617,6 +680,65 @@ components:
         - activeDirectory
         - is4k
         - minimumAvailability
+        - isDefault
+    WhisparrSettings:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 0
+          readOnly: true
+        name:
+          type: string
+          example: 'Whisparr Main'
+        hostname:
+          type: string
+          example: '127.0.0.1'
+        port:
+          type: number
+          example: 6969
+        apiKey:
+          type: string
+          example: 'exampleapikey'
+        useSsl:
+          type: boolean
+          example: false
+        baseUrl:
+          type: string
+        activeProfileId:
+          type: number
+          example: 1
+        activeProfileName:
+          type: string
+          example: 720p/1080p
+        activeDirectory:
+          type: string
+          example: '/movies'
+        is4k:
+          type: boolean
+          example: false
+        isDefault:
+          type: boolean
+          example: false
+        externalUrl:
+          type: string
+          example: http://whisparr.example.com
+        syncEnabled:
+          type: boolean
+          example: false
+        preventSearch:
+          type: boolean
+          example: false
+      required:
+        - name
+        - hostname
+        - port
+        - apiKey
+        - useSsl
+        - activeProfileId
+        - activeProfileName
+        - activeDirectory
+        - is4k
         - isDefault
     SonarrSettings:
       type: object
@@ -1289,10 +1411,21 @@ components:
         tmdbId:
           type: number
           readOnly: true
+          nullable: true
         tvdbId:
           type: number
           readOnly: true
           nullable: true
+        stashId:
+          type: string
+          readOnly: true
+          nullable: true
+          description: stash-box (StashDB) scene UUID, set for scenes only
+        tpdbId:
+          type: string
+          readOnly: true
+          nullable: true
+          description: ThePornDB movie UUID, set for adult movies only
         status:
           type: number
           example: 0
@@ -2145,6 +2278,337 @@ components:
             - certification: 'PG'
               meaning: 'Some material may not be suitable for children under 10.'
               order: 2
+    TpdbSettings:
+      type: object
+      required:
+        - url
+        - apiKey
+      properties:
+        url:
+          type: string
+          example: https://api.theporndb.net
+          description: ThePornDB REST API address
+        apiKey:
+          type: string
+    StashSyncStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+          example: false
+        progress:
+          type: number
+          example: 0
+        total:
+          type: number
+          example: 100
+    StashSettings:
+      type: object
+      required:
+        - hostname
+        - port
+        - useSsl
+        - apiKey
+      properties:
+        hostname:
+          type: string
+          example: stash
+        port:
+          type: number
+          example: 9999
+        useSsl:
+          type: boolean
+          example: false
+        urlBase:
+          type: string
+          example: ''
+        apiKey:
+          type: string
+        externalUrl:
+          type: string
+          description: URL used for Play on Stash links, if different
+    StashDbSettings:
+      type: object
+      required:
+        - endpoint
+        - apiKey
+      properties:
+        endpoint:
+          type: string
+          example: https://stashdb.org/graphql
+        apiKey:
+          type: string
+    SceneStudio:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parent:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+    ScenePerformer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        disambiguation:
+          type: string
+        as:
+          type: string
+        imageUrl:
+          type: string
+    SceneResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
+        mediaType:
+          type: string
+          enum: [scene]
+        title:
+          type: string
+        releaseDate:
+          type: string
+          example: '2023-07-01'
+        duration:
+          type: number
+          description: Length in seconds
+        imageUrl:
+          type: string
+        studio:
+          $ref: '#/components/schemas/SceneStudio'
+        performers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenePerformer'
+        mediaInfo:
+          $ref: '#/components/schemas/MediaInfo'
+    SceneDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneResult'
+        - type: object
+          properties:
+            details:
+              type: string
+            productionDate:
+              type: string
+            code:
+              type: string
+            director:
+              type: string
+            stashDbUrl:
+              type: string
+              example: https://stashdb.org/scenes/01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
+            urls:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  site:
+                    type: string
+                  icon:
+                    type: string
+                    description: The site's icon on StashDB
+            tags:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+    SceneFilterDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+    WhisparrMonitorStatus:
+      type: object
+      properties:
+        monitored:
+          type: boolean
+          description: Whether Whisparr monitors their scenes
+        moviesMonitored:
+          type: boolean
+          description: Whether Whisparr monitors their movies
+        moviesAvailable:
+          type: boolean
+          description: Whether Whisparr can monitor their movies, which takes a StashDB link to its movie metadata source. Absent until Whisparr follows them.
+        monitorNewItems:
+          type: boolean
+          description: Whether Whisparr adds their new releases monitored; true until Whisparr follows them
+        searchOnAdd:
+          type: boolean
+          description: Whether Whisparr searches for the titles it adds of them
+        serviceUrl:
+          type: string
+    WhisparrStudioStatus:
+      type: object
+      description: What Whisparr monitors of a network's studio
+      properties:
+        id:
+          type: string
+          format: uuid
+        monitored:
+          type: boolean
+        moviesMonitored:
+          type: boolean
+    SceneCreditLinks:
+      type: object
+      properties:
+        aliases:
+          type: array
+          items:
+            type: string
+        urls:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              site:
+                type: string
+              icon:
+                type: string
+                description: The site's icon on StashDB
+        stashDbUrl:
+          type: string
+        tpdbLinked:
+          type: boolean
+          description: Whether the StashDB profile links ThePornDB, which Whisparr needs to monitor their movies
+        whisparr:
+          $ref: '#/components/schemas/WhisparrMonitorStatus'
+    ScenePerformerDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneFilterDetails'
+        - $ref: '#/components/schemas/SceneCreditLinks'
+        - type: object
+          properties:
+            disambiguation:
+              type: string
+            birthDate:
+              type: string
+            careerStart:
+              type: number
+            careerEnd:
+              type: number
+            country:
+              type: string
+            sceneCount:
+              type: number
+    SceneStudioDetails:
+      allOf:
+        - $ref: '#/components/schemas/SceneFilterDetails'
+        - $ref: '#/components/schemas/SceneCreditLinks'
+        - type: object
+          properties:
+            parent:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+            studios:
+              type: array
+              description: The studios under this network, which Whisparr follows in its place
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/SceneFilterDetails'
+                  - type: object
+                    properties:
+                      tpdbLinked:
+                        type: boolean
+                        description: Whether its StashDB profile links ThePornDB
+                      whisparr:
+                        type: object
+                        description: What Whisparr monitors of it; for request managers, when Whisparr answered
+                        properties:
+                          monitored:
+                            type: boolean
+                          moviesMonitored:
+                            type: boolean
+    SceneList:
+      type: object
+      properties:
+        page:
+          type: number
+          example: 1
+        totalPages:
+          type: number
+          example: 20
+        totalResults:
+          type: number
+          example: 200
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SceneResult'
+    AdultMovieList:
+      type: object
+      properties:
+        page:
+          type: number
+          example: 1
+        totalPages:
+          type: number
+          example: 20
+        totalResults:
+          type: number
+          example: 200
+        results:
+          type: array
+          description: ThePornDB movies (mediaType adultmovie)
+          items:
+            type: object
+    AdultMovieLookup:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: number
+          name:
+            type: string
+    StashDbLookup:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          disambiguation:
+            type: string
+            nullable: true
+          imageUrl:
+            type: string
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -2785,6 +3249,197 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TautulliSettings'
+  /settings/tpdb:
+    get:
+      summary: Get ThePornDB settings
+      description: Retrieves the ThePornDB API address and key.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TpdbSettings'
+    post:
+      summary: Update ThePornDB settings
+      description: Tests the connection, then saves.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TpdbSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TpdbSettings'
+  /settings/tpdb/test:
+    post:
+      summary: Test ThePornDB settings
+      description: Tests the ThePornDB API address and key without saving them.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TpdbSettings'
+      responses:
+        '200':
+          description: Connection succeeded
+  /settings/stash:
+    get:
+      summary: Get Stash settings
+      description: Retrieves the Stash companion library connection.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSettings'
+    post:
+      summary: Update Stash settings
+      description: Tests the connection and saves the Stash URL and API key.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSettings'
+  /settings/stash/test:
+    post:
+      summary: Test Stash settings
+      description: Tests the Stash URL and API key without saving them.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashSettings'
+      responses:
+        '200':
+          description: Connection succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: v0.31.1
+  /settings/stash/sync:
+    get:
+      summary: Get status of the Stash scan
+      description: Returns the progress of the Stash library scan.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: Status of the Stash scan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSyncStatus'
+    post:
+      summary: Start or cancel the Stash scan
+      description: Starts or cancels the Stash library scan and returns its progress.
+      tags:
+        - settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cancel:
+                  type: boolean
+                  example: false
+                start:
+                  type: boolean
+                  example: false
+      responses:
+        '200':
+          description: Status of the Stash scan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashSyncStatus'
+  /settings/stashdb:
+    get:
+      summary: Get StashDB settings
+      description: Retrieves the stash-box endpoint and API key used for scene metadata.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbSettings'
+    post:
+      summary: Update StashDB settings
+      description: Tests the connection and saves the stash-box endpoint and API key.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashDbSettings'
+      responses:
+        '200':
+          description: 'Values were successfully updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbSettings'
+  /settings/stashdb/test:
+    post:
+      summary: Test StashDB settings
+      description: Tests the stash-box endpoint and API key without saving them.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StashDbSettings'
+      responses:
+        '200':
+          description: Connection succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: v0.10.3
   /settings/radarr:
     get:
       summary: Get Radarr settings
@@ -2818,6 +3473,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RadarrSettings'
+  /settings/whisparr:
+    get:
+      summary: Get Whisparr settings
+      description: Returns all Whisparr settings in a JSON array.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: 'Values were returned'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhisparrSettings'
+    post:
+      summary: Create Whisparr instance
+      description: Creates a new Whisparr instance from the request body.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhisparrSettings'
+      responses:
+        '201':
+          description: 'New Whisparr instance created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
   /settings/radarr/test:
     post:
       summary: Test Radarr configuration
@@ -2853,6 +3541,50 @@ paths:
       responses:
         '200':
           description: Succesfully connected to Radarr instance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profiles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceProfile'
+  /settings/whisparr/test:
+    post:
+      summary: Test Whisparr configuration
+      description: Tests if the Whisparr configuration is valid. Returns profiles and root folders on success.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                  example: '127.0.0.1'
+                port:
+                  type: number
+                  example: 7878
+                apiKey:
+                  type: string
+                  example: yourapikey
+                useSsl:
+                  type: boolean
+                  example: false
+                baseUrl:
+                  type: string
+              required:
+                - hostname
+                - port
+                - apiKey
+                - useSsl
+      responses:
+        '200':
+          description: Succesfully connected to Whisparr instance
           content:
             application/json:
               schema:
@@ -2907,6 +3639,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RadarrSettings'
+  /settings/whisparr/{whisparrId}:
+    put:
+      summary: Update Whisparr instance
+      description: Updates an existing Whisparr instance with the provided values.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhisparrSettings'
+      responses:
+        '200':
+          description: 'Whisparr instance updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
+    delete:
+      summary: Delete Whisparr instance
+      description: Deletes an existing Whisparr instance based on the whisparrId parameter.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
+      responses:
+        '200':
+          description: 'Whisparr instance updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhisparrSettings'
   /settings/radarr/{radarrId}/profiles:
     get:
       summary: Get available Radarr profiles
@@ -2920,6 +3697,28 @@ paths:
           schema:
             type: integer
           description: Radarr instance ID
+      responses:
+        '200':
+          description: Returned list of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceProfile'
+  /settings/whisparr/{whisparrId}/profiles:
+    get:
+      summary: Get available Whisparr profiles
+      description: Returns a list of profiles available on the Whisparr server instance in a JSON array.
+      tags:
+        - settings
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: integer
+          description: Whisparr instance ID
       responses:
         '200':
           description: Returned list of profiles
@@ -4743,6 +5542,42 @@ paths:
                       restricted:
                         type: boolean
                         example: false
+                  scene:
+                    type: object
+                    properties:
+                      days:
+                        type: number
+                        example: 7
+                      limit:
+                        type: number
+                        example: 10
+                      used:
+                        type: number
+                        example: 6
+                      remaining:
+                        type: number
+                        example: 4
+                      restricted:
+                        type: boolean
+                        example: false
+                  adultMovie:
+                    type: object
+                    properties:
+                      days:
+                        type: number
+                        example: 7
+                      limit:
+                        type: number
+                        example: 10
+                      used:
+                        type: number
+                        example: 6
+                      remaining:
+                        type: number
+                        example: 4
+                      restricted:
+                        type: boolean
+                        example: false
   /blocklist:
     get:
       summary: Returns blocklisted items
@@ -4829,7 +5664,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: tmdbId ID
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -4842,6 +5677,8 @@ paths:
             enum:
               - movie
               - tv
+              - scene
+              - adultmovie
       responses:
         '200':
           description: Blocklist details in JSON
@@ -4852,7 +5689,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: tmdbId ID
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -4865,6 +5702,8 @@ paths:
             enum:
               - movie
               - tv
+              - scene
+              - adultmovie
       responses:
         '204':
           description: Succesfully removed media item
@@ -5074,7 +5913,7 @@ paths:
       parameters:
         - in: path
           name: tmdbId
-          description: tmdbId ID
+          description: TMDB ID, or the StashDB or ThePornDB UUID of a scene or adult movie
           required: true
           example: '1'
           schema:
@@ -5087,6 +5926,8 @@ paths:
             enum:
               - movie
               - tv
+              - scene
+              - adultmovie
       responses:
         '204':
           description: Succesfully removed watchlist item
@@ -5181,6 +6022,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserSettings'
+  /user/{userId}/settings/adult:
+    post:
+      summary: Update adult content preferences
+      description: Turns safe mode (hide all adult content) and blurred adult artwork on or off. Only the user or an admin can change these.
+      tags:
+        - users
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adultSafeMode:
+                  type: boolean
+                blurAdultImages:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adultSafeMode:
+                    type: boolean
+                  blurAdultImages:
+                    type: boolean
   /user/{userId}/settings/password:
     get:
       summary: Get password page informatiom
@@ -6547,7 +7423,7 @@ paths:
           name: mediaType
           schema:
             type: string
-            enum: [movie, tv, all]
+            enum: [movie, tv, scene, adultmovie, all]
             nullable: true
             default: all
       responses:
@@ -6581,11 +7457,20 @@ paths:
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv]
+                  enum: [movie, tv, scene, adultmovie]
                   example: movie
                 mediaId:
                   type: number
                   example: 123
+                  description: TMDB ID, required for movies and series
+                stashId:
+                  type: string
+                  format: uuid
+                  description: StashDB scene ID, required for scenes
+                tpdbId:
+                  type: string
+                  format: uuid
+                  description: ThePornDB movie ID, required for adult movies
                 tvdbId:
                   type: number
                   example: 123
@@ -6617,7 +7502,6 @@ paths:
                   description: If true, this request will not count against the user's quota. Requires MANAGE_REQUESTS permission.
               required:
                 - mediaType
-                - mediaId
       responses:
         '201':
           description: Succesfully created the request
@@ -6701,7 +7585,7 @@ paths:
               properties:
                 mediaType:
                   type: string
-                  enum: [movie, tv]
+                  enum: [movie, tv, scene, adultmovie]
                 seasons:
                   type: array
                   items:
@@ -7023,6 +7907,716 @@ paths:
                       criticsScore:
                         type: number
                         example: 6.5
+  /adultmovie/discover:
+    get:
+      summary: Discover adult movies
+      description: Returns a page of adult movies from ThePornDB.
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              [
+                release_date.desc,
+                release_date.asc,
+                created_at.desc,
+                created_at.asc,
+                duration.desc,
+                duration.asc,
+              ]
+            default: release_date.desc
+        - in: query
+          name: studio
+          description: A StashDB studio id, translated to the ThePornDB site it is linked to (a network to the network of its studios' sites), or a ThePornDB site id
+          schema:
+            type: string
+        - in: query
+          name: performer
+          description: Comma-separated StashDB performer ids, translated to the ThePornDB performers they are linked to, or ThePornDB performer ids (all must match)
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Comma-separated ThePornDB tag ids (all must match)
+          schema:
+            type: string
+        - in: query
+          name: excludeStudios
+          description: Comma-separated StashDB studio ids or ThePornDB site ids to leave out, with the sites under them
+          schema:
+            type: string
+        - in: query
+          name: excludePerformers
+          description: Comma-separated StashDB performer ids or ThePornDB performer ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: excludeTags
+          description: Comma-separated ThePornDB tag ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: released
+          description: How the release date compares to releaseDate (gte when unset)
+          schema:
+            type: string
+            enum: [eq, gt, gte, lt, lte]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+            example: '2026-01-01'
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Adult movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdultMovieList'
+  /adultmovie/search:
+    get:
+      summary: Search adult movies
+      description: Searches ThePornDB movies by title. The query may come form-encoded, with + for spaces.
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          allowReserved: true
+          schema:
+            type: string
+            example: Pirates
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+      responses:
+        '200':
+          description: Adult movie results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdultMovieList'
+  /adultmovie/studios:
+    get:
+      summary: Search StashDB studios linked to ThePornDB
+      description: Autocomplete for the adult movie filters, which ThePornDB answers; only StashDB studios linking a ThePornDB site are offered.
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          description: Text the source searches for
+          allowReserved: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbLookup'
+  /adultmovie/performers:
+    get:
+      summary: Search StashDB performers linked to ThePornDB
+      description: Autocomplete for the adult movie filters, which ThePornDB answers; only StashDB performers linking a ThePornDB performer are offered.
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          description: Text the source searches for
+          allowReserved: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbLookup'
+  /adultmovie/tags:
+    get:
+      summary: Search ThePornDB tags
+      tags:
+        - adultmovies
+      parameters:
+        - in: query
+          name: query
+          required: true
+          description: Text the source searches for
+          allowReserved: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdultMovieLookup'
+  /adultmovie/{adultMovieId}/recommendations:
+    get:
+      summary: Adult movies with the same performers
+      tags:
+        - adultmovies
+      parameters:
+        - in: path
+          name: adultMovieId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of adult movies
+          content:
+            application/json:
+              schema:
+                type: object
+  /adultmovie/{adultMovieId}/similar:
+    get:
+      summary: Similar adult movies
+      tags:
+        - adultmovies
+      parameters:
+        - in: path
+          name: adultMovieId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of adult movies
+          content:
+            application/json:
+              schema:
+                type: object
+  /adultmovie/match/{type}/{id}:
+    get:
+      summary: Match a StashDB studio or performer on ThePornDB
+      description: >-
+        The ThePornDB performer or site linked to a StashDB one, whose page adds
+        its movies. They are linked when the StashDB performer or studio links
+        the ThePornDB profile, or when the ThePornDB performer links the StashDB
+        one (sites keep no StashDB links); a StashDB network linking no site of
+        its own gets the ThePornDB network its studios' sites belong to. Names
+        alone never match.
+      tags:
+        - adultmovies
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [studio, performer]
+        - in: path
+          name: id
+          required: true
+          description: StashDB studio or performer UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ThePornDB site or performer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  url:
+                    type: string
+                    description: The performer's or site's ThePornDB page
+        '404':
+          description: No match on ThePornDB
+  /adultmovie/{adultMovieId}:
+    get:
+      summary: Get adult movie details
+      description: >-
+        Returns a ThePornDB movie with its Seerr media info. Performers, the
+        studio and the network carry `stashDbId` when they are linked to a
+        StashDB performer or studio, whose page they have; the others are
+        plain names.
+      tags:
+        - adultmovies
+      parameters:
+        - in: path
+          name: adultMovieId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                type: object
+  /scene/discover:
+    get:
+      summary: Discover scenes
+      description: Returns a page of StashDB scenes, optionally limited to a studio, performer or tag.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              [
+                trending.desc,
+                popularity.desc,
+                popularity.asc,
+                release_date.desc,
+                release_date.asc,
+                original_title.asc,
+                original_title.desc,
+                duration.desc,
+                duration.asc,
+                created_at.desc,
+                created_at.asc,
+              ]
+            default: popularity.desc
+        - in: query
+          name: studio
+          description: Comma-separated StashDB studio ids (any may match)
+          schema:
+            type: string
+        - in: query
+          name: performer
+          description: Comma-separated StashDB performer ids (all must match)
+          schema:
+            type: string
+        - in: query
+          name: tags
+          description: Comma-separated StashDB tag ids (all must match)
+          schema:
+            type: string
+        - in: query
+          name: excludeStudios
+          description: Comma-separated StashDB studio ids to leave out, with the studios under them
+          schema:
+            type: string
+        - in: query
+          name: excludePerformers
+          description: Comma-separated StashDB performer ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: excludeTags
+          description: Comma-separated StashDB tag ids to leave out
+          schema:
+            type: string
+        - in: query
+          name: released
+          schema:
+            type: string
+            enum: [eq, gt, gte, lt, lte]
+        - in: query
+          name: releaseDate
+          schema:
+            type: string
+            example: '2026-01-01'
+        - in: query
+          name: upcoming
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Scene results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
+  /scene/movie/{movieId}:
+    get:
+      summary: Scenes of a ThePornDB movie
+      description: The StashDB scenes a ThePornDB movie is cut into, found by the fingerprints and studio pages ThePornDB keeps for them.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: movieId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Scenes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
+  /scene/sites:
+    get:
+      summary: List StashDB sites with icons
+      description: The sites profile and scene links belong to, with StashDB's icon for each.
+      tags:
+        - scenes
+      responses:
+        '200':
+          description: Sites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    url:
+                      type: string
+                    icon:
+                      type: string
+  /scene/lookup/{type}:
+    get:
+      summary: Search StashDB studios, performers or tags
+      description: Autocomplete for the scene filters.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [studios, performers, tags]
+        - in: query
+          name: query
+          required: true
+          description: Text the source searches for
+          allowReserved: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StashDbLookup'
+  /scene/studios:
+    get:
+      summary: List StashDB studios or networks
+      description: Studios without studios under them, or the networks that have some, ranked by how many of the most popular scenes they have, by name, or newest first.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [studios, networks]
+            default: studios
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              [
+                popularity.desc,
+                popularity.asc,
+                name.asc,
+                name.desc,
+                created_at.desc,
+                created_at.asc,
+              ]
+            default: popularity.desc
+        - in: query
+          name: query
+          description: Part of the studio name
+          allowReserved: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Studios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+                  totalResults:
+                    type: number
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/search:
+    get:
+      summary: Search scenes
+      description: Searches StashDB scenes by title, studio or performer. The query may come form-encoded, with + for spaces.
+      tags:
+        - scenes
+      parameters:
+        - in: query
+          name: query
+          required: true
+          allowReserved: true
+          schema:
+            type: string
+            example: Slo-Mo
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+      responses:
+        '200':
+          description: Scene results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneList'
+  /scene/studio/{studioId}:
+    get:
+      summary: Get StashDB studio
+      description: Returns a StashDB studio. Includes Whisparr monitoring status for request managers.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: studioId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Studio details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneStudioDetails'
+  /scene/performer/{performerId}:
+    get:
+      summary: Get StashDB performer
+      description: Returns a StashDB performer. Includes Whisparr monitoring status for request managers.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: performerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Performer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenePerformerDetails'
+  /scene/{type}/{id}/monitor:
+    post:
+      summary: Monitor a performer or studio in Whisparr
+      description: |
+        Sets what the default Whisparr server monitors of the performer or studio: their scenes, their movies (where their StashDB profile links Whisparr's movie metadata source) and whether new releases are added monitored. Adds them to Whisparr when it does not follow them yet and anything is on; with scenes and movies both off, Whisparr stops monitoring them. `search` makes Whisparr search for the titles it adds.
+
+        Whisparr lists scenes under the studio that released them, so a network holds none; `studios` applies the same options to the given studios of the network, which must be its child studios on StashDB. Requires the `MANAGE_REQUESTS` permission.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [performer, studio]
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - scenes
+                - movies
+              properties:
+                scenes:
+                  type: boolean
+                  description: Monitor their scenes
+                movies:
+                  type: boolean
+                  description: Monitor their movies; ignored where Whisparr cannot find them
+                monitorNewItems:
+                  type: boolean
+                  default: true
+                  description: Add new releases monitored, or unmonitored
+                search:
+                  type: boolean
+                  default: false
+                studios:
+                  type: array
+                  description: Studios of this network to apply the same to, by StashDB id. Studios only.
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Monitoring status of the performer or studio, with each studio applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/WhisparrMonitorStatus'
+                  - type: object
+                    properties:
+                      studios:
+                        type: array
+                        description: The studios applied, when any were given
+                        items:
+                          $ref: '#/components/schemas/WhisparrStudioStatus'
+                      failed:
+                        type: array
+                        description: The studios Whisparr could not update
+                        items:
+                          type: string
+                          format: uuid
+        '400':
+          description: A studio that is not under this network, or studios given for a performer
+  /scene/tag/{tagId}:
+    get:
+      summary: Get StashDB tag
+      description: Returns the name of a StashDB tag for scene browsing.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: tagId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tag details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFilterDetails'
+  /scene/{sceneId}/recommendations:
+    get:
+      summary: Scenes with the same performers
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of scenes
+          content:
+            application/json:
+              schema:
+                type: object
+  /scene/{sceneId}/similar:
+    get:
+      summary: Similar scenes
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: A page of scenes
+          content:
+            application/json:
+              schema:
+                type: object
+  /scene/{sceneId}:
+    get:
+      summary: Get scene details
+      description: Returns full StashDB scene details with Seerr media info.
+      tags:
+        - scenes
+      parameters:
+        - in: path
+          name: sceneId
+          required: true
+          schema:
+            type: string
+            example: 01a138c1-a8cf-74b2-a8bb-e617e9c6f20f
+      responses:
+        '200':
+          description: Scene details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneDetails'
   /tv/{tvId}:
     get:
       summary: Get TV details
@@ -7301,6 +8895,12 @@ paths:
                 deleted,
               ]
         - in: query
+          name: mediaType
+          description: Comma-separated media types to include
+          schema:
+            type: string
+            example: movie,tv
+        - in: query
           name: sort
           schema:
             type: string
@@ -7494,6 +9094,21 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RadarrSettings'
+  /service/whisparr:
+    get:
+      summary: Get non-sensitive Whisparr server list
+      description: Returns a list of Whisparr server IDs and names in a JSON object.
+      tags:
+        - service
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhisparrSettings'
   /service/radarr/{radarrId}:
     get:
       summary: Get Radarr server quality profiles and root folders
@@ -7517,6 +9132,31 @@ paths:
                 properties:
                   server:
                     $ref: '#/components/schemas/RadarrSettings'
+                  profiles:
+                    $ref: '#/components/schemas/ServiceProfile'
+  /service/whisparr/{whisparrId}:
+    get:
+      summary: Get Whisparr server quality profiles and root folders
+      description: Returns a Whisparr server's quality profile and root folder details in a JSON object.
+      tags:
+        - service
+      parameters:
+        - in: path
+          name: whisparrId
+          required: true
+          schema:
+            type: number
+            example: 0
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    $ref: '#/components/schemas/WhisparrSettings'
                   profiles:
                     $ref: '#/components/schemas/ServiceProfile'
   /service/sonarr:
@@ -8252,12 +9892,13 @@ paths:
               type: object
               required:
                 - mediaType
-                - tmdbId
               properties:
                 mediaType:
                   type: string
+                  enum: [movie, tv, scene, adultmovie]
                 tmdbId:
                   type: number
+                  description: Required for movies and series
                   example: 1
                 is4k:
                   type: boolean

@@ -1,12 +1,13 @@
 import Modal from '@app/components/Common/Modal';
 import SensitiveInput from '@app/components/Common/SensitiveInput';
+import whisparrMessages from '@app/components/Settings/RadarrModal/whisparrMessages';
 import type { RadarrTestResponse } from '@app/components/Settings/SettingsServices';
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { isValidURL } from '@app/utils/urlValidationHelper';
 import { Transition } from '@headlessui/react';
-import type { RadarrSettings } from '@server/lib/settings';
+import type { RadarrSettings, WhisparrSettings } from '@server/lib/settings';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -85,14 +86,51 @@ const messages = defineMessages('components.Settings.RadarrModal', {
     'Automatically trigger a search in Radarr when a request is approved.',
 });
 
+// The texts that name the service
+const serviceMessages = {
+  radarr: {
+    create: messages.createradarr,
+    create4k: messages.create4kradarr,
+    edit: messages.editradarr,
+    edit4k: messages.edit4kradarr,
+    testSuccess: messages.toastRadarrTestSuccess,
+    testFailure: messages.toastRadarrTestFailure,
+    apiKeyHelp: messages.apiKeyHelp,
+    baseUrlHelp: messages.baseUrlHelp,
+    syncEnabledHelp: messages.syncEnabledHelp,
+    enableSearchHelp: messages.enableSearchHelp,
+  },
+  whisparr: {
+    create: whisparrMessages.createwhisparr,
+    create4k: whisparrMessages.create4kwhisparr,
+    edit: whisparrMessages.editwhisparr,
+    edit4k: whisparrMessages.edit4kwhisparr,
+    testSuccess: whisparrMessages.toastWhisparrTestSuccess,
+    testFailure: whisparrMessages.toastWhisparrTestFailure,
+    apiKeyHelp: whisparrMessages.apiKeyHelp,
+    baseUrlHelp: whisparrMessages.baseUrlHelp,
+    syncEnabledHelp: whisparrMessages.syncEnabledHelp,
+    enableSearchHelp: whisparrMessages.enableSearchHelp,
+  },
+};
+
 interface RadarrModalProps {
-  radarr: RadarrSettings | null;
+  radarr: RadarrSettings | WhisparrSettings | null;
+  // Whisparr servers share the form, without a minimum availability
+  service?: 'radarr' | 'whisparr';
   onClose: () => void;
   onSave: () => void;
 }
 
-const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
+const RadarrModal = ({
+  onClose,
+  radarr,
+  service = 'radarr',
+  onSave,
+}: RadarrModalProps) => {
   const intl = useIntl();
+  const serviceText = serviceMessages[service];
+  const isWhisparr = service === 'whisparr';
   const initialLoad = useRef(false);
   const { addToast } = useToasts();
   const [isValidated, setIsValidated] = useState(radarr ? true : false);
@@ -122,9 +160,13 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
     activeProfileId: Yup.string().required(
       intl.formatMessage(messages.validationProfileRequired)
     ),
-    minimumAvailability: Yup.string().required(
-      intl.formatMessage(messages.validationMinimumAvailabilityRequired)
-    ),
+    ...(isWhisparr
+      ? {}
+      : {
+          minimumAvailability: Yup.string().required(
+            intl.formatMessage(messages.validationMinimumAvailabilityRequired)
+          ),
+        }),
     externalUrl: Yup.string()
       .test(
         'valid-url',
@@ -166,7 +208,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
       setIsTesting(true);
       try {
         const response = await axios.post<RadarrTestResponse>(
-          '/api/v1/settings/radarr/test',
+          `/api/v1/settings/${service}/test`,
           {
             hostname,
             apiKey,
@@ -179,7 +221,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
         setIsValidated(true);
         setTestResponse(response.data);
         if (initialLoad.current) {
-          addToast(intl.formatMessage(messages.toastRadarrTestSuccess), {
+          addToast(intl.formatMessage(serviceText.testSuccess), {
             appearance: 'success',
             autoDismiss: true,
           });
@@ -187,7 +229,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
       } catch {
         setIsValidated(false);
         if (initialLoad.current) {
-          addToast(intl.formatMessage(messages.toastRadarrTestFailure), {
+          addToast(intl.formatMessage(serviceText.testFailure), {
             appearance: 'error',
             autoDismiss: true,
           });
@@ -197,7 +239,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
         initialLoad.current = true;
       }
     },
-    [addToast, intl]
+    [addToast, intl, service, serviceText]
   );
 
   useEffect(() => {
@@ -228,13 +270,15 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
         initialValues={{
           name: radarr?.name,
           hostname: radarr?.hostname,
-          port: radarr?.port ?? 7878,
+          port: radarr?.port ?? (isWhisparr ? 6969 : 7878),
           ssl: radarr?.useSsl ?? false,
           apiKey: radarr?.apiKey,
           baseUrl: radarr?.baseUrl,
           activeProfileId: radarr?.activeProfileId,
           rootFolder: radarr?.activeDirectory,
-          minimumAvailability: radarr?.minimumAvailability ?? 'released',
+          minimumAvailability:
+            (radarr as RadarrSettings | null)?.minimumAvailability ??
+            'released',
           tags: radarr?.tags ?? [],
           isDefault: radarr?.isDefault ?? false,
           is4k: radarr?.is4k ?? false,
@@ -261,7 +305,9 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
               activeProfileName: profileName,
               activeDirectory: values.rootFolder,
               is4k: values.is4k,
-              minimumAvailability: values.minimumAvailability,
+              ...(isWhisparr
+                ? {}
+                : { minimumAvailability: values.minimumAvailability }),
               tags: values.tags,
               isDefault: values.isDefault,
               externalUrl: values.externalUrl,
@@ -270,10 +316,10 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
               tagRequests: values.tagRequests,
             };
             if (!radarr) {
-              await axios.post('/api/v1/settings/radarr', submission);
+              await axios.post(`/api/v1/settings/${service}`, submission);
             } else {
               await axios.put(
-                `/api/v1/settings/radarr/${radarr.id}`,
+                `/api/v1/settings/${service}/${radarr.id}`,
                 submission
               );
             }
@@ -336,12 +382,10 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
               title={
                 !radarr
                   ? intl.formatMessage(
-                      values.is4k
-                        ? messages.create4kradarr
-                        : messages.createradarr
+                      values.is4k ? serviceText.create4k : serviceText.create
                     )
                   : intl.formatMessage(
-                      values.is4k ? messages.edit4kradarr : messages.editradarr
+                      values.is4k ? serviceText.edit4k : serviceText.edit
                     )
               }
             >
@@ -472,7 +516,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                     {intl.formatMessage(messages.apiKey)}
                     <span className="label-required">*</span>
                     <span className="label-tip">
-                      {intl.formatMessage(messages.apiKeyHelp)}
+                      {intl.formatMessage(serviceText.apiKeyHelp)}
                     </span>
                   </label>
                   <div className="form-input-area">
@@ -498,7 +542,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                   <label htmlFor="baseUrl" className="text-label">
                     {intl.formatMessage(messages.baseUrl)}
                     <span className="label-tip">
-                      {intl.formatMessage(messages.baseUrlHelp)}
+                      {intl.formatMessage(serviceText.baseUrlHelp)}
                     </span>
                   </label>
                   <div className="form-input-area">
@@ -610,37 +654,39 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                       )}
                   </div>
                 </div>
-                <div className="form-row">
-                  <label htmlFor="minimumAvailability" className="text-label">
-                    {intl.formatMessage(messages.minimumAvailability)}
-                    <span className="label-required">*</span>
-                  </label>
-                  <div className="form-input-area">
-                    <div className="form-input-field">
-                      <Field
-                        as="select"
-                        id="minimumAvailability"
-                        name="minimumAvailability"
-                      >
-                        <option value="announced">
-                          {intl.formatMessage(messages.announced)}
-                        </option>
-                        <option value="inCinemas">
-                          {intl.formatMessage(messages.inCinemas)}
-                        </option>
-                        <option value="released">
-                          {intl.formatMessage(messages.released)}
-                        </option>
-                      </Field>
+                {!isWhisparr && (
+                  <div className="form-row">
+                    <label htmlFor="minimumAvailability" className="text-label">
+                      {intl.formatMessage(messages.minimumAvailability)}
+                      <span className="label-required">*</span>
+                    </label>
+                    <div className="form-input-area">
+                      <div className="form-input-field">
+                        <Field
+                          as="select"
+                          id="minimumAvailability"
+                          name="minimumAvailability"
+                        >
+                          <option value="announced">
+                            {intl.formatMessage(messages.announced)}
+                          </option>
+                          <option value="inCinemas">
+                            {intl.formatMessage(messages.inCinemas)}
+                          </option>
+                          <option value="released">
+                            {intl.formatMessage(messages.released)}
+                          </option>
+                        </Field>
+                      </div>
+                      {errors.minimumAvailability &&
+                        touched.minimumAvailability && (
+                          <div className="error">
+                            {errors.minimumAvailability}
+                          </div>
+                        )}
                     </div>
-                    {errors.minimumAvailability &&
-                      touched.minimumAvailability && (
-                        <div className="error">
-                          {errors.minimumAvailability}
-                        </div>
-                      )}
                   </div>
-                </div>
+                )}
                 <div className="form-row">
                   <label htmlFor="tags" className="text-label">
                     {intl.formatMessage(messages.tags)}
@@ -725,7 +771,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                   <label htmlFor="syncEnabled" className="checkbox-label">
                     {intl.formatMessage(messages.syncEnabled)}
                     <span className="label-tip">
-                      {intl.formatMessage(messages.syncEnabledHelp)}
+                      {intl.formatMessage(serviceText.syncEnabledHelp)}
                     </span>
                   </label>
                   <div className="form-input-area">
@@ -740,7 +786,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                   <label htmlFor="enableSearch" className="checkbox-label">
                     {intl.formatMessage(messages.enableSearch)}
                     <span className="label-tip">
-                      {intl.formatMessage(messages.enableSearchHelp)}
+                      {intl.formatMessage(serviceText.enableSearchHelp)}
                     </span>
                   </label>
                   <div className="form-input-area">

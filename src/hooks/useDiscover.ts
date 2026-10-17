@@ -1,7 +1,9 @@
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
-import { MediaStatus } from '@server/constants/media';
-import { useEffect } from 'react';
+import { emptyPagesInARow } from '@app/utils/filteredPages';
+import { isTitleShown } from '@app/utils/titleShown';
+import type { MediaStatus } from '@server/constants/media';
+import { useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import useSWRInfinite from 'swr/infinite';
 import useSettings from './useSettings';
@@ -15,7 +17,8 @@ export interface BaseSearchResult<T> {
 }
 
 interface BaseMedia {
-  id: number;
+  // Scenes are keyed by StashDB UUID
+  id: number | string;
   mediaType: string;
   mediaInfo?: {
     status: MediaStatus;
@@ -52,6 +55,9 @@ export const encodeURIExtraParams = (string: string): string => {
   return finalString;
 };
 
+// Lists start with this many pages
+const INITIAL_PAGES = 3;
+
 const useDiscover = <
   T extends BaseMedia,
   S = Record<string, never>,
@@ -59,7 +65,14 @@ const useDiscover = <
 >(
   endpoint: string,
   options?: O,
-  { hideAvailable = true, hideBlocklisted = true, hideRequested = true } = {}
+  {
+    hideAvailable = true,
+    hideBlocklisted = true,
+    hideRequested = true,
+    // Pages the server filters can come back short, or empty, before the
+    // last one, so only the page count tells the end
+    filteredPages = false,
+  } = {}
 ): DiscoverResult<T, S> => {
   const settings = useSettings();
   const { hasPermission } = useUser();
@@ -88,14 +101,16 @@ const useDiscover = <
       return `${endpoint}?${finalQueryString}`;
     },
     {
-      initialSize: 3,
+      // The first page of a filtered list shows as soon as it is in, as
+      // these take seconds each, rather than once all initial pages are
+      initialSize: filteredPages ? 1 : INITIAL_PAGES,
       revalidateFirstPage: false,
       dedupingInterval: 30000,
       revalidateOnFocus: false,
     }
   );
 
-  const resultIds: Set<number> = new Set<number>();
+  const resultIds = new Set<number | string>();
 
   const isLoadingInitialData = !data && !error;
   const isLoadingMore =
@@ -105,8 +120,23 @@ const useDiscover = <
       typeof data[size - 1] === 'undefined' &&
       isValidating);
 
-  const fetchMore = () => {
+  // One page at a time: lists ask for more on every render while scrolled
+  // to the bottom, as an empty one always is, and the initial pages are
+  // asked for too, so the size asked for keeps two asks in one render apart
+  const askedSize = useRef(size);
+  askedSize.current = size;
+  const loadedPages = data?.length ?? 0;
+  const askForMore = () => {
+    if (askedSize.current !== size || (!error && loadedPages < size)) {
+      return;
+    }
+    askedSize.current = size + 1;
     setSize(size + 1);
+  };
+  const fetchMore = () => {
+    if (!isLoadingInitialData) {
+      askForMore();
+    }
   };
 
   let titles = (data ?? []).reduce((a, v) => {
@@ -122,43 +152,42 @@ const useDiscover = <
     return [...a, ...results];
   }, [] as T[]);
 
-  if (settings.currentSettings.hideAvailable && hideAvailable) {
-    titles = titles.filter(
-      (i) =>
-        !(i.mediaType === 'movie' || i.mediaType === 'tv') ||
-        (i.mediaInfo?.status !== MediaStatus.AVAILABLE &&
-          i.mediaInfo?.status !== MediaStatus.PARTIALLY_AVAILABLE)
-    );
-  }
+  titles = titles.filter(
+    isTitleShown(settings.currentSettings, {
+      hideAvailable,
+      hideBlocklisted:
+        hideBlocklisted && hasPermission(Permission.MANAGE_BLOCKLIST),
+      hideRequested,
+    })
+  );
 
-  if (
-    settings.currentSettings.hideBlocklisted &&
-    hideBlocklisted &&
-    hasPermission(Permission.MANAGE_BLOCKLIST)
-  ) {
-    titles = titles.filter(
-      (i) =>
-        !(i.mediaType === 'movie' || i.mediaType === 'tv') ||
-        i.mediaInfo?.status !== MediaStatus.BLOCKLISTED
-    );
-  }
+  const lastPage = data?.[data.length - 1];
+  const pagesDone =
+    (!!lastPage && lastPage.page >= lastPage.totalPages) ||
+    (filteredPages && emptyPagesInARow(data));
+  const isEmpty =
+    !isLoadingInitialData &&
+    titles?.length === 0 &&
+    (!filteredPages || pagesDone);
+  const isReachingEnd = filteredPages
+    ? isEmpty || pagesDone
+    : isEmpty ||
+      (!!data && (data[data?.length - 1]?.results.length ?? 0) < 20) ||
+      (!!data && (data[data?.length - 1]?.totalResults ?? 0) <= size * 20) ||
+      (!!data && (data[data?.length - 1]?.totalResults ?? 0) < 41);
 
-  if (settings.currentSettings.hideRequested && hideRequested) {
-    titles = titles.filter((i) => {
-      if (i.mediaType !== 'movie' && i.mediaType !== 'tv') {
-        return true;
-      }
-
-      return !i.mediaInfo?.hasActiveRequest;
-    });
-  }
-
-  const isEmpty = !isLoadingInitialData && titles?.length === 0;
-  const isReachingEnd =
-    isEmpty ||
-    (!!data && (data[data?.length - 1]?.results.length ?? 0) < 20) ||
-    (!!data && (data[data?.length - 1]?.totalResults ?? 0) <= size * 20) ||
-    (!!data && (data[data?.length - 1]?.totalResults ?? 0) < 41);
+  // Then the rest of the initial pages follow, one at a time
+  useEffect(() => {
+    if (
+      filteredPages &&
+      !error &&
+      loadedPages === size &&
+      size < INITIAL_PAGES &&
+      !isReachingEnd
+    ) {
+      askForMore();
+    }
+  });
 
   useEffect(() => {
     if (error && titles.length) {

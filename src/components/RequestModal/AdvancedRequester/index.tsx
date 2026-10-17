@@ -6,6 +6,7 @@ import useToasts from '@app/hooks/useToasts';
 import type { User } from '@app/hooks/useUser';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
+import type { AdultMediaType } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { formatBytes } from '@app/utils/numberHelpers';
 import {
@@ -23,7 +24,7 @@ import type {
 } from '@server/interfaces/api/serviceInterfaces';
 import type { UserResultsResponse } from '@server/interfaces/api/userInterfaces';
 import type { OverrideRulesResult } from '@server/lib/overrideRules';
-import { hasPermission } from '@server/lib/permissions';
+import { hasPermission, mediaPermissions } from '@server/lib/permissions';
 import axios from 'axios';
 import { isEqual } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -66,6 +67,8 @@ export type RequestOverrides = {
 
 interface AdvancedRequesterProps {
   type: 'movie' | 'tv';
+  // Scenes and adult movies use Whisparr servers instead of Radarr's
+  adultType?: AdultMediaType;
   tmdbId?: number;
   is4k: boolean;
   isAnime?: boolean;
@@ -78,6 +81,7 @@ interface AdvancedRequesterProps {
 
 const AdvancedRequester = ({
   type,
+  adultType,
   tmdbId,
   is4k = false,
   isAnime = false,
@@ -90,8 +94,13 @@ const AdvancedRequester = ({
   const intl = useIntl();
   const { addToast } = useToasts();
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
+  const serviceName = adultType
+    ? 'whisparr'
+    : type === 'movie'
+      ? 'radarr'
+      : 'sonarr';
   const { data, error } = useSWR<ServiceCommonServer[]>(
-    `/api/v1/service/${type === 'movie' ? 'radarr' : 'sonarr'}`,
+    `/api/v1/service/${serviceName}`,
     {
       refreshInterval: 0,
       refreshWhenHidden: false,
@@ -129,9 +138,7 @@ const AdvancedRequester = ({
   const { data: serverData, isValidating } =
     useSWR<ServiceCommonServerWithDetails>(
       selectedServer !== null
-        ? `/api/v1/service/${
-            type === 'movie' ? 'radarr' : 'sonarr'
-          }/${selectedServer}`
+        ? `/api/v1/service/${serviceName}/${selectedServer}`
         : null,
       {
         refreshInterval: 0,
@@ -154,25 +161,33 @@ const AdvancedRequester = ({
   const filteredUserData = useMemo(
     () =>
       userData?.results.filter((user) =>
-        hasPermission(
-          is4k
-            ? [
-                Permission.REQUEST_4K,
-                type === 'movie'
-                  ? Permission.REQUEST_4K_MOVIE
-                  : Permission.REQUEST_4K_TV,
-              ]
-            : [
-                Permission.REQUEST,
-                type === 'movie'
-                  ? Permission.REQUEST_MOVIE
-                  : Permission.REQUEST_TV,
-              ],
-          user.permissions,
-          { type: 'or' }
-        )
+        adultType
+          ? // Scenes and adult movies take their own permissions, and adult
+            // access
+            hasPermission(
+              mediaPermissions(is4k ? 'request4k' : 'request', adultType),
+              user.permissions,
+              { type: 'or' }
+            ) && hasPermission(Permission.ADULT, user.permissions)
+          : hasPermission(
+              is4k
+                ? [
+                    Permission.REQUEST_4K,
+                    type === 'movie'
+                      ? Permission.REQUEST_4K_MOVIE
+                      : Permission.REQUEST_4K_TV,
+                  ]
+                : [
+                    Permission.REQUEST,
+                    type === 'movie'
+                      ? Permission.REQUEST_MOVIE
+                      : Permission.REQUEST_TV,
+                  ],
+              user.permissions,
+              { type: 'or' }
+            )
       ),
-    [userData?.results]
+    [userData?.results, adultType, is4k, type]
   );
 
   useEffect(() => {
@@ -341,12 +356,12 @@ const AdvancedRequester = ({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (tmdbId && serverData?.server.id === selectedServer) {
+      if ((tmdbId || adultType) && serverData?.server.id === selectedServer) {
         try {
           const { data: override } = await axios.post<OverrideRulesResult>(
             '/api/v1/overrideRule/advancedRequest',
             {
-              mediaType: type,
+              mediaType: adultType ?? type,
               is4k,
               requestUser:
                 selectedUser?.id ?? requestUser?.id ?? currentUser?.id,
@@ -389,6 +404,7 @@ const AdvancedRequester = ({
   }, [
     tmdbId,
     type,
+    adultType,
     is4k,
     serverData?.server.id,
     selectedServer,

@@ -1,0 +1,133 @@
+---
+title: Overview
+description: How adult scenes and movies work in Seerr.
+sidebar_position: 1
+---
+
+# Adult Content Overview
+
+Seerr can browse and request adult content alongside movies and series. It is off by default and stays invisible to everyone until you turn it on.
+
+These integrations work together:
+
+| Integration                     | Role              | What it does                                                                        |
+| ------------------------------- | ----------------- | ----------------------------------------------------------------------------------- |
+| [StashDB](./stashdb)            | Metadata provider | Supplies scenes, performers, studios and tags. Scenes are identified by StashDB id. |
+| [ThePornDB](./adult-movies)       | Metadata provider | Supplies adult movies, performers and studios.         |
+| [Whisparr](./whisparr)          | Service           | Downloads requested scenes and adult movies (Whisparr v3 only).                       |
+| [Stash](./stash) (optional)     | Companion library | Marks scenes available once Stash has them, and links to them for playback.         |
+
+Whisparr and Stash work like Radarr and Jellyfin do for movies, whether a title was requested through Seerr or added in Whisparr directly. A title Whisparr monitors shows as requested; once Whisparr has its file, or Stash has the scene, it is available and joins Recently Added. **Play on Stash** shows once Stash has the scene; until then, and always for adult movies, the **Available** badge opens the **Manage** panel for request managers. Available titles that neither Whisparr nor Stash still has are marked deleted by the availability sync.
+
+## Enabling Adult Content
+
+1. In **Settings &rarr; General**, turn on **Enable Adult Content**.
+2. Give the **Adult Content** permission to each user who should see it (**Users &rarr; Edit &rarr; Permissions**), along with the request permissions they should have (see [Requesting Scenes and Adult Movies](#requesting-scenes-and-adult-movies)). Admins have access automatically.
+3. Set up [StashDB](./stashdb) and [ThePornDB](./adult-movies), then [Whisparr](./whisparr), and optionally [Stash](./stash).
+
+Users without the permission never see adult titles: scene pages show "not found", and adult movies, scenes and their requests are left out of search, discover, request lists and media lists.
+
+## Browsing
+
+Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel. Like them, they live under Discover, at `/discover/scenes` and `/discover/adultmovies`. **Scenes** sorts by popularity (the default), release date, date added to StashDB, duration and title, each either way. StashDB's trending order has a page of its own, **Trending Scenes**, opened from the Discover row of that name like the TMDB Trending page; StashDB has no daily or weekly window for it. Performer and studio pages (see [Performers and Studios](#performers-and-studios)) list their scenes and adult movies in a grid, newest first. Like movie rows, every adult row (on Discover and detail pages, and network studios) holds up to 20 cards, or 13 of the wider scene and studio cards, reading further pages when the hide settings leave the first one short; the title always links the full list, and the **See More** card only shows when there is more than fits. Rows with nothing in them are left out.
+
+- **Adult Movies** filters by release date, one StashDB studio and any StashDB performers among those linked to ThePornDB (a studio also counts through the ThePornDB network its studios' sites belong to), and tags from ThePornDB.
+- **Scenes** filters by release date, studios, performers and tags from StashDB.
+
+The release date compares as equal, greater, greater or equal, less, or less or equal to the picked day; neither source takes a date range.
+
+Both also leave out studios, performers and tags picked under **Exclude**. Filters always add up: a title needs all of the picked performers, all of the picked tags, and the studio. Studios are either-or: a title needs one of them, not all. ThePornDB filters by one studio at a time. Suggestions are whatever StashDB finds for the typed text (ThePornDB, for its tags), whatever else is picked, so the same names show under a field and its **Exclude** twin; the **Adult Movies** studios and performers are only the ones linked to ThePornDB. Filters that leave nothing, like a studio, performer or tag both picked and excluded, show no results.
+
+Search shows matching scenes in a row above the regular results. Adult movies and StashDB performers join the regular results. TMDB's own adult titles show among the regular movies, as they would with TMDB's adult filter on; they are ordinary movies, requested through Radarr.
+
+Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
+
+The **Hide Available Media**, **Hide Requested Media** and **Hide Blocklisted Items** settings (**Settings &rarr; General**) apply to scenes and adult movies like they do to movies: in the Scenes and Adult Movies tabs, the adult Discover rows, performer and studio pages, and recommendations and similar titles. Like movies, they still show in search results, and an adult movie's page shows all of its scenes, like a collection does its movies. Users without the **Manage Blocklist** or **View Blocklist** permission never see blocklisted titles. Like for movies, a request hides its title while it is pending or approved; declined, failed and completed ones don't. Turning **Hide Requested Media** on applies to lists already open without reloading them.
+
+### Blocklist
+
+Blocklisting works like it does for movies. The blocklist button shows on the cards and pages of titles that aren't requested or available, including ones whose request was declined or that are only requested in 4K. Blocklisting a requested title keeps its requests, and removing it from the blocklist clears its requests and status, like a movie's. Next to **Blocklist Content with Tags**, **Settings &rarr; General** has **Blocklist Scenes with StashDB Tags** and **Blocklist Adult Movies with ThePornDB Tags**. They show while adult content is on and safe mode is off. The **Process Blocklisted Tags** job blocklists the scenes and adult movies with those tags, including requested and available ones, the same way it does for TMDB keywords. **Limit Content Blocklisted per Tag** counts pages of 20 titles into each sort: release date, trending, popularity and date added for StashDB, and newest and oldest release or addition for ThePornDB. Tags with fewer titles than that are read in full. Like TMDB keywords, each run starts over: titles blocklisted by tags that are no longer chosen are removed from the blocklist, along with their requests. Titles blocklisted by hand are left alone. They show on the Blocklist page under **Blocklisted Tags**, with the tag names in the badge. StashDB tags that no longer exist are removed from the setting. ThePornDB can't look up a tag by its ID, so the setting saves the tag names.
+
+Like **Blocklist Content with Tags**, both settings have copy and import buttons. They copy the tags as each database looks them up, separated by commas: StashDB tags as their IDs, and ThePornDB tags as their names, such as `Anal,Anal Masturbation`, as ThePornDB finds tags by name only. A name with a comma in it keeps it as `\,`. Importing replaces the chosen tags once each is found: StashDB tags by ID, and ThePornDB tags by their whole name, in any case. A tag that isn't found is an error.
+
+### Discover Rows
+
+The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming adult movies; and **Studios** and **Networks**, the studios behind the most popular scenes on StashDB. Their titles and **See More** cards open every StashDB studio or network, searchable by name; the Studios list leaves out networks. These lists start out like the rows, by popularity, and also sort by date added to StashDB or name, each either way. StashDB can't rank studios itself, so popularity counts each studio's scenes among the top 5,000 popular ones; studios without any there are only listed by name or newest. A network's page links to all its studios the same way. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and adult movie requests. Admins can reorder or hide them in the Discover editor like any other row, and can create rows of their own there, like the TMDB keyword rows: a scene tag, performer, studio or search, and an adult movie tag, performer, studio or search. A tag row can take several tags, and the row then shows the scenes or movies with all of them. The options only appear while adult content is enabled and the admin's safe mode is off. Users without adult access never see any of these rows.
+
+## Performers and Studios
+
+Performers and studios are StashDB's, as they are in Whisparr. Like actors at `/person/[id]`, they have one page each: `/performer/<StashDB UUID>` and `/studio/<StashDB UUID>`, and `/studio/<StashDB UUID>/studios` for a network's studios. ThePornDB's performers and sites have no page of their own: ThePornDB is the adult movie catalogue, and a performer's or studio's adult movies show on its StashDB page once either side links the other.
+
+A StashDB performer or studio and a ThePornDB one are the same when **either** links the other:
+
+- the StashDB performer or studio lists the ThePornDB profile among its links (`theporndb.net/performers/…`, or `theporndb.net/sites/…` for studios), or
+- the ThePornDB performer lists the StashDB profile among its links. ThePornDB keeps no StashDB links for sites, so studios are linked from StashDB only. When several StashDB studios link one site, like Blacked and Adult Time x Blacked, the site belongs to the one named like it, and its movies show on that page only.
+
+Names alone never link them. A linked performer's or studio's page is StashDB's: its details, its links (with the ThePornDB profile), its scenes, and the ThePornDB adult movies in a row. A performer has one photo, the first StashDB lists, wherever they show: in search results, in scene and adult movie casts and on their page; only performers no StashDB profile links keep ThePornDB's picture in adult movie casts. An adult movie's cast and studio open that StashDB page when linked, as does the **More from** banner; the banner only shows for linked studios, falling back to the movie's network when that is the linked one (Rocco Siffredi's movies, for example, get **More from Evil Angel**). Performers and studios neither side links show on adult movie pages as plain text, without a link, like the crew; their StashDB page, if they have one, lists their scenes only.
+
+For example, Gal Ritchie's ThePornDB profile links her StashDB profile, so her page has StashDB's details, her StashDB scenes and her ThePornDB movies. Little Dragon has a profile on both, but neither links the other, so her StashDB page lists her scenes alone and her movies name her without a link. Some adult movies credit performers ThePornDB has no profile for; they show in the cast without a link too.
+
+A performer or studio page has a selector at the top right, like a person page's: **All**, **Scenes** and **Adult Movies**. Under **All**, those with both get a row of each, scenes first; those with one kind get a grid of it, newest first. **Scenes** and **Adult Movies** show the grid of that kind, headed by its name, which opens the browse tab filtered to them. All three are always offered; a kind they have none of leaves the page empty. Adult movies come from the linked ThePornDB performer or studio; a StashDB network that links no ThePornDB site of its own gets the ThePornDB network its studios' sites belong to (Vixen Media Group, for example, through Blacked, Tushy and the rest). A network's studios show above the titles whatever the selection.
+
+Links on performer and studio pages come StashDB first, then ThePornDB, then the rest in StashDB's order, each as StashDB's icon for the site, or a logo where StashDB has no icon, or by name for sites without either. A network's page also lists its studios and the titles of all of them. Request managers can monitor StashDB performers and studios in Whisparr from their page, scenes, movies and new releases each on their own, and a network's studios one by one; see [Whisparr](/using-seerr/adult-content/whisparr#monitoring-performers-and-studios). Whisparr follows the StashDB profile's own ThePornDB link only, so a performer's or studio's page linked the other way (by the ThePornDB performer) notes that Whisparr can monitor its scenes only until the link is added on StashDB.
+
+ThePornDB can't be asked which performer links a StashDB id, so the StashDB page looks for it among the ThePornDB performers of the same name or first alias, and keeps any ThePornDB performer seen linking to it. Matches are kept for six hours, like other details.
+
+## Scenes
+
+Scenes are their own media type, separate from movies and series.
+
+Each scene page shows the StashDB details, the cast (with a **Full Cast** page) and tags; a tag opens the Scenes tab filtered to it, in the tab's default order, as do the tags of adult movie pages in the Adult Movies tab.
+
+### Detail Pages
+
+Scene and adult movie pages are laid out like movie pages:
+
+- A **More from** banner for the studio, like the collection banner on movies, opens the studio's titles. An adult movie whose studio has no StashDB page gets the banner for its network instead, when that has one; ThePornDB lists a network's movies with its sites'.
+- **Recommendations** lists other titles with any of the same performers. For scenes these are the most popular on StashDB, read like the Scenes tab; for adult movies, the newest released on ThePornDB.
+- **Similar** looks at content rather than people. For scenes, Seerr takes the 100 most popular StashDB scenes sharing at least one tag and ranks them by how many tags they share (top 40). For adult movies it uses ThePornDB's own similar list, about 9 movies.
+- The links at the bottom of the facts table open the title on StashDB first, then Stash, ThePornDB and the sites StashDB has an icon for, each shown as its icon alone, named on hover. Sites without an icon are listed by name in the **Links** row above.
+- Directors show under the overview, with a **View Full Crew** link to the **Full Crew** page (`/scene/<id>/crew` or `/adultmovie/<id>/crew`). Neither StashDB nor ThePornDB has crew profiles, so crew cards, like cast members without a profile, link nowhere.
+- Adult movie pages add a **Scenes** row: the StashDB scenes the movie is cut into, found by the file fingerprints and studio pages ThePornDB keeps for its scenes.
+- Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and adult movies work like movie issues, and only users with adult access see them.
+
+### Requesting Scenes and Adult Movies
+
+Scene and adult movie requests go through the normal approval flow, and need the **Adult Content** permission next to a request permission. While adult content is enabled (and safe mode is off), the request permissions get **Scenes** and **Adult Movies** options next to **Movies** and **Series**:
+
+| Permission           | Scenes                     | Adult Movies                     |
+| -------------------- | -------------------------- | -------------------------------- |
+| **Request**          | **Request Scenes**         | **Request Adult Movies**         |
+| **Auto-Approve**     | **Auto-Approve Scenes**    | **Auto-Approve Adult Movies**    |
+| **Auto-Request**     | **Auto-Request Scenes**    | **Auto-Request Adult Movies**    |
+| **Request 4K**       | **Request 4K Scenes**      | **Request 4K Adult Movies**      |
+| **Auto-Approve 4K**  | **Auto-Approve 4K Scenes** | **Auto-Approve 4K Adult Movies** |
+
+Like for movies and series, the parent permission covers every media type and the option only its own: a user with **Request Scenes** but not **Request** can request scenes but not adult movies. Users with **Manage Requests** are always approved immediately.
+
+Request managers and users with **Advanced Requests** can pick the Whisparr server, quality profile, root folder and tags in the request window.
+
+#### 4K
+
+Once a [Whisparr](./whisparr) server marked **4K** is the default 4K server, scene and adult movie pages get a **Request in 4K** option and a 4K status badge, like movie pages. 4K requests have their own status, go to the default 4K Whisparr server and need **Request 4K** or its Scenes or Adult Movies option. Without a default 4K Whisparr server, the 4K scene and adult movie permissions can't be granted.
+
+#### Auto-Request
+
+Like for movies and series, Auto-Request only works through the [Plex Watchlist](../plex/watchlist-auto-request). Scenes and adult movies can't be on the Plex Watchlist, so **Auto-Request Scenes** and **Auto-Request Adult Movies** have no effect on them: adding a scene or adult movie to Seerr's watchlist only adds it to the watchlist and never requests it. Request it from its page instead.
+
+### Quotas
+
+Scenes and adult movies each have their own request limit, next to the movie and series limits; adult movie requests don't count against the movie limit. Set the defaults under **Settings &rarr; Users &rarr; Global Scene Request Limit** and **Global Adult Movie Request Limit**, or override them for a user in their **General** settings. Like the others, 4K requests count too, and request managers can bypass the limits per request. Users see what is left on their profile and in the request window.
+
+## Adult Movies
+
+Adult movies come from ThePornDB. See [Adult Movies](./adult-movies). Requests for them go to Whisparr and count against the adult movie quota.
+
+Only ThePornDB movies and StashDB scenes are adult content in Seerr. Movies TMDB flags as adult are ordinary movies: they are shown, requested through Radarr, scanned and counted like any other movie, exactly as without adult content.
+
+## Safe Mode and Blurred Artwork
+
+Users with adult access get two switches in their user menu:
+
+- **Safe Mode** hides all adult content at once, for example while sharing a screen. Seerr treats the user as having no adult access until it is turned off again, leaving scene and adult movie requests out of request lists and profiles too; the permission itself is kept. For admins it also hides the adult settings: **Enable Adult Content**, the Stash tab, the Whisparr servers, the StashDB and ThePornDB providers, the Adult Content permission, and the scene and adult movie permissions and request limits.
+- **Blur Adult Artwork** blurs scene stills and adult movie covers until the pointer is over them.

@@ -1,4 +1,7 @@
+import AdultMovieCard from '@app/components/AdultMovieCard';
+import { toSliderPerformer } from '@app/components/Common/adultRoutes';
 import PersonCard from '@app/components/PersonCard';
+import SceneCard from '@app/components/SceneCard';
 import TitleCard from '@app/components/TitleCard';
 import TmdbTitleCard from '@app/components/TitleCard/TmdbTitleCard';
 import { Permission, useUser } from '@app/hooks/useUser';
@@ -6,6 +9,8 @@ import useVerticalScroll from '@app/hooks/useVerticalScroll';
 import globalMessages from '@app/i18n/globalMessages';
 import { MediaStatus } from '@server/constants/media';
 import type { WatchlistItem } from '@server/interfaces/api/discoverInterfaces';
+import type { AdultMovieResult } from '@server/models/AdultMovie';
+import type { PerformerResult, SceneResult } from '@server/models/Scene';
 import type {
   CollectionResult,
   MovieResult,
@@ -15,13 +20,23 @@ import type {
 import { useIntl } from 'react-intl';
 
 type ListViewProps = {
-  items?: (TvResult | MovieResult | PersonResult | CollectionResult)[];
+  items?: (
+    | TvResult
+    | MovieResult
+    | PersonResult
+    | CollectionResult
+    | AdultMovieResult
+    | PerformerResult
+    | SceneResult
+  )[];
   plexItems?: WatchlistItem[];
   isEmpty?: boolean;
   isLoading?: boolean;
   isReachingEnd?: boolean;
   onScrollBottom: () => void;
   mutateParent?: () => void;
+  // Scene stills are 16:9, so their cards get wider rows
+  landscape?: boolean;
 };
 
 const ListView = ({
@@ -32,6 +47,7 @@ const ListView = ({
   isReachingEnd,
   plexItems,
   mutateParent,
+  landscape = false,
 }: ListViewProps) => {
   const intl = useIntl();
   const { hasPermission } = useUser();
@@ -49,13 +65,14 @@ const ListView = ({
           {intl.formatMessage(globalMessages.noresults)}
         </div>
       )}
-      <ul className="cards-vertical">
+      <ul className={landscape ? 'cards-horizontal' : 'cards-vertical'}>
         {plexItems?.map((title, index) => {
           return (
             <li key={`${title.ratingKey}-${index}`}>
               <TmdbTitleCard
-                id={title.tmdbId}
+                id={title.tmdbId ?? title.id}
                 tmdbId={title.tmdbId}
+                externalId={title.externalId}
                 type={title.mediaType}
                 isAddedToWatchlist={true}
                 canExpand
@@ -143,6 +160,21 @@ const ListView = ({
                   />
                 );
                 break;
+              case 'adultmovie':
+                titleCard = <AdultMovieCard movie={title} canExpand />;
+                break;
+              case 'scene':
+                titleCard = <SceneCard scene={title} canExpand />;
+                break;
+              case 'performer':
+                // Search performers are StashDB's
+                titleCard = (
+                  <PersonCard
+                    {...toSliderPerformer('scene', title)}
+                    canExpand
+                  />
+                );
+                break;
             }
 
             return <li key={`${title.id}-${index}`}>{titleCard}</li>;
@@ -151,7 +183,11 @@ const ListView = ({
           !isReachingEnd &&
           [...Array(20)].map((_item, i) => (
             <li key={`placeholder-${i}`}>
-              <TitleCard.Placeholder canExpand />
+              {landscape ? (
+                <SceneCard.Placeholder canExpand />
+              ) : (
+                <TitleCard.Placeholder canExpand />
+              )}
             </li>
           ))}
       </ul>

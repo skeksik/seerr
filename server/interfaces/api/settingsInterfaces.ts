@@ -29,6 +29,7 @@ export interface PublicSettingsResponse {
   initialized: boolean;
   applicationTitle: string;
   applicationUrl: string;
+  enableAdult: boolean;
   hideAvailable: boolean;
   hideBlocklisted: boolean;
   hideRequested: boolean;
@@ -36,6 +37,7 @@ export interface PublicSettingsResponse {
   mediaServerLogin: boolean;
   movie4kEnabled: boolean;
   series4kEnabled: boolean;
+  adult4kEnabled: boolean;
   discoverRegion: string;
   streamingRegion: string;
   originalLanguage: string;

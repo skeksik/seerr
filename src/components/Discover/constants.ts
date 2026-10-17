@@ -88,7 +88,60 @@ export const sliderTitles = defineMessages('components.Discover', {
   tmdbsearch: 'TMDB Search',
   tmdbmoviestreamingservices: 'TMDB Movie Streaming Services',
   tmdbtvstreamingservices: 'TMDB TV Streaming Services',
+  trendingScenes: 'Trending Scenes',
+  popularScenes: 'Popular Scenes',
+  newScenes: 'New Scenes',
+  upcomingScenes: 'Upcoming Scenes',
+  adultStudios: 'Studios',
+  adultNetworks: 'Networks',
+  // The editor also lists the TMDB studio and network rows
+  adultStudiosEdit: 'Studios (Adult)',
+  adultNetworksEdit: 'Networks (Adult)',
+  newAdultMovies: 'New Adult Movies',
+  upcomingAdultMovies: 'Upcoming Adult Movies',
+  sceneTag: 'StashDB Scene Tag',
+  scenePerformer: 'StashDB Scene Performer',
+  sceneStudio: 'StashDB Scene Studio',
+  sceneSearch: 'StashDB Scene Search',
+  adultMovieTag: 'TPDB Adult Movie Tag',
+  adultMoviePerformer: 'TPDB Adult Movie Performer',
+  adultMovieStudio: 'TPDB Adult Movie Studio',
+  adultMovieSearch: 'TPDB Adult Movie Search',
 });
+
+// ThePornDB cannot name a tag by id, so an Adult Movie Tag row keeps each
+// tag's name with its id in its data: "<id>:<encoded name>" per tag,
+// comma-separated like a keyword row's ids. Only the ids reach the API
+export const encodeAdultMovieTags = (
+  tags: { id: string | number; name: string }[]
+): string =>
+  tags.map((tag) => `${tag.id}:${encodeURIComponent(tag.name)}`).join(',');
+
+export const decodeAdultMovieTags = (
+  data?: string
+): { id: string; name: string }[] =>
+  (data ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map((part) => {
+      const [id, ...name] = part.split(':');
+
+      return {
+        id,
+        name: name.length > 0 ? decodeURIComponent(name.join(':')) : id,
+      };
+    });
+
+// Where an Adult Movie Tag row's See More goes: the Adult Movies tab with
+// the tag names riding along for its Filters panel, as the detail pages do
+export const adultMovieTagsLink = (
+  tags: { id: string; name: string }[]
+): string =>
+  `/discover/adultmovies?sortBy=release_date.desc&tags=${tags
+    .map((tag) => tag.id)
+    .join(',')}&tagNames=${encodeURIComponent(
+    tags.map((tag) => tag.name).join('|')
+  )}`;
 
 export const QueryFilterOptions = z.object({
   sortBy: z.string().optional(),

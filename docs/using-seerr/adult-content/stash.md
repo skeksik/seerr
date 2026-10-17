@@ -1,0 +1,51 @@
+---
+title: Stash
+description: Use Stash as a companion library for scenes.
+sidebar_position: 5
+---
+
+# Stash
+
+[Stash](https://github.com/stashapp/stash) can act as a library for scenes, the way Jellyfin or Plex does for movies and series, with Whisparr in Radarr's place. It is optional: without it, scenes become available when Whisparr has downloaded them, and their status badge opens the **Manage** panel instead of playing them.
+
+Stash does not handle sign-in. Users still sign in with your main media server or local accounts.
+
+## Setup
+
+Go to **Settings &rarr; Stash**. The tab shows while adult content is enabled.
+
+The fields work like the [Jellyfin settings](/using-seerr/settings/mediaserver).
+
+#### Hostname or IP Address
+
+The address Seerr uses to reach Stash, for example `stash` or `192.168.1.10`, without `http://`.
+
+#### Port
+
+Stash listens on `9999` by default. Turning on **Use SSL** switches it to `443`.
+
+#### Use SSL
+
+Connect over HTTPS, for example when Stash sits behind a reverse proxy.
+
+#### URL Base
+
+Only needed when Stash is served under a sub-path, such as `/stash`.
+
+#### API Key
+
+Generate one in Stash under **Settings &rarr; Security &rarr; Authentication**.
+
+#### External URL
+
+Optional. Used for **Play on Stash** links when the address above is not reachable from your browser.
+
+Saving checks the connection first and says so when Seerr can't reach Stash.
+
+## How It Works
+
+- The **Stash Scan** job (every 15 minutes, see **Settings &rarr; Jobs & Cache**) reads every Stash scene that is linked to your stash-box endpoint and marks it available in Seerr, whoever added it, like Jellyfin does for movies. Pending requests for those scenes are completed. A scene that turns available this way joins Recently Added, dated by when Stash added it. Run the scan right away with **Start Scan** on the Stash tab.
+- Scenes that Stash has identified against the same stash-box instance as Seerr (for example StashDB) are matched on their stash id. Scenes Stash has not identified yet are matched on the StashDB id that Whisparr puts in brackets in their folder name. Stash has to scan a new download before Seerr can find it; run Stash's **Identify** or **Scene Tagger** for scenes stored without that id.
+- Once Stash has a scene, its **Available** badge, page, request rows and request cards get **Play on Stash**. Until then, a scene Whisparr has downloaded is available too, but its badge opens the **Manage** panel for request managers, as a movie's does before Jellyfin finds it.
+- Stash counts toward the non-4K version only, and adult movies are not read from Stash.
+- **Availability Sync** marks an available scene **Deleted** only when it is gone from Stash and its file is gone from Whisparr. A scene gone from Stash alone loses its play link but stays available. If Stash cannot be reached, it counts as still having the scene.

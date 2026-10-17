@@ -7,8 +7,10 @@ export interface GenreSliderItem {
 export interface WatchlistItem {
   id: number;
   ratingKey: string;
-  tmdbId: number;
-  mediaType: 'movie' | 'tv';
+  // Null for scenes and adult movies, which carry an externalId
+  tmdbId: number | null;
+  externalId?: string | null;
+  mediaType: 'movie' | 'tv' | 'scene' | 'adultmovie';
   title: string;
 }
 

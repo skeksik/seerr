@@ -1,6 +1,7 @@
 import PageTitle from '@app/components/Common/PageTitle';
 import type { SettingsRoute } from '@app/components/Common/SettingsTabs';
 import SettingsTabs from '@app/components/Common/SettingsTabs';
+import { useSafeMode } from '@app/hooks/useAdult';
 import useSettings from '@app/hooks/useSettings';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
@@ -19,6 +20,7 @@ const messages = defineMessages('components.Settings', {
   menuJobs: 'Jobs & Cache',
   menuAbout: 'About',
   menuMetadataProviders: 'Metadata Providers',
+  menuStash: 'Stash',
 });
 
 type SettingsLayoutProps = {
@@ -27,6 +29,7 @@ type SettingsLayoutProps = {
 
 const SettingsLayout = ({ children }: SettingsLayoutProps) => {
   const intl = useIntl();
+  const safeMode = useSafeMode();
   const settings = useSettings();
   const settingsRoutes: SettingsRoute[] = [
     {
@@ -50,6 +53,16 @@ const SettingsLayout = ({ children }: SettingsLayoutProps) => {
           route: '/settings/jellyfin',
           regex: /^\/settings\/jellyfin/,
         },
+    // The scene library, next to the media server
+    ...(settings.currentSettings.enableAdult && !safeMode
+      ? [
+          {
+            text: intl.formatMessage(messages.menuStash),
+            route: '/settings/stash',
+            regex: /^\/settings\/stash/,
+          },
+        ]
+      : []),
     {
       text: intl.formatMessage(messages.menuServices),
       route: '/settings/services',

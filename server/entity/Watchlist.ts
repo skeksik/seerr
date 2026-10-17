@@ -1,9 +1,17 @@
 import TheMovieDb from '@server/api/themoviedb';
-import { MediaType } from '@server/constants/media';
-import { getRepository } from '@server/datasource';
+import {
+  MediaType,
+  type AdultMediaType,
+  type TmdbMediaType,
+} from '@server/constants/media';
+import dataSource, { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { User } from '@server/entity/User';
 import type { WatchlistItem } from '@server/interfaces/api/discoverInterfaces';
+import {
+  findOrCreateAdultMedia,
+  lookupAdultTitle,
+} from '@server/lib/adultMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import {
@@ -27,6 +35,7 @@ export class NotFoundError extends Error {
 
 @Entity()
 @Unique('UNIQUE_USER_DB', ['tmdbId', 'mediaType', 'requestedBy'])
+@Unique('UNIQUE_USER_EXTERNAL', ['externalId', 'mediaType', 'requestedBy'])
 export class Watchlist implements WatchlistItem {
   @PrimaryGeneratedColumn()
   id: number;
@@ -40,9 +49,15 @@ export class Watchlist implements WatchlistItem {
   @Column({ type: 'varchar' })
   title = '';
 
-  @Column()
+  // Null for scenes and adult movies, which are keyed by externalId
+  @Column({ type: 'int', nullable: true })
   @Index()
-  public tmdbId: number;
+  public tmdbId: number | null;
+
+  // StashDB scene or ThePornDB movie UUID
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  public externalId: string | null;
 
   @ManyToOne(() => User, (user) => user.watchlists, {
     eager: true,
@@ -76,7 +91,7 @@ export class Watchlist implements WatchlistItem {
     user,
   }: {
     watchlistRequest: {
-      mediaType: MediaType;
+      mediaType: TmdbMediaType;
       ratingKey?: ZodOptional<ZodString>['_output'];
       title?: ZodOptional<ZodString>['_output'];
       tmdbId: ZodNumber['_output'];
@@ -140,14 +155,68 @@ export class Watchlist implements WatchlistItem {
     return watchlist;
   }
 
+  public static async createAdultWatchlist({
+    mediaType,
+    externalId,
+    user,
+  }: {
+    mediaType: AdultMediaType;
+    externalId: string;
+    user: User;
+  }): Promise<Watchlist> {
+    const isListed = (id: string) =>
+      getRepository(Watchlist).exist({
+        where: { externalId: id, mediaType, requestedBy: { id: user.id } },
+      });
+
+    // Checked before the lookup too, which costs a StashDB or ThePornDB
+    // request
+    if (await isListed(externalId)) {
+      throw new DuplicateWatchlistRequestError();
+    }
+
+    const found = await lookupAdultTitle(mediaType, externalId);
+
+    if (!found) {
+      throw new NotFoundError(`Unknown ${mediaType} ${externalId}`);
+    }
+
+    return dataSource.transaction(async (em) => {
+      const watchlistRepository = em.getRepository(Watchlist);
+      const existing = await watchlistRepository.findOneBy({
+        externalId: found.id,
+        mediaType,
+        requestedBy: { id: user.id },
+      });
+
+      if (existing) {
+        throw new DuplicateWatchlistRequestError();
+      }
+
+      const media = await findOrCreateAdultMedia(em, mediaType, found.id);
+      await em.getRepository(Media).save(media);
+
+      return watchlistRepository.save(
+        new Watchlist({
+          mediaType,
+          externalId: found.id,
+          tmdbId: null,
+          title: found.title,
+          requestedBy: user,
+          media,
+        })
+      );
+    });
+  }
+
   public static async deleteWatchlist(
-    tmdbId: Watchlist['tmdbId'],
+    id: number | string,
     mediaType: MediaType,
     user: User
   ): Promise<Watchlist | null> {
     const watchlistRepository = getRepository(this);
     const watchlist = await watchlistRepository.findOneBy({
-      tmdbId,
+      ...(typeof id === 'string' ? { externalId: id } : { tmdbId: id }),
       mediaType,
       requestedBy: { id: user.id },
     });

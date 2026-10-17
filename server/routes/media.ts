@@ -1,8 +1,15 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
 import TautulliAPI from '@server/api/tautulli';
 import TheMovieDb from '@server/api/themoviedb';
-import { MediaStatus, MediaType } from '@server/constants/media';
+import {
+  isAdultMediaType,
+  isTmdbMedia,
+  MediaStatus,
+  MediaType,
+  parseMediaType,
+} from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import Season from '@server/entity/Season';
@@ -11,12 +18,14 @@ import type {
   MediaResultsResponse,
   MediaWatchDataResponse,
 } from '@server/interfaces/api/mediaInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { findWhisparrItem, getWhisparrServer } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
 import { Router } from 'express';
-import type { FindOneOptions } from 'typeorm';
+import type { FindOneOptions, FindOptionsWhere } from 'typeorm';
 import { EntityNotFoundError, In, IsNull, Not } from 'typeorm';
 
 const mediaRoutes = Router();
@@ -74,10 +83,36 @@ mediaRoutes.get('/', async (req, res, next) => {
       whereClause.mediaAddedAt = Not(IsNull());
   }
 
+  // Comma-separated, e.g. scene for the recently added scenes row
+  const mediaTypes =
+    typeof req.query.mediaType === 'string'
+      ? req.query.mediaType.split(',').flatMap((type) => {
+          const mediaType = parseMediaType(type);
+          return mediaType ? [mediaType] : [];
+        })
+      : [];
+
+  // Adult titles are listed like movies, whoever added them, for users who
+  // can see them
+  const allowAdult = canViewAdult(req.user);
+  const wanted = (
+    mediaTypes.length > 0 ? mediaTypes : Object.values(MediaType)
+  ).filter((type) => allowAdult || !isAdultMediaType(type));
+
+  if (wanted.length === 0) {
+    return res.status(200).json({
+      pageInfo: { pages: 0, pageSize, results: 0, page: 1 },
+      results: [],
+    } as MediaResultsResponse);
+  }
+
   try {
     const [media, mediaCount] = await mediaRepository.findAndCount({
       order: sortFilter,
-      where: whereClause,
+      where: {
+        ...(whereClause as FindOptionsWhere<Media> | undefined),
+        mediaType: In(wanted),
+      },
       take: pageSize,
       skip,
     });
@@ -212,6 +247,41 @@ mediaRoutes.delete(
       });
 
       const is4k = String(req.query.is4k) === 'true';
+
+      if (isAdultMediaType(media.mediaType)) {
+        const server = getWhisparrServer(
+          is4k,
+          is4k ? media.serviceId4k : media.serviceId
+        );
+
+        if (!server) {
+          return next({
+            status: 409,
+            message: 'No Whisparr server configured to delete media files',
+          });
+        }
+
+        const whisparr = WhisparrAPI.forServer(server);
+        const item = await findWhisparrItem(
+          whisparr,
+          media,
+          is4k ? media.externalServiceId4k : media.externalServiceId
+        );
+        await whisparr.removeItem(item);
+
+        media[is4k ? 'status4k' : 'status'] = MediaStatus.DELETED;
+        media.resetServiceData(is4k);
+        await mediaRepository.save(media);
+
+        return res.status(204).send();
+      }
+
+      if (!isTmdbMedia(media)) {
+        return next({
+          status: 400,
+          message: 'Removing files is not supported for this media type.',
+        });
+      }
       const isMovie = media.mediaType === MediaType.MOVIE;
 
       let serviceSettings;

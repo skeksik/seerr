@@ -3,7 +3,7 @@ import type {
   TmdbMovieDetails,
   TmdbTvDetails,
 } from '@server/api/themoviedb/interfaces';
-import { MediaType } from '@server/constants/media';
+import { MediaType, isAdultMediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import { MediaRequest } from '@server/entity/MediaRequest';
 import OverrideRule from '@server/entity/OverrideRule';
@@ -48,6 +48,7 @@ overrideRuleRoutes.post<
     tags?: string;
     radarrServiceId?: number;
     sonarrServiceId?: number;
+    whisparrServiceId?: number;
   }
 >('/', isAuthenticated(Permission.ADMIN), async (req, res, next) => {
   const overrideRuleRepository = getRepository(OverrideRule);
@@ -63,6 +64,7 @@ overrideRuleRoutes.post<
       tags: req.body.tags,
       radarrServiceId: req.body.radarrServiceId,
       sonarrServiceId: req.body.sonarrServiceId,
+      whisparrServiceId: req.body.whisparrServiceId,
     });
 
     const newRule = await overrideRuleRepository.save(rule);
@@ -79,7 +81,7 @@ overrideRuleRoutes.post<
   {
     mediaType: MediaType;
     is4k: boolean;
-    tmdbId: number;
+    tmdbId?: number;
     requestUser: number;
     requestId: number | null;
     tags?: number[] | null;
@@ -93,14 +95,20 @@ overrideRuleRoutes.post<
   async (req, res, next) => {
     try {
       const tmdb = new TheMovieDb();
-      let tmdbMedia: TmdbMovieDetails | TmdbTvDetails;
-      try {
-        tmdbMedia =
-          req.body.mediaType === MediaType.MOVIE
-            ? await tmdb.getMovie({ movieId: req.body.tmdbId })
-            : await tmdb.getTvShow({ tvId: req.body.tmdbId });
-      } catch {
-        return next({ status: 404, message: 'Media not found' });
+      let tmdbMedia: TmdbMovieDetails | TmdbTvDetails | undefined;
+      if (!isAdultMediaType(req.body.mediaType)) {
+        if (!req.body.tmdbId) {
+          return next({ status: 400, message: 'A TMDB id is required.' });
+        }
+
+        try {
+          tmdbMedia =
+            req.body.mediaType === MediaType.MOVIE
+              ? await tmdb.getMovie({ movieId: req.body.tmdbId })
+              : await tmdb.getTvShow({ tvId: req.body.tmdbId });
+        } catch {
+          return next({ status: 404, message: 'Media not found' });
+        }
       }
 
       const userRepository = getRepository(User);
@@ -207,6 +215,7 @@ overrideRuleRoutes.put<
     tags?: string;
     radarrServiceId?: number;
     sonarrServiceId?: number;
+    whisparrServiceId?: number;
   }
 >('/:ruleId', isAuthenticated(Permission.ADMIN), async (req, res, next) => {
   const overrideRuleRepository = getRepository(OverrideRule);
@@ -231,6 +240,7 @@ overrideRuleRoutes.put<
     rule.tags = req.body.tags;
     rule.radarrServiceId = req.body.radarrServiceId;
     rule.sonarrServiceId = req.body.sonarrServiceId;
+    rule.whisparrServiceId = req.body.whisparrServiceId;
 
     const newRule = await overrideRuleRepository.save(rule);
 

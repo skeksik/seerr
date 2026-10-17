@@ -1,5 +1,6 @@
 import Badge from '@app/components/Common/Badge';
 import { menuMessages } from '@app/components/Layout/Sidebar';
+import useAdult from '@app/hooks/useAdult';
 import useClickOutside from '@app/hooks/useClickOutside';
 import { Permission, useUser } from '@app/hooks/useUser';
 import { Transition } from '@headlessui/react';
@@ -10,9 +11,11 @@ import {
   ExclamationTriangleIcon,
   EyeSlashIcon,
   FilmIcon,
+  FireIcon,
   SparklesIcon,
   TvIcon,
   UsersIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import {
   ClockIcon as FilledClockIcon,
@@ -20,9 +23,11 @@ import {
   ExclamationTriangleIcon as FilledExclamationTriangleIcon,
   EyeSlashIcon as FilledEyeSlashIcon,
   FilmIcon as FilledFilmIcon,
+  FireIcon as FilledFireIcon,
   SparklesIcon as FilledSparklesIcon,
   TvIcon as FilledTvIcon,
   UsersIcon as FilledUsersIcon,
+  VideoCameraIcon as FilledVideoCameraIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
 import Link from 'next/link';
@@ -46,6 +51,7 @@ interface MenuLink {
   as?: string;
   requiredPermission?: Permission | Permission[];
   permissionType?: 'and' | 'or';
+  requiresAdult?: boolean;
   dataTestId?: string;
 }
 
@@ -59,6 +65,7 @@ const MobileMenu = ({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const { hasPermission } = useUser();
+  const canViewAdult = useAdult();
   const router = useRouter();
   useClickOutside(ref, () => {
     setTimeout(() => {
@@ -91,6 +98,22 @@ const MobileMenu = ({
       svgIcon: <TvIcon className="h-6 w-6" />,
       svgIconSelected: <FilledTvIcon className="h-6 w-6" />,
       activeRegExp: /^\/discover\/tv$/,
+    },
+    {
+      href: '/discover/scenes',
+      content: intl.formatMessage(menuMessages.browsescenes),
+      svgIcon: <VideoCameraIcon className="h-6 w-6" />,
+      svgIconSelected: <FilledVideoCameraIcon className="h-6 w-6" />,
+      activeRegExp: /^\/discover\/scenes$/,
+      requiresAdult: true,
+    },
+    {
+      href: '/discover/adultmovies',
+      content: intl.formatMessage(menuMessages.browseadultmovies),
+      svgIcon: <FireIcon className="h-6 w-6" />,
+      svgIconSelected: <FilledFireIcon className="h-6 w-6" />,
+      activeRegExp: /^\/discover\/adultmovies$/,
+      requiresAdult: true,
     },
     {
       href: '/requests',
@@ -144,12 +167,17 @@ const MobileMenu = ({
     },
   ];
 
+  // The bar holds four links, or five with the Scenes and Adult Movies tabs
+  // among them, so both get a place; the rest open from the last button
+  const barSize = canViewAdult ? 5 : 4;
+
   const filteredLinks = menuLinks.filter(
     (link) =>
-      !link.requiredPermission ||
-      hasPermission(link.requiredPermission, {
-        type: link.permissionType ?? 'and',
-      })
+      (!link.requiresAdult || canViewAdult) &&
+      (!link.requiredPermission ||
+        hasPermission(link.requiredPermission, {
+          type: link.permissionType ?? 'and',
+        }))
   );
 
   useEffect(() => {
@@ -228,7 +256,10 @@ const MobileMenu = ({
       <div className="padding-bottom-safe border-t border-gray-600 bg-gray-800/90 backdrop-blur">
         <div className="flex h-full items-center justify-between px-6 py-4 text-gray-100">
           {filteredLinks
-            .slice(0, filteredLinks.length === 5 ? 5 : 4)
+            .slice(
+              0,
+              filteredLinks.length === barSize + 1 ? barSize + 1 : barSize
+            )
             .map((link) => {
               const isActive =
                 router.pathname.match(link.activeRegExp) && !isOpen;
@@ -268,7 +299,7 @@ const MobileMenu = ({
                 </Link>
               );
             })}
-          {filteredLinks.length > 4 && filteredLinks.length !== 5 && (
+          {filteredLinks.length > barSize + 1 && (
             <button
               className={`flex flex-col items-center space-y-1 ${
                 isOpen ? 'text-indigo-500' : ''

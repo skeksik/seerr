@@ -1,6 +1,9 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import WhisparrAPI from '@server/api/servarr/whisparr';
+import type { TmdbMediaType } from '@server/constants/media';
 import {
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -18,13 +21,16 @@ import {
 import SeasonRequest from '@server/entity/SeasonRequest';
 import { User } from '@server/entity/User';
 import type {
+  AdultRequestBody,
   MediaRequestBody,
   RequestResultsResponse,
 } from '@server/interfaces/api/requestInterfaces';
+import { canViewAdult } from '@server/lib/adult';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { isAuthenticated } from '@server/middleware/auth';
+import { requireTmdbId } from '@server/utils/mediaIds';
 import requestLock, {
   mediaKey,
   mediaLock,
@@ -182,6 +188,22 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
             type: MediaType.TV,
           });
           break;
+        case 'scene':
+          query = query.andWhere('request.type = :type', {
+            type: MediaType.SCENE,
+          });
+          break;
+        case 'adultmovie':
+          query = query.andWhere('request.type = :type', {
+            type: MediaType.ADULT_MOVIE,
+          });
+          break;
+      }
+
+      if (!canViewAdult(req.user)) {
+        query = query.andWhere('request.type NOT IN (:...adultTypes)', {
+          adultTypes: [MediaType.SCENE, MediaType.ADULT_MOVIE],
+        });
       }
 
       const [requests, requestCount] = await query
@@ -223,9 +245,34 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
         })
       );
 
+      // Whisparr profiles only matter to pages with scenes or adult movies
+      const whisparrServers = await Promise.all(
+        (requests.some((r) => isAdultMediaType(r.media.mediaType))
+          ? settings.whisparr
+          : []
+        ).map(async (whisparrSetting) => {
+          const whisparr = WhisparrAPI.forServer(whisparrSetting);
+
+          return {
+            id: whisparrSetting.id,
+            profiles: await whisparr.getProfiles().catch(() => undefined),
+          };
+        })
+      );
+
       // add profile names to the media requests, with undefined if not found
       let mappedRequests = requests.map((r) => {
-        switch (r.type) {
+        if (isAdultMediaType(r.media.mediaType)) {
+          return {
+            ...r,
+            profileName: whisparrServers
+              .find((server) => server.id === r.serverId)
+              ?.profiles?.find((profile) => profile.id === r.profileId)?.name,
+          };
+        }
+
+        // Scenes and adult movies are Whisparr media, handled above
+        switch (r.type as TmdbMediaType) {
           case MediaType.MOVIE: {
             const profileName = radarrServers
               .find((serverr) => serverr.id === r.serverId)
@@ -250,7 +297,18 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
       // add canRemove prop if user has permission
       if (req.user?.hasPermission(Permission.MANAGE_REQUESTS)) {
         mappedRequests = mappedRequests.map((r) => {
-          switch (r.type) {
+          if (isAdultMediaType(r.media.mediaType)) {
+            return {
+              ...r,
+              canRemove: whisparrServers.some(
+                (server) =>
+                  server.id ===
+                  (r.is4k ? r.media.serviceId4k : r.media.serviceId)
+              ),
+            };
+          }
+
+          switch (r.type as TmdbMediaType) {
             case MediaType.MOVIE: {
               return {
                 ...r,
@@ -302,6 +360,14 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
                 settings.sonarr.find((r) => r.id === s.id)?.name ||
                 `Sonarr ${s.id}`,
             })),
+          whisparr: whisparrServers
+            .filter((s) => !s.profiles)
+            .map((s) => ({
+              id: s.id,
+              name:
+                settings.whisparr.find((r) => r.id === s.id)?.name ||
+                `Whisparr ${s.id}`,
+            })),
         },
       });
     } catch (e) {
@@ -310,7 +376,7 @@ requestRoutes.get<Record<string, unknown>, RequestResultsResponse>(
   }
 );
 
-requestRoutes.post<never, MediaRequest, MediaRequestBody>(
+requestRoutes.post<never, MediaRequest, MediaRequestBody | AdultRequestBody>(
   '/',
   async (req, res, next) => {
     try {
@@ -320,6 +386,20 @@ requestRoutes.post<never, MediaRequest, MediaRequestBody>(
           message: 'You must be logged in to request media.',
         });
       }
+
+      const idField =
+        req.body.mediaType === MediaType.SCENE
+          ? 'stashId'
+          : req.body.mediaType === MediaType.ADULT_MOVIE
+            ? 'tpdbId'
+            : 'mediaId';
+      if (!(idField in req.body)) {
+        return next({
+          status: 400,
+          message: `${req.body.mediaType} requests need a ${idField}.`,
+        });
+      }
+
       const request = await MediaRequest.request(req.body, req.user);
 
       return res.status(201).json(request);
@@ -531,14 +611,24 @@ requestRoutes.put<{ requestId: string }>(
         const ownerChanging = requestUser.id !== previousOwnerId;
 
         return requestLock.dispatch(userKey(requestUser.id), async () => {
-          if (req.body.mediaType === MediaType.MOVIE) {
+          // Scenes and adult movies share the movie edit fields
+          if (
+            req.body.mediaType === MediaType.MOVIE ||
+            isAdultMediaType(req.body.mediaType)
+          ) {
             if (ownerChanging && !request.ignoreQuota) {
               const quotas = await requestUser.getQuota();
+              const [quota, label] =
+                req.body.mediaType === MediaType.SCENE
+                  ? [quotas.scene, 'Scene']
+                  : req.body.mediaType === MediaType.ADULT_MOVIE
+                    ? [quotas.adultMovie, 'Adult Movie']
+                    : [quotas.movie, 'Movie'];
 
-              if (quotas.movie.restricted) {
+              if (quota.restricted) {
                 return next({
                   status: 403,
-                  message: 'Movie Quota exceeded.',
+                  message: `${label} Quota exceeded.`,
                 });
               }
             }
@@ -570,12 +660,12 @@ requestRoutes.put<{ requestId: string }>(
             // Same key as create, so an edit cannot claim a season that a new
             // request is taking at the same moment
             return mediaLock.dispatch(
-              mediaKey(MediaType.TV, request.media.tmdbId),
+              mediaKey(MediaType.TV, requireTmdbId(request.media)),
               async () => {
                 // Get existing media so we can work with all the requests
                 const media = await mediaRepository.findOneOrFail({
                   where: {
-                    tmdbId: request.media.tmdbId,
+                    tmdbId: requireTmdbId(request.media),
                     mediaType: MediaType.TV,
                   },
                   relations: { requests: true },

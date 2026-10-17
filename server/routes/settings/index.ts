@@ -45,14 +45,22 @@ import metadataRoutes from './metadata';
 import notificationRoutes from './notifications';
 import radarrRoutes from './radarr';
 import sonarrRoutes from './sonarr';
+import stashRoutes from './stash';
+import stashDbRoutes from './stashdb';
+import tpdbRoutes from './tpdb';
+import whisparrRoutes from './whisparr';
 
 const settingsRoutes = Router();
 
 settingsRoutes.use('/notifications', notificationRoutes);
 settingsRoutes.use('/radarr', radarrRoutes);
 settingsRoutes.use('/sonarr', sonarrRoutes);
+settingsRoutes.use('/whisparr', whisparrRoutes);
 settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
+settingsRoutes.use('/stashdb', stashDbRoutes);
+settingsRoutes.use('/stash', stashRoutes);
+settingsRoutes.use('/tpdb', tpdbRoutes);
 
 const libraryUpdateSchema = z.object({
   enabled: z.boolean(),

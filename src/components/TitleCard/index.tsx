@@ -7,10 +7,14 @@ import Tooltip from '@app/components/Common/Tooltip';
 import RequestModal from '@app/components/RequestModal';
 import ErrorCard from '@app/components/TitleCard/ErrorCard';
 import Placeholder from '@app/components/TitleCard/Placeholder';
+import { LANDSCAPE_CARD_WIDTH } from '@app/components/TitleCard/constants';
+import useBlocklistToggle from '@app/hooks/useBlocklistToggle';
 import { useIsTouch } from '@app/hooks/useIsTouch';
-import useToasts from '@app/hooks/useToasts';
 import { Permission, UserType, useUser } from '@app/hooks/useUser';
+import useWatchlistToggle from '@app/hooks/useWatchlistToggle';
 import globalMessages from '@app/i18n/globalMessages';
+import type { AdultMediaType } from '@app/utils/adultMedia';
+import { isAdultMediaType } from '@app/utils/adultMedia';
 import defineMessages from '@app/utils/defineMessages';
 import { withProperties } from '@app/utils/typeHelpers';
 import { Transition } from '@headlessui/react';
@@ -22,22 +26,23 @@ import {
   StarIcon,
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
-import type { Watchlist } from '@server/entity/Watchlist';
+import { mediaPermissions } from '@server/lib/permissions';
 import type { MediaType } from '@server/models/Search';
-import axios from 'axios';
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { mutate } from 'swr';
 
 interface TitleCardProps {
-  id: number;
+  id: number | string;
+  // TMDB poster path, or the full image URL of a scene or adult movie
   image?: string;
   summary?: string;
   year?: string;
+  // Line under the year, e.g. studio and year of adult titles
+  subtitle?: string;
   title: string;
   userScore?: number;
-  mediaType: MediaType;
+  mediaType: MediaType | AdultMediaType;
   status?: MediaStatus;
   canExpand?: boolean;
   inProgress?: boolean;
@@ -55,11 +60,21 @@ const messages = defineMessages('components.TitleCard', {
   watchlistError: 'Something went wrong. Please try again.',
 });
 
+// Lines of title and summary; summaryCompact applies without a request
+// button. Wide scene cards are short, adult movie cards leave room for the
+// studio line
+const lineClamps = {
+  scene: { title: 1, summary: 1, summaryCompact: 2 },
+  adultmovie: { title: 2, summary: 2, summaryCompact: 2 },
+  default: { title: 3, summary: 3, summaryCompact: 5 },
+};
+
 const TitleCard = ({
   id,
   image,
   summary,
   year,
+  subtitle,
   title,
   status,
   mediaType,
@@ -75,11 +90,44 @@ const TitleCard = ({
   const [currentStatus, setCurrentStatus] = useState(status);
   const [showDetail, setShowDetail] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const { addToast } = useToasts();
-  const [toggleWatchlist, setToggleWatchlist] =
-    useState<boolean>(!isAddedToWatchlist);
   const [showBlocklistModal, setShowBlocklistModal] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const adultType = isAdultMediaType(mediaType) ? mediaType : undefined;
+  // Scene stills are landscape; everything else has portrait posters
+  const isScene = mediaType === 'scene';
+  const hasImage = !!image && !imageFailed;
+  const clamps = lineClamps[adultType ?? 'default'];
+  const watchlist = useWatchlistToggle({
+    id,
+    mediaType,
+    title,
+    onWatchlist: !!isAddedToWatchlist,
+    messages: {
+      added: messages.watchlistSuccess,
+      removed: messages.watchlistDeleted,
+      error: messages.watchlistError,
+    },
+    onRemoved: mutateParent,
+    // Users with Auto-Request get scenes and adult movies requested
+    onAdded: (entry) => {
+      if (entry.media?.status) {
+        setCurrentStatus(entry.media.status);
+      }
+    },
+  });
+  const blocklist = useBlocklistToggle({
+    id,
+    mediaType,
+    title,
+    onChange: (newStatus) => {
+      setCurrentStatus(newStatus);
+      if (mutateParent) {
+        mutateParent();
+      }
+    },
+  });
+  const showUpdating =
+    isUpdating || watchlist.isUpdating || blocklist.isUpdating;
 
   // Just to get the year from the date
   if (year) {
@@ -105,210 +153,37 @@ const TitleCard = ({
     []
   );
 
-  const onClickWatchlistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    try {
-      const response = await axios.post<Watchlist>('/api/v1/watchlist', {
-        tmdbId: id,
-        mediaType,
-        title,
-      });
-      mutate('/api/v1/discover/watchlist');
-      if (response.data) {
-        addToast(
-          <span>
-            {intl.formatMessage(messages.watchlistSuccess, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'success', autoDismiss: true }
-        );
-      }
-    } catch {
-      addToast(intl.formatMessage(messages.watchlistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    } finally {
-      setIsUpdating(false);
-      setToggleWatchlist((prevState) => !prevState);
-    }
-  };
-
-  const onClickDeleteWatchlistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    try {
-      const response = await axios.delete<Watchlist>(
-        `/api/v1/watchlist/${id}?mediaType=${mediaType}`
-      );
-
-      if (response.status === 204) {
-        addToast(
-          <span>
-            {intl.formatMessage(messages.watchlistDeleted, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'info', autoDismiss: true }
-        );
-      }
-    } catch {
-      addToast(intl.formatMessage(messages.watchlistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    } finally {
-      setIsUpdating(false);
-      mutate('/api/v1/discover/watchlist');
-      if (mutateParent) {
-        mutateParent();
-      }
-      setToggleWatchlist((prevState) => !prevState);
-    }
-  };
-
   const onClickHideItemBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    const topNode = cardRef.current;
-
-    if (topNode) {
-      try {
-        if (mediaType === 'collection') {
-          await axios.post(`/api/v1/blocklist/collection/${id}`);
-        } else {
-          await axios.post('/api/v1/blocklist', {
-            tmdbId: id,
-            mediaType,
-            title,
-            user: user?.id,
-          });
-        }
-        addToast(
-          <span>
-            {intl.formatMessage(globalMessages.blocklistSuccess, {
-              title,
-              strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-            })}
-          </span>,
-          { appearance: 'success', autoDismiss: true }
-        );
-        setCurrentStatus(MediaStatus.BLOCKLISTED);
-        if (mutateParent) {
-          mutateParent();
-        }
-      } catch (e) {
-        if (e?.response?.status === 412) {
-          addToast(
-            <span>
-              {intl.formatMessage(globalMessages.blocklistDuplicateError, {
-                title,
-                strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-              })}
-            </span>,
-            { appearance: 'info', autoDismiss: true }
-          );
-        } else {
-          addToast(intl.formatMessage(globalMessages.blocklistError), {
-            appearance: 'error',
-            autoDismiss: true,
-          });
-        }
-      }
-
-      setIsUpdating(false);
-      closeBlocklistModal();
-    } else {
-      addToast(intl.formatMessage(globalMessages.blocklistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    }
-  };
-
-  const onClickShowBlocklistBtn = async (): Promise<void> => {
-    setIsUpdating(true);
-    const topNode = cardRef.current;
-
-    if (topNode) {
-      try {
-        if (mediaType === 'collection') {
-          const res = await axios.delete(`/api/v1/blocklist/collection/${id}`);
-
-          if (res.status === 204) {
-            addToast(
-              <span>
-                {intl.formatMessage(globalMessages.removeFromBlocklistSuccess, {
-                  title,
-                  strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-                })}
-              </span>,
-              { appearance: 'success', autoDismiss: true }
-            );
-            setCurrentStatus(MediaStatus.UNKNOWN);
-            if (mutateParent) {
-              mutateParent();
-            }
-          } else {
-            addToast(intl.formatMessage(globalMessages.blocklistError), {
-              appearance: 'error',
-              autoDismiss: true,
-            });
-          }
-        } else {
-          const res = await axios.delete(
-            `/api/v1/blocklist/${id}?mediaType=${mediaType}`
-          );
-
-          if (res.status === 204) {
-            addToast(
-              <span>
-                {intl.formatMessage(globalMessages.removeFromBlocklistSuccess, {
-                  title,
-                  strong: (msg: React.ReactNode) => <strong>{msg}</strong>,
-                })}
-              </span>,
-              { appearance: 'success', autoDismiss: true }
-            );
-            setCurrentStatus(MediaStatus.UNKNOWN);
-            if (mutateParent) {
-              mutateParent();
-            }
-          } else {
-            addToast(intl.formatMessage(globalMessages.blocklistError), {
-              appearance: 'error',
-              autoDismiss: true,
-            });
-          }
-        }
-      } catch {
-        addToast(intl.formatMessage(globalMessages.blocklistError), {
-          appearance: 'error',
-          autoDismiss: true,
-        });
-      }
-    } else {
-      addToast(intl.formatMessage(globalMessages.blocklistError), {
-        appearance: 'error',
-        autoDismiss: true,
-      });
-    }
-
-    setIsUpdating(false);
+    await blocklist.blocklist();
+    closeBlocklistModal();
   };
 
   const closeModal = useCallback(() => setShowRequestModal(false), []);
 
-  const showRequestButton = hasPermission(
-    [
-      Permission.REQUEST,
-      mediaType === 'movie' || mediaType === 'collection'
-        ? Permission.REQUEST_MOVIE
-        : Permission.REQUEST_TV,
-    ],
-    { type: 'or' }
-  );
+  const showRequestButton = adultType
+    ? hasPermission(mediaPermissions('request', adultType), { type: 'or' })
+    : hasPermission(
+        [
+          Permission.REQUEST,
+          mediaType === 'movie' || mediaType === 'collection'
+            ? Permission.REQUEST_MOVIE
+            : Permission.REQUEST_TV,
+        ],
+        { type: 'or' }
+      );
+  const href = adultType
+    ? `/${adultType}/${id}`
+    : mediaType === 'movie'
+      ? `/movie/${id}`
+      : mediaType === 'collection'
+        ? `/collection/${id}`
+        : `/tv/${id}`;
+  const tmdbType =
+    mediaType === 'movie'
+      ? 'movie'
+      : mediaType === 'collection'
+        ? 'collection'
+        : 'tv';
 
   const showHideButton = hasPermission([Permission.MANAGE_BLOCKLIST], {
     type: 'or',
@@ -316,49 +191,49 @@ const TitleCard = ({
 
   return (
     <div
-      className={canExpand ? 'w-full' : 'w-36 sm:w-36 md:w-44'}
+      className={
+        canExpand
+          ? 'w-full'
+          : isScene
+            ? LANDSCAPE_CARD_WIDTH
+            : 'w-36 sm:w-36 md:w-44'
+      }
       data-testid="title-card"
-      ref={cardRef}
     >
       <RequestModal
-        tmdbId={id}
+        {...(adultType
+          ? { type: adultType, externalId: String(id) }
+          : { type: tmdbType, tmdbId: id as number })}
         show={showRequestModal}
-        type={
-          mediaType === 'movie'
-            ? 'movie'
-            : mediaType === 'collection'
-              ? 'collection'
-              : 'tv'
-        }
         onComplete={requestComplete}
         onUpdating={requestUpdating}
         onCancel={closeModal}
       />
       <BlocklistModal
-        tmdbId={id}
-        type={
-          mediaType === 'movie'
-            ? 'movie'
-            : mediaType === 'collection'
-              ? 'collection'
-              : 'tv'
-        }
+        id={id}
+        type={adultType ?? tmdbType}
         show={showBlocklistModal}
         onCancel={closeBlocklistModal}
         onComplete={onClickHideItemBtn}
-        isUpdating={isUpdating}
+        isUpdating={showUpdating}
       />
       <div
-        className={`relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover outline-none ring-1 transition duration-300 ${
+        className={`group relative transform-gpu cursor-default overflow-hidden rounded-xl bg-gray-800 bg-cover outline-none ring-1 transition duration-300 ${
           showDetail
             ? 'scale-105 shadow-lg ring-gray-500'
             : 'scale-100 shadow ring-gray-700'
         }`}
         style={{
-          paddingBottom: '150%',
+          paddingBottom: isScene ? '56.25%' : '150%',
         }}
         onMouseEnter={() => {
           if (!isTouch) {
+            setShowDetail(true);
+          }
+        }}
+        // A card that loads under the cursor gets no mouseenter
+        onMouseMove={() => {
+          if (!isTouch && !showDetail) {
             setShowDetail(true);
           }
         }}
@@ -373,43 +248,87 @@ const TitleCard = ({
         tabIndex={0}
       >
         <div className="absolute inset-0 h-full w-full overflow-hidden">
-          <CachedImage
-            type="tmdb"
-            className="absolute inset-0 h-full w-full"
-            alt=""
-            src={
-              image
-                ? `https://image.tmdb.org/t/p/w300_and_h450_face${image}`
-                : `/images/seerr_poster_not_found_logo_top.png`
-            }
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            fill
-          />
+          {adultType ? (
+            hasImage ? (
+              <CachedImage
+                type={isScene ? 'stashdb' : 'tpdb'}
+                className="absolute inset-0 h-full w-full"
+                alt=""
+                src={image}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                fill
+                // ThePornDB's CDN fails now and then; the details show instead
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              !isScene && (
+                <CachedImage
+                  type="tmdb"
+                  className="absolute inset-0 h-full w-full"
+                  alt=""
+                  src="/images/seerr_poster_not_found_logo_top.png"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  fill
+                />
+              )
+            )
+          ) : (
+            <CachedImage
+              type="tmdb"
+              className="absolute inset-0 h-full w-full"
+              alt=""
+              src={
+                image
+                  ? `https://image.tmdb.org/t/p/w300_and_h450_face${image}`
+                  : `/images/seerr_poster_not_found_logo_top.png`
+              }
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              fill
+            />
+          )}
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
             <div
               className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                mediaType === 'movie' || mediaType === 'collection'
-                  ? 'border-blue-500 bg-blue-600/80'
-                  : 'border-purple-600 bg-purple-600/80'
+                adultType
+                  ? 'border-pink-500 bg-pink-600/80'
+                  : mediaType === 'movie' || mediaType === 'collection'
+                    ? 'border-blue-500 bg-blue-600/80'
+                    : 'border-purple-600 bg-purple-600/80'
               }`}
             >
               <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                {mediaType === 'movie'
-                  ? intl.formatMessage(globalMessages.movie)
-                  : mediaType === 'collection'
-                    ? intl.formatMessage(globalMessages.collection)
-                    : intl.formatMessage(globalMessages.tvshow)}
+                {isScene
+                  ? intl.formatMessage(globalMessages.scene)
+                  : adultType
+                    ? intl.formatMessage(globalMessages.adult)
+                    : mediaType === 'movie'
+                      ? intl.formatMessage(globalMessages.movie)
+                      : mediaType === 'collection'
+                        ? intl.formatMessage(globalMessages.collection)
+                        : intl.formatMessage(globalMessages.tvshow)}
               </div>
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
-              <div className="flex flex-col gap-1">
+              <div
+                // Wide scene cards keep them right, as far from the status
+                // as the middle of a poster card is
+                className={`flex gap-1 ${
+                  isScene
+                    ? `ml-auto flex-row ${
+                        currentStatus && currentStatus !== MediaStatus.UNKNOWN
+                          ? 'mr-5'
+                          : ''
+                      }`
+                    : 'flex-col'
+                }`}
+              >
                 {user?.userType !== UserType.PLEX &&
-                  (toggleWatchlist ? (
+                  (!watchlist.onWatchlist ? (
                     <Button
                       buttonType={'ghost'}
                       className="z-40"
                       buttonSize={'sm'}
-                      onClick={onClickWatchlistBtn}
+                      onClick={watchlist.add}
                     >
                       <StarIcon className={'h-3 text-amber-300'} />
                     </Button>
@@ -417,7 +336,7 @@ const TitleCard = ({
                     <Button
                       className="z-40"
                       buttonSize={'sm'}
-                      onClick={onClickDeleteWatchlistBtn}
+                      onClick={watchlist.remove}
                     >
                       <MinusCircleIcon className={'h-3'} />
                     </Button>
@@ -448,9 +367,11 @@ const TitleCard = ({
                 >
                   <Button
                     buttonType={'ghost'}
-                    className="z-40"
+                    // On wide scene cards it sits right, like the watchlist
+                    // button
+                    className={`z-40 ${isScene ? 'ml-auto mr-5' : ''}`}
                     buttonSize={'sm'}
-                    onClick={() => onClickShowBlocklistBtn()}
+                    onClick={() => blocklist.unblocklist()}
                   >
                     <EyeIcon className={'h-3'} />
                   </Button>
@@ -470,7 +391,7 @@ const TitleCard = ({
           </div>
           <Transition
             as={Fragment}
-            show={isUpdating}
+            show={showUpdating}
             enter="transition-opacity ease-in-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -485,7 +406,7 @@ const TitleCard = ({
 
           <Transition
             as={Fragment}
-            show={!image || showDetail || showRequestModal}
+            show={!hasImage || showDetail || showRequestModal}
             enter="transition-opacity"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -495,13 +416,7 @@ const TitleCard = ({
           >
             <div className="absolute inset-0 overflow-hidden rounded-xl">
               <Link
-                href={
-                  mediaType === 'movie'
-                    ? `/movie/${id}`
-                    : mediaType === 'collection'
-                      ? `/collection/${id}`
-                      : `/tv/${id}`
-                }
+                href={href}
                 className="absolute inset-0 h-full w-full cursor-pointer overflow-hidden text-left"
                 style={{
                   background:
@@ -510,7 +425,7 @@ const TitleCard = ({
               >
                 <div className="flex h-full w-full items-end">
                   <div
-                    className={`px-2 text-white ${
+                    className={`w-full min-w-0 px-2 text-white ${
                       !showRequestButton ||
                       (currentStatus &&
                         currentStatus !== MediaStatus.UNKNOWN &&
@@ -519,12 +434,18 @@ const TitleCard = ({
                         : 'pb-11'
                     }`}
                   >
-                    {year && <div className="text-sm font-medium">{year}</div>}
+                    {[year, subtitle].filter(Boolean).map((line) => (
+                      <div key={line} className="truncate text-sm font-medium">
+                        {line}
+                      </div>
+                    ))}
 
                     <h1
-                      className="whitespace-normal text-xl font-bold leading-tight"
+                      className={`whitespace-normal font-bold leading-tight ${
+                        isScene ? 'text-lg' : 'text-xl'
+                      }`}
                       style={{
-                        WebkitLineClamp: 3,
+                        WebkitLineClamp: clamps.title,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',
@@ -542,8 +463,8 @@ const TitleCard = ({
                           (currentStatus &&
                             currentStatus !== MediaStatus.UNKNOWN &&
                             currentStatus !== MediaStatus.DELETED)
-                            ? 5
-                            : 3,
+                            ? clamps.summaryCompact
+                            : clamps.summary,
                         display: '-webkit-box',
                         overflow: 'hidden',
                         WebkitBoxOrient: 'vertical',

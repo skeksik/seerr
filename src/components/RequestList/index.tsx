@@ -4,6 +4,7 @@ import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
 import Tooltip from '@app/components/Common/Tooltip';
 import RequestItem from '@app/components/RequestList/RequestItem';
+import useAdult from '@app/hooks/useAdult';
 import { useUpdateQueryParams } from '@app/hooks/useUpdateQueryParams';
 import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
@@ -51,7 +52,7 @@ type Sort = 'added' | 'modified';
 
 type SortDirection = 'asc' | 'desc';
 
-type MediaType = 'all' | 'movie' | 'tv';
+type MediaType = 'all' | 'movie' | 'tv' | 'scene' | 'adultmovie';
 
 const RequestList = () => {
   const router = useRouter();
@@ -63,6 +64,7 @@ const RequestList = () => {
   const [currentFilter, setCurrentFilter] = useState<Filter>(Filter.PENDING);
   const [currentSort, setCurrentSort] = useState<Sort>('added');
   const [currentMediaType, setCurrentMediaType] = useState<string>('all');
+  const canViewAdult = useAdult();
   const [currentSortDirection, setCurrentSortDirection] =
     useState<SortDirection>('desc');
   const [currentPageSize, setCurrentPageSize] = useState<number>(10);
@@ -194,6 +196,16 @@ const RequestList = () => {
               <option value="tv">
                 {intl.formatMessage(globalMessages.tvshows)}
               </option>
+              {canViewAdult && (
+                <>
+                  <option value="scene">
+                    {intl.formatMessage(globalMessages.scenes)}
+                  </option>
+                  <option value="adultmovie">
+                    {intl.formatMessage(globalMessages.adultMovies)}
+                  </option>
+                </>
+              )}
             </select>
           </div>
           <div className="mb-2 flex flex-grow sm:mb-0 sm:mr-2 lg:flex-grow-0">
@@ -294,7 +306,8 @@ const RequestList = () => {
 
       {data.serviceErrors &&
         (data.serviceErrors.radarr.length > 0 ||
-          data.serviceErrors.sonarr.length > 0) &&
+          data.serviceErrors.sonarr.length > 0 ||
+          data.serviceErrors.whisparr?.length > 0) &&
         (hasPermission(Permission.MANAGE_REQUESTS) ||
           hasPermission(Permission.REQUEST_ADVANCED)) && (
           <div className="service-error-banner">
@@ -304,6 +317,7 @@ const RequestList = () => {
                 services: [
                   ...data.serviceErrors.radarr.map((s) => s.name),
                   ...data.serviceErrors.sonarr.map((s) => s.name),
+                  ...(data.serviceErrors.whisparr ?? []).map((s) => s.name),
                 ].join(', '),
               })}
             </span>

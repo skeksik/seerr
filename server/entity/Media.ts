@@ -1,6 +1,10 @@
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
+import { stashUrl } from '@server/api/stash';
+import type { AdultMediaType } from '@server/constants/media';
 import {
+  adultIdField,
+  isAdultMediaType,
   MediaRequestStatus,
   MediaStatus,
   MediaType,
@@ -14,6 +18,7 @@ import type { DownloadingItem } from '@server/lib/downloadtracker';
 import downloadTracker from '@server/lib/downloadtracker';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
+import { whisparrServiceUrl } from '@server/lib/whisparrMedia';
 import logger from '@server/logger';
 import { DbAwareColumn, resolveDbType } from '@server/utils/DbColumnHelper';
 import { getHostname } from '@server/utils/getHostname';
@@ -63,29 +68,8 @@ class Media {
         items.some((i) => i.tmdbId === m.tmdbId && i.mediaType === m.mediaType)
       );
 
-      if (
-        includeActiveRequest &&
-        getSettings().main.hideRequested &&
-        relatedMedia.length > 0
-      ) {
-        const activeRequestMediaIds = await mediaRepository
-          .createQueryBuilder('media')
-          .select('media.id', 'id')
-          .distinct(true)
-          .innerJoin('media.requests', 'request')
-          .where('media.id IN (:...mediaIds)', {
-            mediaIds: relatedMedia.map((m) => m.id),
-          })
-          .andWhere('request.status IN (:...statuses)', {
-            statuses: [MediaRequestStatus.PENDING, MediaRequestStatus.APPROVED],
-          })
-          .getRawMany<{ id: number }>();
-
-        const activeIds = new Set(activeRequestMediaIds.map((row) => row.id));
-
-        relatedMedia.forEach((m) => {
-          m.hasActiveRequest = activeIds.has(m.id);
-        });
+      if (includeActiveRequest) {
+        await this.markActiveRequests(relatedMedia);
       }
 
       return relatedMedia;
@@ -93,6 +77,35 @@ class Media {
       logger.error(e.message);
       return [];
     }
+  }
+
+  // Sets hasActiveRequest, which lists need to hide requested titles. Set
+  // whether or not Hide Requested Media is on, like the status the other
+  // hide settings go by: lists already read keep it, so turning the setting
+  // on hides their requested titles without reading them again
+  private static async markActiveRequests(media: Media[]): Promise<void> {
+    if (media.length === 0) {
+      return;
+    }
+
+    const activeRequestMediaIds = await getRepository(Media)
+      .createQueryBuilder('media')
+      .select('media.id', 'id')
+      .distinct(true)
+      .innerJoin('media.requests', 'request')
+      .where('media.id IN (:...mediaIds)', {
+        mediaIds: media.map((m) => m.id),
+      })
+      .andWhere('request.status IN (:...statuses)', {
+        statuses: [MediaRequestStatus.PENDING, MediaRequestStatus.APPROVED],
+      })
+      .getRawMany<{ id: number }>();
+
+    const activeIds = new Set(activeRequestMediaIds.map((row) => row.id));
+
+    media.forEach((m) => {
+      m.hasActiveRequest = activeIds.has(m.id);
+    });
   }
 
   public static async getMedia(
@@ -114,15 +127,91 @@ class Media {
     }
   }
 
+  // Scenes and adult movies by external id, with the viewer's watchlist entry
+  // and whether they are requested
+  private static async getRelatedAdultMedia(
+    mediaType: AdultMediaType,
+    ids: string[],
+    user?: User
+  ): Promise<Media[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const idField = adultIdField(mediaType);
+
+    try {
+      const media = await getRepository(Media)
+        .createQueryBuilder('media')
+        .leftJoinAndSelect(
+          'media.watchlists',
+          'watchlist',
+          'media.id = watchlist.media and watchlist.requestedBy = :userId',
+          { userId: user?.id ?? null }
+        )
+        .where(`media.${idField} IN (:...ids)`, { ids })
+        .andWhere('media.mediaType = :mediaType', { mediaType })
+        .getMany();
+
+      // Like the movie lists, for hiding requested titles
+      await this.markActiveRequests(media);
+      return media;
+    } catch (e) {
+      logger.error(e.message);
+      return [];
+    }
+  }
+
+  public static async getRelatedScenes(
+    stashIds: string[],
+    user?: User
+  ): Promise<Media[]> {
+    return this.getRelatedAdultMedia(MediaType.SCENE, stashIds, user);
+  }
+
+  public static async getRelatedAdultMovies(
+    tpdbIds: string[],
+    user?: User
+  ): Promise<Media[]> {
+    return this.getRelatedAdultMedia(MediaType.ADULT_MOVIE, tpdbIds, user);
+  }
+
+  // A scene or adult movie by its StashDB or ThePornDB id
+  public static async getAdultMedia(
+    mediaType: AdultMediaType,
+    externalId: string
+  ): Promise<Media | undefined> {
+    try {
+      const media = await getRepository(Media).findOne({
+        where: { [adultIdField(mediaType)]: externalId, mediaType },
+        relations: { requests: true, issues: true },
+      });
+
+      return media ?? undefined;
+    } catch (e) {
+      logger.error(e.message);
+      return undefined;
+    }
+  }
+
   @PrimaryGeneratedColumn()
   public id: number;
 
   @Column({ type: 'varchar' })
   public mediaType: MediaType;
 
-  @Column()
+  // Null for scenes and adult movies, which are keyed by stashId and tpdbId
+  @Column({ type: 'int', nullable: true })
   @Index()
-  public tmdbId: number;
+  public tmdbId: number | null;
+
+  // stash-box (StashDB) scene UUID, shared by Whisparr and Stash
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  public stashId?: string | null;
+
+  // ThePornDB movie UUID of an adult movie, shared by Whisparr
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  public tpdbId?: string | null;
 
   @Column({ unique: true, nullable: true })
   @Index()
@@ -218,6 +307,10 @@ class Media {
   @Column({ nullable: true, type: 'varchar' })
   public jellyfinMediaId4k?: string | null;
 
+  // Scene id in the Stash companion library
+  @Column({ nullable: true, type: 'varchar' })
+  public stashMediaId?: string | null;
+
   public serviceUrl?: string;
   public serviceUrl4k?: string;
   public hasActiveRequest?: boolean;
@@ -244,6 +337,7 @@ class Media {
       this.externalServiceSlug = null;
       this.ratingKey = null;
       this.jellyfinMediaId = null;
+      this.stashMediaId = null;
     }
     if (is4k === undefined || is4k) {
       this.serviceId4k = null;
@@ -256,6 +350,24 @@ class Media {
 
   @AfterLoad()
   public setPlexUrls(): void {
+    // Scenes play from Stash whatever the main media server is
+    if (this.mediaType === MediaType.SCENE) {
+      const stash = getSettings().stash;
+      const stashHost = stash.hostname
+        ? (stash.externalUrl || stashUrl(stash)).replace(/\/+$/, '')
+        : '';
+
+      if (this.stashMediaId && stashHost) {
+        this.mediaUrl = `${stashHost}/scenes/${this.stashMediaId}`;
+      }
+      return;
+    }
+
+    // Adult movies are only tracked through Whisparr
+    if (this.mediaType === MediaType.ADULT_MOVIE) {
+      return;
+    }
+
     const { machineId, webAppUrl } = getSettings().plex;
     const { externalUrl: tautulliUrl } = getSettings().tautulli;
 
@@ -309,6 +421,24 @@ class Media {
 
   @AfterLoad()
   public setServiceUrl(): void {
+    if (isAdultMediaType(this.mediaType)) {
+      const { whisparr } = getSettings();
+      const buildUrl = (serviceId?: number | null, slug?: string | null) => {
+        const server = whisparr.find((s) => s.id === serviceId);
+        if (!server || !slug) {
+          return undefined;
+        }
+        return whisparrServiceUrl(server, `/movie/${slug}`);
+      };
+
+      this.serviceUrl = buildUrl(this.serviceId, this.externalServiceSlug);
+      this.serviceUrl4k = buildUrl(
+        this.serviceId4k,
+        this.externalServiceSlug4k
+      );
+      return;
+    }
+
     if (this.mediaType === MediaType.MOVIE) {
       if (this.serviceId !== null && this.externalServiceSlug !== null) {
         const settings = getSettings();
@@ -374,6 +504,22 @@ class Media {
 
   @AfterLoad()
   public getDownloadingItem(): void {
+    if (isAdultMediaType(this.mediaType)) {
+      if (this.serviceId != null && this.externalServiceId != null) {
+        this.downloadStatus = downloadTracker.getWhisparrProgress(
+          this.serviceId,
+          this.externalServiceId
+        );
+      }
+      if (this.serviceId4k != null && this.externalServiceId4k != null) {
+        this.downloadStatus4k = downloadTracker.getWhisparrProgress(
+          this.serviceId4k,
+          this.externalServiceId4k
+        );
+      }
+      return;
+    }
+
     if (this.mediaType === MediaType.MOVIE) {
       if (
         this.externalServiceId !== undefined &&

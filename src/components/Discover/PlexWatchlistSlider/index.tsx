@@ -63,9 +63,10 @@ const PlexWatchlistSlider = () => {
         })}
         items={watchlistItems?.results.map((item) => (
           <TmdbTitleCard
-            id={item.tmdbId}
-            key={`watchlist-slider-item-${item.ratingKey}`}
+            id={item.tmdbId ?? item.id}
+            key={`watchlist-slider-item-${item.mediaType}-${item.id}-${item.ratingKey}`}
             tmdbId={item.tmdbId}
+            externalId={item.externalId}
             type={item.mediaType}
             isAddedToWatchlist={true}
           />

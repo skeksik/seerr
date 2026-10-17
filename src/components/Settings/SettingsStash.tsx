@@ -1,0 +1,343 @@
+import Button from '@app/components/Common/Button';
+import LoadingSpinner from '@app/components/Common/LoadingSpinner';
+import SensitiveInput from '@app/components/Common/SensitiveInput';
+import useToasts from '@app/hooks/useToasts';
+import globalMessages from '@app/i18n/globalMessages';
+import defineMessages from '@app/utils/defineMessages';
+import {
+  ArrowDownOnSquareIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import type { StashSettings } from '@server/lib/settings';
+import axios from 'axios';
+import { Field, Formik } from 'formik';
+import { useIntl } from 'react-intl';
+import useSWR from 'swr';
+import * as Yup from 'yup';
+
+const messages = defineMessages('components.Settings.SettingsStash', {
+  stashSettings: 'Stash Settings',
+  stashSettingsDescription:
+    'Optionally connect Stash as a library for scenes. Scenes that Stash has matched to StashDB are marked available and get a Play on Stash link. Find the API key under Settings → Security in Stash.',
+  hostname: 'Hostname or IP Address',
+  port: 'Port',
+  enablessl: 'Use SSL',
+  urlBase: 'URL Base',
+  apiKey: 'API Key',
+  externalUrl: 'External URL',
+  validationHostname: 'You must provide a valid hostname or IP address',
+  validationPort: 'You must provide a valid port number',
+  validationUrlBaseLeadingSlash: 'URL base must have a leading slash',
+  validationUrlBaseTrailingSlash: 'URL base must not end in a trailing slash',
+  validationUrl: 'You must provide a valid URL',
+  validationApiKey: 'You must provide an API key',
+  toastSaveSuccess: 'Stash settings saved successfully!',
+  toastSaveFailure: 'Something went wrong while saving Stash settings.',
+  invalidurlerror: 'Unable to connect to Stash server.',
+  manualscan: 'Manual Library Scan',
+  manualscanDescription:
+    'Seerr scans Stash on the Stash Scan job schedule, every 15 minutes by default. Run it now to mark scenes available that Stash has matched to StashDB or that are named after a StashDB id.',
+  notrunning: 'Not Running',
+  progress: '{progress} of {total}',
+  startscan: 'Start Scan',
+  cancelscan: 'Cancel Scan',
+});
+
+interface SyncStatus {
+  running: boolean;
+  progress: number;
+  total: number;
+}
+
+const SettingsStash = () => {
+  const intl = useIntl();
+  const { addToast } = useToasts();
+  const { data, error, mutate } = useSWR<StashSettings>(
+    '/api/v1/settings/stash'
+  );
+  const { data: sync, mutate: revalidateSync } = useSWR<SyncStatus>(
+    '/api/v1/settings/stash/sync',
+    { refreshInterval: (latest) => (latest?.running ? 1000 : 10000) }
+  );
+
+  const toggleScan = async (start: boolean) => {
+    await axios.post('/api/v1/settings/stash/sync', {
+      start,
+      cancel: !start,
+    });
+    revalidateSync();
+  };
+
+  // The Jellyfin settings' validation
+  const schema = Yup.object().shape({
+    hostname: Yup.string()
+      .required(intl.formatMessage(messages.validationHostname))
+      .matches(/^[^/:\s]+$/, intl.formatMessage(messages.validationHostname)),
+    port: Yup.number()
+      .typeError(intl.formatMessage(messages.validationPort))
+      .integer(intl.formatMessage(messages.validationPort))
+      .min(1, intl.formatMessage(messages.validationPort))
+      .max(65535, intl.formatMessage(messages.validationPort))
+      .required(intl.formatMessage(messages.validationPort)),
+    urlBase: Yup.string()
+      .test(
+        'leading-slash',
+        intl.formatMessage(messages.validationUrlBaseLeadingSlash),
+        (value) => !value || value.startsWith('/')
+      )
+      .test(
+        'trailing-slash',
+        intl.formatMessage(messages.validationUrlBaseTrailingSlash),
+        (value) => !value || !value.endsWith('/')
+      ),
+    externalUrl: Yup.string().url(intl.formatMessage(messages.validationUrl)),
+    apiKey: Yup.string().required(
+      intl.formatMessage(messages.validationApiKey)
+    ),
+  });
+
+  return (
+    <>
+      <div className="mb-6">
+        <h3 className="heading">{intl.formatMessage(messages.manualscan)}</h3>
+        <p className="description">
+          {intl.formatMessage(messages.manualscanDescription)}
+        </p>
+      </div>
+      <div className="section">
+        <div className="rounded-md bg-gray-800 p-4">
+          <div className="relative mb-6 h-8 w-full overflow-hidden rounded-full bg-gray-600">
+            {sync?.running && (
+              <div
+                className="h-8 bg-indigo-600 transition-all duration-200 ease-in-out"
+                style={{
+                  width: `${
+                    sync.total
+                      ? Math.round((sync.progress / sync.total) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            )}
+            <div className="absolute inset-0 flex h-8 w-full items-center justify-center text-sm">
+              <span>
+                {sync?.running
+                  ? intl.formatMessage(messages.progress, {
+                      progress: sync.progress,
+                      total: sync.total,
+                    })
+                  : intl.formatMessage(messages.notrunning)}
+              </span>
+            </div>
+          </div>
+          <div className="flex w-full justify-end">
+            {sync?.running ? (
+              <Button buttonType="danger" onClick={() => toggleScan(false)}>
+                <XMarkIcon />
+                <span>{intl.formatMessage(messages.cancelscan)}</span>
+              </Button>
+            ) : (
+              <Button
+                buttonType="warning"
+                disabled={!data?.hostname}
+                onClick={() => toggleScan(true)}
+              >
+                <MagnifyingGlassIcon />
+                <span>{intl.formatMessage(messages.startscan)}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mb-6 mt-10">
+        <h3 className="heading">
+          {intl.formatMessage(messages.stashSettings)}
+        </h3>
+        <p className="description">
+          {intl.formatMessage(messages.stashSettingsDescription)}
+        </p>
+      </div>
+      {!data && !error ? (
+        <LoadingSpinner />
+      ) : (
+        <Formik
+          initialValues={{
+            hostname: data?.hostname ?? '',
+            port: data?.port ?? 9999,
+            useSsl: data?.useSsl ?? false,
+            urlBase: data?.urlBase ?? '',
+            apiKey: data?.apiKey ?? '',
+            externalUrl: data?.externalUrl ?? '',
+          }}
+          enableReinitialize
+          validationSchema={schema}
+          onSubmit={async (values) => {
+            try {
+              await axios.post('/api/v1/settings/stash', {
+                ...values,
+                port: Number(values.port),
+              });
+              addToast(intl.formatMessage(messages.toastSaveSuccess), {
+                autoDismiss: true,
+                appearance: 'success',
+              });
+            } catch (e) {
+              // Saving checks the connection first, like Jellyfin's settings
+              addToast(
+                intl.formatMessage(
+                  e?.response?.status === 400
+                    ? messages.invalidurlerror
+                    : messages.toastSaveFailure
+                ),
+                { autoDismiss: true, appearance: 'error' }
+              );
+            } finally {
+              mutate();
+            }
+          }}
+        >
+          {({
+            errors,
+            touched,
+            values,
+            handleSubmit,
+            isSubmitting,
+            isValid,
+            setFieldValue,
+          }) => (
+            <form className="section" onSubmit={handleSubmit}>
+              <div className="form-row">
+                <label htmlFor="stashHostname" className="text-label">
+                  {intl.formatMessage(messages.hostname)}
+                  <span className="label-required">*</span>
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <span className="inline-flex cursor-default items-center rounded-l-md border border-r-0 border-gray-500 bg-gray-800 px-3 text-gray-100 sm:text-sm">
+                      {values.useSsl ? 'https://' : 'http://'}
+                    </span>
+                    <Field
+                      type="text"
+                      inputMode="url"
+                      id="stashHostname"
+                      name="hostname"
+                      className="rounded-r-only"
+                    />
+                  </div>
+                  {errors.hostname && touched.hostname && (
+                    <div className="error">{errors.hostname}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashPort" className="text-label">
+                  {intl.formatMessage(messages.port)}
+                  <span className="label-required">*</span>
+                </label>
+                <div className="form-input-area">
+                  <Field
+                    type="text"
+                    inputMode="numeric"
+                    id="stashPort"
+                    name="port"
+                    className="short"
+                  />
+                  {errors.port && touched.port && (
+                    <div className="error">{errors.port}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashUseSsl" className="checkbox-label">
+                  {intl.formatMessage(messages.enablessl)}
+                </label>
+                <div className="form-input-area">
+                  <Field
+                    type="checkbox"
+                    id="stashUseSsl"
+                    name="useSsl"
+                    onChange={() => {
+                      setFieldValue('useSsl', !values.useSsl);
+                      setFieldValue('port', values.useSsl ? 9999 : 443);
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashApiKey" className="text-label">
+                  {intl.formatMessage(messages.apiKey)}
+                  <span className="label-required">*</span>
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <SensitiveInput as="field" id="stashApiKey" name="apiKey" />
+                  </div>
+                  {errors.apiKey && touched.apiKey && (
+                    <div className="error">{errors.apiKey}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashUrlBase" className="text-label">
+                  {intl.formatMessage(messages.urlBase)}
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <Field
+                      type="text"
+                      inputMode="url"
+                      id="stashUrlBase"
+                      name="urlBase"
+                    />
+                  </div>
+                  {errors.urlBase && touched.urlBase && (
+                    <div className="error">{errors.urlBase}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <label htmlFor="stashExternalUrl" className="text-label">
+                  {intl.formatMessage(messages.externalUrl)}
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <Field
+                      type="text"
+                      inputMode="url"
+                      id="stashExternalUrl"
+                      name="externalUrl"
+                    />
+                  </div>
+                  {errors.externalUrl && touched.externalUrl && (
+                    <div className="error">{errors.externalUrl}</div>
+                  )}
+                </div>
+              </div>
+              <div className="actions">
+                <div className="flex justify-end">
+                  <span className="ml-3 inline-flex rounded-md shadow-sm">
+                    <Button
+                      buttonType="primary"
+                      type="submit"
+                      disabled={isSubmitting || !isValid}
+                    >
+                      <ArrowDownOnSquareIcon />
+                      <span>
+                        {isSubmitting
+                          ? intl.formatMessage(globalMessages.saving)
+                          : intl.formatMessage(globalMessages.save)}
+                      </span>
+                    </Button>
+                  </span>
+                </div>
+              </div>
+            </form>
+          )}
+        </Formik>
+      )}
+    </>
+  );
+};
+
+export default SettingsStash;
