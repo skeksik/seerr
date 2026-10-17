@@ -1,5 +1,6 @@
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
+import { emptyPagesInARow } from '@app/utils/filteredPages';
 import { MediaStatus } from '@server/constants/media';
 import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
@@ -147,7 +148,12 @@ const useDiscover = <
       typeof data[size - 1] === 'undefined' &&
       isValidating);
 
+  // One page at a time: lists ask for more on every render while scrolled
+  // to the bottom, as an empty one always is
   const fetchMore = () => {
+    if (isLoadingInitialData || (!error && (data?.length ?? 0) < size)) {
+      return;
+    }
     setSize(size + 1);
   };
 
@@ -174,7 +180,9 @@ const useDiscover = <
   );
 
   const lastPage = data?.[data.length - 1];
-  const pagesDone = !!lastPage && lastPage.page >= lastPage.totalPages;
+  const pagesDone =
+    (!!lastPage && lastPage.page >= lastPage.totalPages) ||
+    (filteredPages && emptyPagesInARow(data));
   const isEmpty =
     !isLoadingInitialData &&
     titles?.length === 0 &&

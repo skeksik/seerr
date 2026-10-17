@@ -556,3 +556,11 @@ export const onlyUnidentified = <F extends { hidden: Set<Orientation> }>(
   ...filter,
   hidden: new Set(ORIENTATIONS.filter((key) => key !== 'unidentified')),
 });
+
+// Only unidentified titles show: no tag finds them and few lists have
+// many, so they are only found by reading on
+export const onlyUnidentifiedShown = (hidden: Set<Orientation>): boolean =>
+  !hidden.has('unidentified') &&
+  ORIENTATIONS.every(
+    (orientation) => orientation === 'unidentified' || hidden.has(orientation)
+  );

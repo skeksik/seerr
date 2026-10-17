@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 
 import WhisparrAPI from '@server/api/servarr/whisparr';
+import type { StashDbSceneQuery } from '@server/api/stashdb';
 import StashDbAPI from '@server/api/stashdb';
 import type {
   StashDbPerformer,
@@ -596,6 +597,44 @@ describe('GET /scene/discover', () => {
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(queryScenes.mock.calls[0].arguments[0]?.perPage, 100);
+  });
+
+  it('reads several dense pages at once for unidentified scenes alone', async () => {
+    const unidentified = { ...scene, id: 'unidentified', performers: [] };
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async ({ page }: StashDbSceneQuery = {}) => ({
+        count: 1500,
+        // A few in a thousand have no cast
+        scenes: page === 5 ? [scene, unidentified] : [scene],
+      })
+    );
+    mock.method(StashDbAPI.prototype, 'getTagIds', async () => ({}));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/scene/discover?orientation=unidentified&page=2'
+    );
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      queryScenes.mock.calls.map((call) => [
+        call.arguments[0]?.page,
+        call.arguments[0]?.perPage,
+      ]),
+      [
+        [4, 100],
+        [5, 100],
+        [6, 100],
+      ]
+    );
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      ['unidentified']
+    );
+    assert.strictEqual(res.body.page, 2);
+    assert.strictEqual(res.body.totalPages, 5);
   });
 
   it('maps release date bounds and upcoming scenes', async () => {

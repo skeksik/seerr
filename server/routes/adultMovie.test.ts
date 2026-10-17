@@ -225,6 +225,35 @@ describe('GET /adultmovie/discover', () => {
     );
   });
 
+  it('reads dense pages for unidentified movies alone', async () => {
+    const straight = {
+      ...movie,
+      id: 'straight',
+      tags: [{ id: 1, name: 'Twosome (Straight)' }],
+    };
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [straight, movie],
+      meta: { current_page: 1, last_page: 167, per_page: 60, total: 10000 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/adultmovie/discover?orientation=unidentified'
+    );
+
+    assert.strictEqual(res.status, 200);
+    // No tag finds them, so none is asked for
+    assert.strictEqual(getMovies.mock.callCount(), 1);
+    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.perPage, 60);
+    assert.deepStrictEqual(getMovies.mock.calls[0].arguments[0]?.tagIds, []);
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      [MOVIE_ID]
+    );
+    assert.deepStrictEqual(res.body.results[0].orientations, ['unidentified']);
+    assert.strictEqual(res.body.totalPages, 167);
+  });
+
   it('finds nothing for filters that leave nothing', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [movie],

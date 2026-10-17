@@ -79,9 +79,9 @@ const AdultTitleList = ({ mediaType, list }: AdultTitleListProps) => {
         items={titles}
         landscape={mediaType === 'scene'}
         isEmpty={isEmpty}
-        isLoading={
-          isLoadingInitialData || (isLoadingMore && (titles?.length ?? 0) > 0)
-        }
+        // Filtered pages can come back empty, so placeholders show while
+        // more are read, with or without titles
+        isLoading={isLoadingInitialData || isLoadingMore}
         isReachingEnd={isReachingEnd}
         onScrollBottom={fetchMore}
       />
