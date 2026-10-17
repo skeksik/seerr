@@ -160,6 +160,28 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
+        {/* About this performer or studio, so above its studios and titles */}
+        {scenesOnly && (
+          <p className="mb-4 text-sm text-gray-400">
+            {intl.formatMessage(
+              type === 'performer'
+                ? messages.scenesOnlyPerformer
+                : messages.scenesOnlyStudio,
+              {
+                stashdb: (msg: React.ReactNode) => (
+                  <a
+                    href={data.stashDbUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-gray-300 hover:underline"
+                  >
+                    {msg}
+                  </a>
+                ),
+              }
+            )}
+          </p>
+        )}
         {/* A network's studios show whatever the view */}
         {hasStudios && (
           <AdultStudioRow
@@ -171,36 +193,11 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
         )}
         {/* Movies wait for the ThePornDB match, if there is one */}
         {tpdbMatch || matchError ? (
-          <>
-            {scenesOnly && (
-              <p className="mb-4 text-sm text-gray-400">
-                {intl.formatMessage(
-                  type === 'performer'
-                    ? messages.scenesOnlyPerformer
-                    : messages.scenesOnlyStudio,
-                  {
-                    stashdb: (msg: React.ReactNode) => (
-                      <a
-                        href={data.stashDbUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-gray-300 hover:underline"
-                      >
-                        {msg}
-                      </a>
-                    ),
-                  }
-                )}
-              </p>
-            )}
-            <CreditTitles
-              view={view}
-              movies={
-                tpdbMatch && { type, id: tpdbMatch.id, browseId: data.id }
-              }
-              scenes={{ type, id: data.id }}
-            />
-          </>
+          <CreditTitles
+            view={view}
+            movies={tpdbMatch && { type, id: tpdbMatch.id, browseId: data.id }}
+            scenes={{ type, id: data.id }}
+          />
         ) : (
           <CreditTitlesPlaceholder />
         )}
