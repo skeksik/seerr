@@ -225,6 +225,35 @@ describe('GET /adultmovie/discover', () => {
     );
   });
 
+  it('reads dense pages for unidentified movies alone', async () => {
+    const straight = {
+      ...movie,
+      id: 'straight',
+      tags: [{ id: 1, name: 'Twosome (Straight)' }],
+    };
+    const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [straight, movie],
+      meta: { current_page: 1, last_page: 167, per_page: 60, total: 10000 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(
+      '/adultmovie/discover?orientation=unidentified'
+    );
+
+    assert.strictEqual(res.status, 200);
+    // No tag finds them, so none is asked for
+    assert.strictEqual(getMovies.mock.callCount(), 1);
+    assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.perPage, 60);
+    assert.deepStrictEqual(getMovies.mock.calls[0].arguments[0]?.tagIds, []);
+    assert.deepStrictEqual(
+      res.body.results.map((result: { id: string }) => result.id),
+      [MOVIE_ID]
+    );
+    assert.deepStrictEqual(res.body.results[0].orientations, ['unidentified']);
+    assert.strictEqual(res.body.totalPages, 167);
+  });
+
   it('finds nothing for filters that leave nothing', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [movie],
@@ -326,6 +355,28 @@ describe('GET /adultmovie/:id', () => {
       },
     ]);
     assert.strictEqual(res.body.studio.name, 'The Classic Porn');
+  });
+
+  it('shows the large poster on the page and the medium one in lists', async () => {
+    const posters = {
+      large: 'https://cdn.theporndb.net/scene/a/large.jpg',
+      medium: 'https://cdn.theporndb.net/scene/a/medium.jpg',
+    };
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      ...movie,
+      posters,
+    }));
+    mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
+      data: [{ ...movie, posters }],
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: 1 },
+    }));
+    const agent = await loginAs('admin@seerr.dev');
+
+    const page = await agent.get(`/adultmovie/${MOVIE_ID}`);
+    const list = await agent.get('/adultmovie/discover');
+
+    assert.strictEqual(page.body.posterUrl, posters.large);
+    assert.strictEqual(list.body.results[0].posterUrl, posters.medium);
   });
 
   it('returns 404 for ids that are not UUIDs', async () => {

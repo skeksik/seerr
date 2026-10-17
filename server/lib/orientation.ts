@@ -56,8 +56,9 @@ interface Cast {
 interface TagHint {
   cast?: Cast;
   orientation?: Orientation;
-  // Who body and act tags imply, like "Big Tits" or "Strap-On" a woman and
-  // "Big Dick" or "Blowjob" a man. Trans and futanari performers have
+  // Who body and act tags imply, like "Big Tits" or "Squirting" a woman
+  // and "Big Dick" or "Cumshot" a man; acts a strap-on can stand in for,
+  // like "Blowjob", imply no one. Trans and futanari performers have
   // either, so these only count without either in the title
   implied?: Cast;
   // Tags naming trans performers, which say nothing of the cast's count
@@ -80,17 +81,24 @@ const FEMALE_WORDS =
 const MALE_WORDS =
   /\b(man|men|guy|guys|boy|boys|male|husband|boyfriend|dilf|maledom|malesub|twink|stud|cuckold(ing)?|(step ?)?(brother|dad|daddy|father|son|uncle|grandpa|nephew))\b|\(male\)/i;
 const BREAST_WORDS = /\b(tits?|titties|titty|boobs?|breasts?)\b/i;
-const PENIS_WORDS =
-  /\b(dicks?|cocks?|penis|penises|balls|bbc|bwc|(un)?circumcised)\b/i;
-// Acts that need a woman: a strap-on is worn by one, a titjob needs her
-// breasts, and squirting, tribbing and a clit are hers
+// A penis is a man's unless the act is one a strap-on can stand in for
+const PENIS_WORDS = /\b(dicks?|cocks?|penis|penises)\b/i;
+// Acts that need a woman's body: a titjob her breasts, and squirting,
+// tribbing and a clit are hers. A strap-on or pegging do not, as a man can
+// wear a strap-on too
 const FEMALE_ACTS =
-  /\b(strap-?ons?|pegg(ing|ed)|titjobs?|tit ?fuck(s|ing)?|(?<!(male|anal) )squirt(s|ing)?|tribbing|tribadism|scissoring|clit|labia|queef(ing)?|lactation|breast milk|pregnant)\b/i;
-// A squirting dildo is a toy
-const NOT_FEMALE_ACTS = /\b(dildos?|toys?)\b/i;
-// Acts that need a man, like "Blowjob", "Facial" or "Cum in Mouth"
+  /\b(titjobs?|tit ?fuck(s|ing)?|(?<!(male|anal) )squirt(s|ing)?|tribbing|tribadism|scissoring|clit|labia|queef(ing)?|lactation|breast milk|pregnant)\b/i;
+// A squirting dildo or strap-on is a toy
+const NOT_FEMALE_ACTS = /\b(dildos?|toys?|strap-?ons?)\b/i;
+// What only a man's body has or does, like "Balls", "Cumshot", "Facial",
+// "Creampie" or "Glory Hole", and pegging, which a man takes
 const MALE_ACTS =
-  /\b((blow|hand|foot|tit|titty|thigh|butt|armpit|hair|shoe|sock|glove|boot|panty|calf|leg) ?jobs?|blowbangs?|deep ?throat(ing)?|cum ?shots?|cum|creampies?|facials?|bukkake|pearl necklace|money shot|(face|throat|titty|tit) ?fuck(s|ing)?|spit ?roast|ball (sucking|licking|play|worship|kicking|stretching|tie|bondage|slap\w*)|tea ?bagging|glory ?holes?|pull out|precum|(?<!reverse )pegg(ing|ed)|finishing the job)\b/i;
+  /\b(balls|bbc|bwc|(un)?circumcised|cum ?shots?|cum|creampies?|facials?|bukkake|pearl necklace|money shot|ball (sucking|licking|play|worship|kicking|stretching|tie|bondage|slap\w*)|tea ?bagging|glory ?holes?|pull out|precum|(?<!reverse )pegg(ing|ed)|finishing the job)\b/i;
+// Acts a strap-on can stand in for, like "Blowjob", "Handjob",
+// "Deepthroat", "Face Fuck", "Spit Roast" or "Cock Worship", which need
+// no man
+const STRAP_ON_ACTS =
+  /(jobs?|blowbangs?|deep ?throat(ing)?|(face|throat|mouth|skull) ?fuck(s|ing)?|spit ?roast|suck(s|ing)?|lick(s|ing)?|worship|slap(s|ping)?|smack(s|ing)?|rubbing|riding|stroking|play|teas(e|ing)|in mouth|leading)\b/i;
 // Toys and fakes, like "Dildo Blowjob", "Fake Cum" or "No Cumshot", leave
 // the man out, a squirting facial is hers, a lone "to cum" is anyone's
 // orgasm, and instructions and humiliation are often for the viewer alone
@@ -102,6 +110,20 @@ const NOT_MALE_ACTS =
 const PAIR =
   /(?:^|[\s(])([MFT]|male|female|boy|girl|guy|man|woman) (?:on|fucks) ([MFT]|male|female|boy|girl|guy|man|woman)\b|\b(boy|girl)-(boy|girl)\b|\b(man|woman) \/ \w+ (man|woman)\b/i;
 const PAIR_LETTERS = /\s-\s([MFT]{2,})$/;
+
+// Bisexual tags come spelled many ways, like "Bisexual", "Bi Sexual",
+// "Bi-Sexual", "Bisex", "Bi Guys", "Bi MMF", "Bimmf" or "Bi Curious", and
+// not "Biracial" or "Lesbi Sex"
+const BISEXUAL_WORDS =
+  /(?<!les)bi[ -]?sex|\bbi\b(?!-(racial|lingual))|\bbi(mmf|mfm|mmmf|couples?|curious|guys?|males?|men|orgy)\b/i;
+// Themes where someone, often the viewer, is urged to act bisexually, like
+// "Forced Bi", "Make Me Bi", "Bisexual Encouragement" or "Bi JOI", and bi
+// women, which say nothing of the men acting together
+const NOT_BISEXUAL =
+  /forced|coerced|imposed|encourag|humiliat|training|instruction|make me|\bjoi\b|\bbi ?(girls?|wom[ae]n|females?|lesbians?)\b/i;
+
+export const isBisexualTag = (name: string): boolean =>
+  BISEXUAL_WORDS.test(name) && !NOT_BISEXUAL.test(name);
 
 const pairGender = (word: string): keyof Cast => {
   const value = word.toLowerCase();
@@ -163,6 +185,9 @@ export const tagHint = (name: string): TagHint | undefined => {
           : (value as 'lesbian' | 'gay' | 'straight' | 'trans'),
     };
   }
+  if (isBisexualTag(name)) {
+    return { orientation: 'bisexual' };
+  }
   // Pairs name everyone, trans performers too, as in "Sex Toy Play - M On F"
   const pair = pairCast(name);
   if (pair) {
@@ -179,7 +204,7 @@ export const tagHint = (name: string): TagHint | undefined => {
   }
   const female = FEMALE_WORDS.test(name);
   const male = MALE_WORDS.test(name);
-  // Body and act tags, like "Big Tits", "Strap-On" or "Cum on Pussy", say
+  // Body and act tags, like "Big Tits", "Squirting" or "Cum on Pussy", say
   // who else is there
   const impliedFemale =
     !female &&
@@ -187,7 +212,8 @@ export const tagHint = (name: string): TagHint | undefined => {
       (FEMALE_ACTS.test(name) && !NOT_FEMALE_ACTS.test(name)));
   const impliedMale =
     !male &&
-    (PENIS_WORDS.test(name) || MALE_ACTS.test(name)) &&
+    (MALE_ACTS.test(name) ||
+      (PENIS_WORDS.test(name) && !STRAP_ON_ACTS.test(name))) &&
     !NOT_MALE_ACTS.test(name);
 
   if (!female && !male && !impliedFemale && !impliedMale) {
@@ -326,15 +352,23 @@ export const classifyScene = (
   );
 };
 
-// ThePornDB tags name orientations alone or as in "Twosome (Lesbian)"
-const TPDB_TAG_PATTERNS: [Orientation, RegExp][] = [
-  ['straight', /\(straight\)/i],
-  ['lesbian', /^lesbian$|\(lesbian\)/i],
-  ['bisexual', /^bisexual$|\(bisexual\)/i],
-  ['gay', /^gay$|\(gay\)/i],
-  ['trans', /^(trans|transgender|solo trans)$|\(trans(-\w+)?\)/i],
-  ['futa', /^futanari$/i],
-];
+// ThePornDB tags name orientations alone or as in "Twosome (Lesbian)", and
+// bisexual many ways
+const TPDB_TAG_PATTERNS: [Orientation, RegExp | ((name: string) => boolean)][] =
+  [
+    ['straight', /\(straight\)/i],
+    ['lesbian', /^lesbian$|\(lesbian\)/i],
+    ['bisexual', isBisexualTag],
+    ['gay', /^gay$|\(gay\)/i],
+    ['trans', /^(trans|transgender|solo trans)$|\(trans(-\w+)?\)/i],
+    ['futa', /^futanari$/i],
+  ];
+
+const matches = (
+  pattern: RegExp | ((name: string) => boolean),
+  name: string
+): boolean =>
+  typeof pattern === 'function' ? pattern(name) : pattern.test(name);
 
 // ThePornDB's own orientation tags, for asking for them
 export const TPDB_ORIENTATION_TAG_IDS: Partial<Record<Orientation, number>> = {
@@ -347,7 +381,7 @@ export const TPDB_ORIENTATION_TAG_IDS: Partial<Record<Orientation, number>> = {
 
 export const classifyMovie = (movie: TpdbMovie): Orientation[] => {
   const tagged = TPDB_TAG_PATTERNS.flatMap(([orientation, pattern]) =>
-    movie.tags?.some((tag) => pattern.test(tag.name)) ? [orientation] : []
+    movie.tags?.some((tag) => matches(pattern, tag.name)) ? [orientation] : []
   );
   const cast = countCast(
     (movie.performers ?? []).map(
@@ -522,3 +556,11 @@ export const onlyUnidentified = <F extends { hidden: Set<Orientation> }>(
   ...filter,
   hidden: new Set(ORIENTATIONS.filter((key) => key !== 'unidentified')),
 });
+
+// Only unidentified titles show: no tag finds them and few lists have
+// many, so they are only found by reading on
+export const onlyUnidentifiedShown = (hidden: Set<Orientation>): boolean =>
+  !hidden.has('unidentified') &&
+  ORIENTATIONS.every(
+    (orientation) => orientation === 'unidentified' || hidden.has(orientation)
+  );

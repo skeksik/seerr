@@ -41,6 +41,7 @@ import {
   isHidden,
   joinedPlan,
   onlyUnidentified,
+  onlyUnidentifiedShown,
   planOrientationTags,
   tagHint,
 } from '@server/lib/orientation';
@@ -276,6 +277,9 @@ const orientationIds = async (
 
 // Lists read this many scenes a page when most may be filtered out here
 const DENSE_PAGE_SIZE = 100;
+// Unidentified scenes are a few in a thousand, so lists of them alone read
+// this many dense pages at once
+const SPARSE_READS = 3;
 
 // Filtered lists can take StashDB longer than the client's 15s
 const LIST_TIMEOUT = 60000;
@@ -286,6 +290,8 @@ interface ScenePlan {
   query: StashDbSceneQuery;
   filter: SceneListFilter;
   dense: boolean;
+  // The stash-box pages read as one
+  reads: number;
   // Asked for tagged scenes only, which leaves out unidentified ones
   narrowed: boolean;
   // No scene can show, like with a tag both picked and excluded
@@ -340,6 +346,7 @@ const planScenes = (
     filter: { hidden, exclude },
     // Hiding straight without asking for other tags leaves few per page
     dense: hidden.has('straight') && !narrowed,
+    reads: onlyUnidentifiedShown(hidden) ? SPARSE_READS : 1,
     narrowed,
     empty: empty || (!filters.anyPerformer && pickedAndExcluded(filters)),
     identified,
@@ -438,6 +445,23 @@ const studiosExcluded = async (
   return studio.every((id) => excluded.has(id));
 };
 
+// Several stash-box pages in a row as one, read at once
+const queryPages = async (
+  api: StashDbAPI,
+  query: StashDbSceneQuery & { page: number },
+  reads: number
+): Promise<StashDbSceneList> => {
+  const lists = await Promise.all(
+    Array.from({ length: reads }, (_, i) =>
+      api.queryScenes({ ...query, page: (query.page - 1) * reads + i + 1 })
+    )
+  );
+  return {
+    count: lists[0]?.count ?? 0,
+    scenes: lists.flatMap((list) => list.scenes),
+  };
+};
+
 // The Scenes tab's list: the picked filters, the viewer's sexual
 // preferences and the order, as far as stash-box can ask for them
 const discoverScenes = async (
@@ -466,7 +490,7 @@ const discoverScenes = async (
     planScenes(user, filters, tagIds, narrow)
   );
   const [list, extra] = await Promise.all([
-    api.queryScenes({ ...plan.query, ...query, perPage }),
+    queryPages(api, { ...plan.query, ...query, perPage }, plan.reads),
     joined
       ? api.queryScenes({
           ...joined.query,
@@ -478,7 +502,7 @@ const discoverScenes = async (
   const [main, rest] = await Promise.all([
     mapSceneList(api, list, page, user, {
       filter: plan.filter,
-      perPage,
+      perPage: perPage * plan.reads,
       tagIds,
     }),
     joined && extra

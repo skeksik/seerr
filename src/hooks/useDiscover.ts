@@ -1,7 +1,8 @@
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
+import { emptyPagesInARow } from '@app/utils/filteredPages';
 import { MediaStatus } from '@server/constants/media';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import useSWRInfinite from 'swr/infinite';
 import useSettings from './useSettings';
@@ -87,6 +88,9 @@ export const isTitleShown =
     );
   };
 
+// Lists start with this many pages
+const INITIAL_PAGES = 3;
+
 const useDiscover = <
   T extends BaseMedia,
   S = Record<string, never>,
@@ -130,7 +134,9 @@ const useDiscover = <
       return `${endpoint}?${finalQueryString}`;
     },
     {
-      initialSize: 3,
+      // The first page of a filtered list shows as soon as it is in, as
+      // these take seconds each, rather than once all initial pages are
+      initialSize: filteredPages ? 1 : INITIAL_PAGES,
       revalidateFirstPage: false,
       dedupingInterval: 30000,
       revalidateOnFocus: false,
@@ -147,8 +153,23 @@ const useDiscover = <
       typeof data[size - 1] === 'undefined' &&
       isValidating);
 
-  const fetchMore = () => {
+  // One page at a time: lists ask for more on every render while scrolled
+  // to the bottom, as an empty one always is, and the initial pages are
+  // asked for too, so the size asked for keeps two asks in one render apart
+  const askedSize = useRef(size);
+  askedSize.current = size;
+  const loadedPages = data?.length ?? 0;
+  const askForMore = () => {
+    if (askedSize.current !== size || (!error && loadedPages < size)) {
+      return;
+    }
+    askedSize.current = size + 1;
     setSize(size + 1);
+  };
+  const fetchMore = () => {
+    if (!isLoadingInitialData) {
+      askForMore();
+    }
   };
 
   let titles = (data ?? []).reduce((a, v) => {
@@ -174,7 +195,9 @@ const useDiscover = <
   );
 
   const lastPage = data?.[data.length - 1];
-  const pagesDone = !!lastPage && lastPage.page >= lastPage.totalPages;
+  const pagesDone =
+    (!!lastPage && lastPage.page >= lastPage.totalPages) ||
+    (filteredPages && emptyPagesInARow(data));
   const isEmpty =
     !isLoadingInitialData &&
     titles?.length === 0 &&
@@ -185,6 +208,19 @@ const useDiscover = <
       (!!data && (data[data?.length - 1]?.results.length ?? 0) < 20) ||
       (!!data && (data[data?.length - 1]?.totalResults ?? 0) <= size * 20) ||
       (!!data && (data[data?.length - 1]?.totalResults ?? 0) < 41);
+
+  // Then the rest of the initial pages follow, one at a time
+  useEffect(() => {
+    if (
+      filteredPages &&
+      !error &&
+      loadedPages === size &&
+      size < INITIAL_PAGES &&
+      !isReachingEnd
+    ) {
+      askForMore();
+    }
+  });
 
   useEffect(() => {
     if (error && titles.length) {
