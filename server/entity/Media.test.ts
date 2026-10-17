@@ -64,53 +64,116 @@ describe('Scene media', () => {
 });
 
 // Lists hide requested scenes and adult movies by it, like movies
-describe('Adult media active requests', () => {
+describe('Active requests', () => {
   const OTHER_ID = '01a138c1-a8cf-74b2-a8bb-e617e9c6f20f';
+  const MOVIE_ID = 'b3c5e0f2-7d41-4f8e-9a6b-1c2d3e4f5a6b';
 
   afterEach(() => {
     getSettings().main.hideRequested = false;
   });
 
-  const saveRequested = async (stashId: string, status: MediaRequestStatus) => {
+  const saveRequested = async (
+    init: Partial<Media>,
+    ...statuses: MediaRequestStatus[]
+  ) => {
     const media = await getRepository(Media).save(
-      new Media({
-        mediaType: MediaType.SCENE,
-        stashId,
-        tmdbId: null,
-        status: MediaStatus.PENDING,
-      })
+      new Media({ tmdbId: null, status: MediaStatus.PENDING, ...init })
     );
     const user = await getRepository(User).findOneOrFail({
       where: { email: 'demo@seerr.dev' },
     });
-    await getRepository(MediaRequest).save(
-      new MediaRequest({
-        type: MediaType.SCENE,
-        status,
-        media,
-        requestedBy: user,
-      })
-    );
+    for (const status of statuses) {
+      await getRepository(MediaRequest).save(
+        new MediaRequest({
+          type: media.mediaType,
+          status,
+          media,
+          requestedBy: user,
+        })
+      );
+    }
   };
+
+  const scene = (stashId: string) => ({
+    mediaType: MediaType.SCENE,
+    stashId,
+  });
 
   it('marks scenes with a pending or approved request', async () => {
     getSettings().main.hideRequested = true;
-    await saveRequested(SCENE_ID, MediaRequestStatus.PENDING);
-    await saveRequested(OTHER_ID, MediaRequestStatus.DECLINED);
+    await saveRequested(scene(SCENE_ID), MediaRequestStatus.PENDING);
+    await saveRequested(scene(OTHER_ID), MediaRequestStatus.APPROVED);
 
     const media = await Media.getRelatedScenes([SCENE_ID, OTHER_ID]);
     const byId = new Map(media.map((m) => [m.stashId, m]));
 
     assert.strictEqual(byId.get(SCENE_ID)?.hasActiveRequest, true);
-    assert.strictEqual(byId.get(OTHER_ID)?.hasActiveRequest, false);
+    assert.strictEqual(byId.get(OTHER_ID)?.hasActiveRequest, true);
   });
 
-  it('skips the lookup while requested media is not hidden', async () => {
-    await saveRequested(SCENE_ID, MediaRequestStatus.PENDING);
+  // Like upstream's movies: declined, failed and completed requests are
+  // not active
+  it('does not mark scenes whose requests are over', async () => {
+    getSettings().main.hideRequested = true;
+    await saveRequested(
+      scene(SCENE_ID),
+      MediaRequestStatus.DECLINED,
+      MediaRequestStatus.FAILED,
+      MediaRequestStatus.COMPLETED
+    );
+    await saveRequested(scene(OTHER_ID));
 
-    const [media] = await Media.getRelatedScenes([SCENE_ID]);
+    const media = await Media.getRelatedScenes([SCENE_ID, OTHER_ID]);
 
-    assert.strictEqual(media.hasActiveRequest, undefined);
+    assert.deepStrictEqual(
+      media.map((m) => m.hasActiveRequest),
+      [false, false]
+    );
+  });
+
+  it('marks adult movies with an active request', async () => {
+    getSettings().main.hideRequested = true;
+    await saveRequested(
+      { mediaType: MediaType.ADULT_MOVIE, tpdbId: MOVIE_ID },
+      MediaRequestStatus.DECLINED,
+      MediaRequestStatus.APPROVED
+    );
+
+    const [media] = await Media.getRelatedAdultMovies([MOVIE_ID]);
+
+    assert.strictEqual(media.hasActiveRequest, true);
+  });
+
+  // Lists read while the setting was off keep it, so turning the setting on
+  // hides their requested titles without reading them again
+  it('marks them while requested media is not hidden too', async () => {
+    await saveRequested(scene(SCENE_ID), MediaRequestStatus.PENDING);
+    await saveRequested(
+      { mediaType: MediaType.ADULT_MOVIE, tpdbId: MOVIE_ID },
+      MediaRequestStatus.APPROVED
+    );
+
+    const [sceneMedia] = await Media.getRelatedScenes([SCENE_ID]);
+    const [movieMedia] = await Media.getRelatedAdultMovies([MOVIE_ID]);
+
+    assert.strictEqual(sceneMedia.hasActiveRequest, true);
+    assert.strictEqual(movieMedia.hasActiveRequest, true);
+  });
+
+  it('marks movies only for lists that ask for it', async () => {
+    await saveRequested(
+      { mediaType: MediaType.MOVIE, tmdbId: 550 },
+      MediaRequestStatus.APPROVED
+    );
+    const items = [{ tmdbId: 550, mediaType: MediaType.MOVIE }];
+
+    const [listed] = await Media.getRelatedMedia(undefined, items, {
+      includeActiveRequest: true,
+    });
+    const [other] = await Media.getRelatedMedia(undefined, items);
+
+    assert.strictEqual(listed.hasActiveRequest, true);
+    assert.strictEqual(other.hasActiveRequest, undefined);
   });
 });
 

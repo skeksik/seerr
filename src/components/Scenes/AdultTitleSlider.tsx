@@ -3,10 +3,10 @@ import SliderHeader from '@app/components/Common/SliderHeader';
 import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import SceneCard from '@app/components/SceneCard';
 import Slider from '@app/components/Slider';
-import { isTitleShown } from '@app/hooks/useDiscover';
 import useSettings from '@app/hooks/useSettings';
 import { Permission, useUser } from '@app/hooks/useUser';
 import { stashImageUrl } from '@app/utils/stashImage';
+import { isTitleShown } from '@app/utils/titleShown';
 import { MediaStatus } from '@server/constants/media';
 import type {
   AdultMovieListResponse,
