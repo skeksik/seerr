@@ -435,13 +435,7 @@ const TitleCard = ({
                     }`}
                   >
                     {[year, subtitle].filter(Boolean).map((line) => (
-                      <div
-                        key={line}
-                        // Long studio names end in an ellipsis; all of it
-                        // shows on hover
-                        title={line}
-                        className="truncate text-sm font-medium"
-                      >
+                      <div key={line} className="truncate text-sm font-medium">
                         {line}
                       </div>
                     ))}

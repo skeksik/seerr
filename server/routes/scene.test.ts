@@ -58,7 +58,11 @@ const scene: StashDbScene = {
         id: 'performer',
         name: 'Performer',
         gender: 'FEMALE',
-        images: [],
+        // Smallest first: the widest is picked, not the first
+        images: [
+          { url: 'https://stashdb.test/images/performer-small', width: 300 },
+          { url: 'https://stashdb.test/images/performer-large', width: 600 },
+        ],
       },
     },
   ],
@@ -187,6 +191,10 @@ describe('GET /scene/:sceneId', () => {
     assert.strictEqual(res.body.mediaType, 'scene');
     assert.strictEqual(res.body.imageUrl, 'https://stashdb.test/images/large');
     assert.strictEqual(res.body.performers[0].name, 'Performer');
+    assert.strictEqual(
+      res.body.performers[0].imageUrl,
+      'https://stashdb.test/images/performer-large'
+    );
     assert.strictEqual(res.body.mediaInfo.status, MediaStatus.AVAILABLE);
   });
 
@@ -319,7 +327,7 @@ describe('GET /scene/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      '/scene/discover?sort=date&page=2&studio=6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'
+      '/scene/discover?sortBy=release_date.desc&page=2&studio=6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10'
     );
 
     assert.strictEqual(res.status, 200);
@@ -359,7 +367,7 @@ describe('GET /scene/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      `/scene/discover?tags=${INCLUDED_TAG}&tagsExclude=${EXCLUDED_TAG}`
+      `/scene/discover?tags=${INCLUDED_TAG}&excludeTags=${EXCLUDED_TAG}`
     );
 
     assert.strictEqual(res.status, 200);
@@ -389,10 +397,10 @@ describe('GET /scene/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     for (const url of [
-      `/scene/discover?tags=${INCLUDED_TAG}&tagsExclude=${INCLUDED_TAG}`,
-      `/scene/discover?performer=${SCENE_ID}&performerExclude=${SCENE_ID}`,
-      `/scene/discover?studio=${STUDIO}&studioExclude=${STUDIO}`,
-      `/scene/discover?studio=${STUDIO}&studioExclude=${NETWORK}`,
+      `/scene/discover?tags=${INCLUDED_TAG}&excludeTags=${INCLUDED_TAG}`,
+      `/scene/discover?performer=${SCENE_ID}&excludePerformers=${SCENE_ID}`,
+      `/scene/discover?studio=${STUDIO}&excludeStudios=${STUDIO}`,
+      `/scene/discover?studio=${STUDIO}&excludeStudios=${NETWORK}`,
     ]) {
       const res = await agent.get(url);
 
@@ -433,12 +441,30 @@ describe('GET /scene/discover', () => {
     assert.strictEqual(upcoming?.date?.modifier, 'GREATER_THAN');
   });
 
-  it('rejects unknown sorts', async () => {
+  it('rejects unknown sorts, like the older names', async () => {
+    const queryScenes = mock.method(
+      StashDbAPI.prototype,
+      'queryScenes',
+      async () => ({ count: 0, scenes: [] })
+    );
     const agent = await loginAs('admin@seerr.dev');
 
     assert.strictEqual(
-      (await agent.get('/scene/discover?sort=random')).status,
+      (await agent.get('/scene/discover?sortBy=random')).status,
       400
+    );
+    assert.strictEqual(
+      (await agent.get('/scene/discover?sortBy=date')).status,
+      400
+    );
+    // The older sort param is not a filter, so it is left out
+    assert.strictEqual(
+      (await agent.get('/scene/discover?sort=date')).status,
+      200
+    );
+    assert.strictEqual(
+      queryScenes.mock.calls[0].arguments[0]?.sort,
+      'TRENDING'
     );
   });
 });
@@ -466,7 +492,7 @@ describe('studio rankings', () => {
     );
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/scene/studios?sort=trending');
+    const res = await agent.get('/scene/studios?sortBy=trending.desc');
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(
@@ -492,7 +518,7 @@ describe('studio rankings', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(
-      '/scene/studios?type=networks&sort=popular&query=N'
+      '/scene/studios?type=networks&sortBy=popularity.desc&query=N'
     );
 
     assert.strictEqual(res.status, 200);

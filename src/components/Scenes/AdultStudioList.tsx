@@ -45,13 +45,13 @@ interface AdultStudioListProps {
 }
 
 const sortOptions = [
-  ['trending', messages.sortTrending],
-  ['popular', messages.sortPopularityDesc],
-  ['popular_asc', messages.sortPopularityAsc],
-  ['newest', messages.sortAddedDesc],
-  ['newest_asc', messages.sortAddedAsc],
-  ['name', messages.sortTitleAsc],
-  ['name_desc', messages.sortTitleDesc],
+  ['trending.desc', messages.sortTrending],
+  ['popularity.desc', messages.sortPopularityDesc],
+  ['popularity.asc', messages.sortPopularityAsc],
+  ['created_at.desc', messages.sortAddedDesc],
+  ['created_at.asc', messages.sortAddedAsc],
+  ['name.asc', messages.sortTitleAsc],
+  ['name.desc', messages.sortTitleDesc],
 ] as const;
 
 type StudioSort = (typeof sortOptions)[number][0];
@@ -66,20 +66,20 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
   // Search and sort live in the URL, so going back keeps them
   const query =
     typeof router.query.query === 'string' ? router.query.query : '';
-  const sort: StudioSort =
-    sortOptions.find(([value]) => value === router.query.sort)?.[0] ??
-    'trending';
+  const sortBy: StudioSort =
+    sortOptions.find(([value]) => value === router.query.sortBy)?.[0] ??
+    'trending.desc';
   const [search, debouncedSearch, setSearch] = useDebouncedState(query);
   // The URL keeps its values as given, so both go in encoded
-  const setParams = (params: { query: string; sort: StudioSort }) =>
+  const setParams = (params: { query: string; sortBy: StudioSort }) =>
     batchUpdate({
       query: params.query ? encodeURIComponent(params.query) : undefined,
-      sort: params.sort === 'trending' ? undefined : params.sort,
+      sortBy: params.sortBy === 'trending.desc' ? undefined : params.sortBy,
     });
 
   useEffect(() => {
     if (debouncedSearch !== query) {
-      setParams({ query: debouncedSearch, sort });
+      setParams({ query: debouncedSearch, sortBy });
     }
     // Only once typing settles
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,7 +89,7 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
       (index: number, previous: StudioPage | null) =>
         previous && index + 1 > previous.totalPages
           ? null
-          : `/api/v1/scene/studios?type=${type}&sort=${sort}&page=${index + 1}${
+          : `/api/v1/scene/studios?type=${type}&sortBy=${sortBy}&page=${index + 1}${
               query ? `&query=${encodeURIComponent(query)}` : ''
             }`,
       { revalidateFirstPage: false }
@@ -131,9 +131,9 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
               id="sortBy"
               name="sortBy"
               className="rounded-r-only"
-              value={sort}
+              value={sortBy}
               onChange={(e) =>
-                setParams({ query, sort: e.target.value as StudioSort })
+                setParams({ query, sortBy: e.target.value as StudioSort })
               }
             >
               {sortOptions.map(([value, message]) => (

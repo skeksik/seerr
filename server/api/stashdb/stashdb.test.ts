@@ -107,6 +107,24 @@ describe('StashDbAPI', () => {
     assert.strictEqual(input.sort, 'DATE');
   });
 
+  it('reads the images of several performers in one request', async () => {
+    const images = [{ url: 'https://stashdb.test/images/a', width: 300 }];
+    const api = new TestStashDbAPI([
+      { data: { p0: { id: 'a', images }, p1: null } },
+    ]);
+
+    const found = await api.getPerformerImages(['a', 'b']);
+
+    assert.deepStrictEqual(found.get('a'), images);
+    assert.deepStrictEqual(found.get('b'), []);
+    assert.strictEqual(api.requests.length, 1);
+    const body = JSON.parse(api.requests[0].data);
+    assert.deepStrictEqual(body.variables, { p0: 'a', p1: 'b' });
+    assert.match(body.query, /p1: findPerformer\(id: \$p1\)/);
+    assert.deepStrictEqual(await api.getPerformerImages([]), new Map());
+    assert.strictEqual(api.requests.length, 1);
+  });
+
   it('shares one request between callers asking the same at once', async () => {
     const api = new TestStashDbAPI([{ data: { findScene: scene } }]);
 

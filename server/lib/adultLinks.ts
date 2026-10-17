@@ -410,16 +410,16 @@ export type AdultMovieRef = number | string;
 
 export interface AdultMovieRefs {
   studio?: AdultMovieRef;
-  studioExclude?: AdultMovieRef[];
+  excludeStudios?: AdultMovieRef[];
   performer?: AdultMovieRef[];
-  performerExclude?: AdultMovieRef[];
+  excludePerformers?: AdultMovieRef[];
 }
 
 export interface AdultMovieIds {
   studio?: number;
-  studioExclude?: number[];
+  excludeStudios?: number[];
   performer?: number[];
-  performerExclude?: number[];
+  excludePerformers?: number[];
 }
 
 // The filters with ThePornDB's ids for the picked studio and performers,
@@ -445,12 +445,12 @@ export const tpdbFilterIds = async <T extends AdultMovieRefs>(
   const resolveAll = (type: 'performer' | 'studio', list?: AdultMovieRef[]) =>
     list ? Promise.all(list.map((ref) => resolve(type, ref))) : undefined;
 
-  const [studio, studioExclude, performer, performerExclude] =
+  const [studio, excludeStudios, performer, excludePerformers] =
     await Promise.all([
       refs.studio === undefined ? undefined : resolve('studio', refs.studio),
-      resolveAll('studio', refs.studioExclude),
+      resolveAll('studio', refs.excludeStudios),
       resolveAll('performer', refs.performer),
-      resolveAll('performer', refs.performerExclude),
+      resolveAll('performer', refs.excludePerformers),
     ]);
 
   if (studio === null || performer?.includes(null)) {
@@ -463,8 +463,8 @@ export const tpdbFilterIds = async <T extends AdultMovieRefs>(
   return {
     ...refs,
     studio,
-    studioExclude: found(studioExclude),
+    excludeStudios: found(excludeStudios),
     performer: found(performer),
-    performerExclude: found(performerExclude),
+    excludePerformers: found(excludePerformers),
   };
 };

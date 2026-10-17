@@ -19,7 +19,7 @@ export const creditTitlesQuery = (
 ): { endpoint: string; params: Record<string, string> } => ({
   endpoint: `/api/v1/${mediaType}/discover`,
   params: {
-    sort: mediaType === 'scene' ? 'date' : 'released',
+    sortBy: 'release_date.desc',
     [type]: String(id),
   },
 });
@@ -44,7 +44,7 @@ export const creditBrowseHref = (
   id: string | number
 ): string =>
   mediaType === 'scene'
-    ? `/discover/scenes?sort=date&${type}=${id}`
+    ? `/discover/scenes?sortBy=release_date.desc&${type}=${id}`
     : `/discover/adultmovies?${type}=${id}`;
 
 // PersonCard's props for a performer
@@ -66,19 +66,24 @@ interface AdultPerformer {
   disambiguation?: string;
   // The StashDB performer a ThePornDB one is linked to, which has the page
   stashDbId?: string;
+  // Adult movie performers: whose photo it is; linked ones show StashDB's
+  imageType?: 'stashdb' | 'tpdb';
 }
 
 // A performer of the given kind of title, as cast rows and lists show them.
 // Scene and search result performers are StashDB's; adult movie performers
-// are ThePornDB's, with a page only when linked to a StashDB one
+// are ThePornDB's, with a page, and StashDB's photo, only when linked to a
+// StashDB one
 export const toSliderPerformer = (
   mediaType: AdultMediaType,
   performer: AdultPerformer
 ): SliderPerformer => {
   const isScene = mediaType === 'scene';
-  const src = isScene
-    ? stashImageUrl(performer.imageUrl, 300)
-    : performer.imageUrl;
+  const type = isScene ? 'stashdb' : (performer.imageType ?? 'tpdb');
+  const src =
+    type === 'stashdb'
+      ? stashImageUrl(performer.imageUrl, 300)
+      : performer.imageUrl;
   const stashDbId = isScene ? performer.id : performer.stashDbId;
 
   return {
@@ -86,6 +91,6 @@ export const toSliderPerformer = (
     name: performer.name,
     subName: performer.as ?? performer.disambiguation,
     href: stashDbId ? creditHref('performer', stashDbId) : null,
-    image: src ? { src, type: isScene ? 'stashdb' : 'tpdb' } : undefined,
+    image: src ? { src, type } : undefined,
   };
 };

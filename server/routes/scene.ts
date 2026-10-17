@@ -57,19 +57,20 @@ const PAGE_SIZE = 20;
 
 const sceneRoutes = Router();
 
-// Each sort with its stash-box order and direction
+// Each sort, named like the Movies tab's (field.direction), with its
+// stash-box order and direction
 const sceneSorts = {
-  trending: ['TRENDING', 'DESC'],
-  popularity: ['POPULARITY', 'DESC'],
-  popularity_asc: ['POPULARITY', 'ASC'],
-  date: ['DATE', 'DESC'],
-  oldest: ['DATE', 'ASC'],
-  title: ['TITLE', 'ASC'],
-  title_desc: ['TITLE', 'DESC'],
-  duration: ['DURATION', 'DESC'],
-  duration_asc: ['DURATION', 'ASC'],
-  created_at: ['CREATED_AT', 'DESC'],
-  created_at_asc: ['CREATED_AT', 'ASC'],
+  'trending.desc': ['TRENDING', 'DESC'],
+  'popularity.desc': ['POPULARITY', 'DESC'],
+  'popularity.asc': ['POPULARITY', 'ASC'],
+  'release_date.desc': ['DATE', 'DESC'],
+  'release_date.asc': ['DATE', 'ASC'],
+  'original_title.asc': ['TITLE', 'ASC'],
+  'original_title.desc': ['TITLE', 'DESC'],
+  'duration.desc': ['DURATION', 'DESC'],
+  'duration.asc': ['DURATION', 'ASC'],
+  'created_at.desc': ['CREATED_AT', 'DESC'],
+  'created_at.asc': ['CREATED_AT', 'ASC'],
 } as const satisfies Record<string, [StashDbSceneSort, 'ASC' | 'DESC']>;
 
 const sortValues = Object.keys(sceneSorts) as [
@@ -88,9 +89,9 @@ const sceneFilters = z.object({
   studio: uuids.optional(),
   performer: uuids.optional(),
   tags: uuids.optional(),
-  studioExclude: uuids.optional(),
-  performerExclude: uuids.optional(),
-  tagsExclude: uuids.optional(),
+  excludeStudios: uuids.optional(),
+  excludePerformers: uuids.optional(),
+  excludeTags: uuids.optional(),
   ...sharedFilters,
 });
 
@@ -99,7 +100,7 @@ type SceneFilters = z.infer<typeof sceneFilters> & { anyPerformer?: boolean };
 
 const discoverQuery = sceneFilters.extend({
   page: pageParam,
-  sort: z.enum(sortValues).default('popularity'),
+  sortBy: z.enum(sortValues).default('trending.desc'),
 });
 
 const sceneId = z.string().uuid();
@@ -192,9 +193,9 @@ interface ScenePlan {
 // here
 const planScenes = (filters: SceneFilters): ScenePlan => {
   const exclude = {
-    studioIds: filters.studioExclude ?? [],
-    performerIds: filters.performerExclude ?? [],
-    tagIds: filters.tagsExclude ?? [],
+    studioIds: filters.excludeStudios ?? [],
+    performerIds: filters.excludePerformers ?? [],
+    tagIds: filters.excludeTags ?? [],
   };
 
   return {
@@ -277,12 +278,12 @@ const mapSceneList = async (
 // excluded studio
 const studiosExcluded = async (
   api: StashDbAPI,
-  { studio, studioExclude }: SceneFilters
+  { studio, excludeStudios }: SceneFilters
 ): Promise<boolean> => {
-  if (!studio?.length || !studioExclude?.length) {
+  if (!studio?.length || !excludeStudios?.length) {
     return false;
   }
-  const excluded = new Set(await api.withChildStudios(studioExclude));
+  const excluded = new Set(await api.withChildStudios(excludeStudios));
   return studio.every((id) => excluded.has(id));
 };
 
@@ -293,7 +294,7 @@ const discoverScenes = async (
   user: User | undefined,
   filters: SceneFilters,
   page: number,
-  sort: keyof typeof sceneSorts
+  sortBy: keyof typeof sceneSorts
 ): Promise<SceneListResponse> => {
   const plan = planScenes(filters);
 
@@ -304,14 +305,14 @@ const discoverScenes = async (
   }
 
   // Upcoming rows want the soonest first
-  const [sortBy, direction] = filters.upcoming
+  const [sort, direction] = filters.upcoming
     ? (['DATE', 'ASC'] as const)
-    : sceneSorts[sort];
+    : sceneSorts[sortBy];
   const list = await api.queryScenes({
     ...plan.query,
     page,
     perPage: PAGE_SIZE,
-    sort: sortBy,
+    sort,
     direction,
     timeout: LIST_TIMEOUT,
   });
@@ -326,7 +327,7 @@ sceneRoutes.get('/discover', async (req, res, next) => {
     return next({ status: 400, message: 'Invalid discover parameters.' });
   }
 
-  const { page, sort, ...filters } = parsed.data;
+  const { page, sortBy, ...filters } = parsed.data;
 
   try {
     return res
@@ -337,7 +338,7 @@ sceneRoutes.get('/discover', async (req, res, next) => {
           req.user,
           filters,
           page,
-          sort
+          sortBy
         )
       );
   } catch (e) {
@@ -409,17 +410,17 @@ sceneRoutes.get('/sites', async (req, res, next) => {
 const studioListQuery = z.object({
   type: z.enum(['studios', 'networks']).default('studios'),
   page: pageParam,
-  sort: z
+  sortBy: z
     .enum([
-      'name',
-      'name_desc',
-      'newest',
-      'newest_asc',
-      'trending',
-      'popular',
-      'popular_asc',
+      'name.asc',
+      'name.desc',
+      'created_at.desc',
+      'created_at.asc',
+      'trending.desc',
+      'popularity.desc',
+      'popularity.asc',
     ])
-    .default('name'),
+    .default('name.asc'),
   query: z.string().trim().optional(),
 });
 
@@ -437,18 +438,19 @@ sceneRoutes.get('/studios', async (req, res, next) => {
     return next({ status: 400, message: 'Invalid studio list parameters.' });
   }
 
-  const { type, page, sort, query } = parsed.data;
+  const { type, page, sortBy, query } = parsed.data;
+  const [field, direction] = sortBy.split('.');
   try {
     const api = StashDbAPI.fromSettings();
 
-    if (sort === 'trending' || sort.startsWith('popular')) {
+    if (field === 'trending' || field === 'popularity') {
       const rank = rankStudios(
         await api.getSceneStudios(
-          sort === 'trending' ? 'TRENDING' : 'POPULARITY'
+          field === 'trending' ? 'TRENDING' : 'POPULARITY'
         ),
         type
       );
-      const ranked = (sort === 'popular_asc' ? rank.reverse() : rank).filter(
+      const ranked = (direction === 'asc' ? rank.reverse() : rank).filter(
         (studio) =>
           !query || studio.name.toLowerCase().includes(query.toLowerCase())
       );
@@ -476,8 +478,8 @@ sceneRoutes.get('/studios', async (req, res, next) => {
         api.queryStudios({
           page: read,
           perPage: type === 'networks' ? NETWORK_READ_SIZE : STUDIO_PAGE_SIZE,
-          sort: sort.startsWith('newest') ? 'CREATED_AT' : 'NAME',
-          direction: sort === 'name_desc' || sort === 'newest' ? 'DESC' : 'ASC',
+          sort: field === 'created_at' ? 'CREATED_AT' : 'NAME',
+          direction: direction === 'desc' ? 'DESC' : 'ASC',
           name: query,
           topLevel: type === 'networks',
         })
@@ -588,7 +590,7 @@ sceneRoutes.get<{ sceneId: string }>(
         req.user,
         { performer: performerIds, anyPerformer: true },
         query.data.page,
-        'popularity'
+        'popularity.desc'
       );
 
       // It has its own performers, so it is among them

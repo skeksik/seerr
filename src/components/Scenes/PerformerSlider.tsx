@@ -31,12 +31,17 @@ const PerformerSlider = ({
   const fullCastUrl = more.length > 0 ? linkUrl : undefined;
 
   if (fullCastUrl) {
+    // The card takes one image host; a movie cast can mix StashDB's photos
+    // of linked performers with ThePornDB's of the rest
+    const imageType = more.find((performer) => performer.image)?.image?.type;
     items.push(
       <ShowMoreCard
         key={`${sliderKey}-more`}
         url={fullCastUrl}
-        imageType={more.find((performer) => performer.image)?.image?.type}
-        posters={more.map((performer) => performer.image?.src)}
+        imageType={imageType}
+        posters={more.map(({ image }) =>
+          image && image.type === imageType ? image.src : undefined
+        )}
       />
     );
   }

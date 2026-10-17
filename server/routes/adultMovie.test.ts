@@ -128,7 +128,9 @@ describe('GET /adultmovie/discover', () => {
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/adultmovie/discover?sort=added&studio=37335');
+    const res = await agent.get(
+      '/adultmovie/discover?sortBy=created_at.desc&studio=37335'
+    );
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.totalPages, 3);
@@ -147,20 +149,27 @@ describe('GET /adultmovie/discover', () => {
     assert.strictEqual(query?.date?.operation, '<=');
   });
 
-  it('falls back to the release order for unknown sorts', async () => {
+  it('falls back to the release order for unknown sorts, like the older names', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [],
       meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/adultmovie/discover?sort=popularity');
+    for (const url of [
+      '/adultmovie/discover?sortBy=popularity.desc',
+      '/adultmovie/discover?sortBy=added',
+      '/adultmovie/discover?sort=added',
+    ]) {
+      const res = await agent.get(url);
 
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(
-      getMovies.mock.calls[0].arguments[0]?.sort,
-      'recently_released'
-    );
+      assert.strictEqual(res.status, 200, url);
+      assert.strictEqual(
+        getMovies.mock.calls.at(-1)?.arguments[0]?.sort,
+        'recently_released',
+        url
+      );
+    }
   });
 
   it('leaves out excluded movies, which ThePornDB cannot', async () => {
@@ -175,7 +184,7 @@ describe('GET /adultmovie/discover', () => {
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    const res = await agent.get('/adultmovie/discover?tags=1,2&tagsExclude=71');
+    const res = await agent.get('/adultmovie/discover?tags=1,2&excludeTags=71');
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(
@@ -197,9 +206,9 @@ describe('GET /adultmovie/discover', () => {
     const agent = await loginAs('admin@seerr.dev');
 
     for (const url of [
-      '/adultmovie/discover?tags=70&tagsExclude=70',
-      '/adultmovie/discover?performer=99899&performerExclude=99899',
-      '/adultmovie/discover?studio=37335&studioExclude=37335',
+      '/adultmovie/discover?tags=70&excludeTags=70',
+      '/adultmovie/discover?performer=99899&excludePerformers=99899',
+      '/adultmovie/discover?studio=37335&excludeStudios=37335',
     ]) {
       const res = await agent.get(url);
 
@@ -341,6 +350,11 @@ describe('GET /adultmovie/:id', () => {
     };
     mock.method(TpdbAPI.prototype, 'getMovie', async () => movie);
     mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
+    mock.method(
+      StashDbAPI.prototype,
+      'getPerformerImages',
+      async () => new Map()
+    );
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
@@ -718,7 +732,7 @@ describe('linking StashDB and ThePornDB', () => {
       const agent = await loginAs('admin@seerr.dev');
 
       const res = await agent.get(
-        `/adultmovie/discover?performer=${DRAGON_STASHDB},${GAL_STASHDB}&performerExclude=99899`
+        `/adultmovie/discover?performer=${DRAGON_STASHDB},${GAL_STASHDB}&excludePerformers=99899`
       );
 
       assert.strictEqual(res.status, 200);
@@ -764,7 +778,7 @@ describe('linking StashDB and ThePornDB', () => {
       const agent = await loginAs('admin@seerr.dev');
 
       const res = await agent.get(
-        `/adultmovie/discover?studio=37335&studioExclude=${BRAZZERS_STASHDB},1&performerExclude=${DRAGON_STASHDB}`
+        `/adultmovie/discover?studio=37335&excludeStudios=${BRAZZERS_STASHDB},1&excludePerformers=${DRAGON_STASHDB}`
       );
 
       assert.strictEqual(res.status, 200);
@@ -781,7 +795,7 @@ describe('linking StashDB and ThePornDB', () => {
       const agent = await loginAs('admin@seerr.dev');
 
       const res = await agent.get(
-        `/adultmovie/discover?studio=92&studioExclude=${BRAZZERS_STASHDB}`
+        `/adultmovie/discover?studio=92&excludeStudios=${BRAZZERS_STASHDB}`
       );
 
       assert.strictEqual(res.status, 200);
@@ -833,6 +847,11 @@ describe('linking StashDB and ThePornDB', () => {
         'https://theporndb.net/sites/brazzers': BRAZZERS_STASHDB,
       })
     );
+    const getPerformerImages = mock.method(
+      StashDbAPI.prototype,
+      'getPerformerImages',
+      async () => new Map()
+    );
     const agent = await loginAs('admin@seerr.dev');
 
     const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
@@ -850,5 +869,86 @@ describe('linking StashDB and ThePornDB', () => {
       ]
     );
     assert.strictEqual(res.body.studio.stashDbId, BRAZZERS_STASHDB);
+    // The linked cast's photos, in one request
+    assert.strictEqual(getPerformerImages.mock.callCount(), 1);
+    assert.deepStrictEqual(getPerformerImages.mock.calls[0].arguments, [
+      [GAL_STASHDB, 'sasha-stashdb'],
+    ]);
+  });
+
+  it("shows linked performers' StashDB photo and the others' ThePornDB one", async () => {
+    const tpdbPhoto = (slug: string) =>
+      `https://cdn.theporndb.net/performers/${slug}.jpg`;
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      ...movie,
+      performers: [
+        {
+          ...GAL_TPDB,
+          id: 'site-gal',
+          _id: 1,
+          parent: { ...GAL_TPDB, image: tpdbPhoto('gal') },
+        },
+        {
+          ...DRAGON_TPDB,
+          id: 'site-dragon',
+          _id: 2,
+          parent: { ...DRAGON_TPDB, image: tpdbPhoto('dragon') },
+        },
+      ],
+    }));
+    mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
+    mock.method(
+      StashDbAPI.prototype,
+      'getPerformerImages',
+      async () =>
+        new Map([
+          [
+            GAL_STASHDB,
+            // Smallest first: the widest is picked, like everywhere else
+            [
+              { url: 'https://stashdb.test/images/gal-small', width: 300 },
+              { url: 'https://stashdb.test/images/gal', width: 1200 },
+            ],
+          ],
+        ])
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(
+      res.body.performers.map(
+        (p: { imageUrl?: string; imageType?: string }) => [
+          p.imageUrl,
+          p.imageType,
+        ]
+      ),
+      [
+        ['https://stashdb.test/images/gal', 'stashdb'],
+        [tpdbPhoto('dragon'), 'tpdb'],
+      ]
+    );
+  });
+
+  it('asks StashDB for no photos when no cast member is linked', async () => {
+    mock.method(TpdbAPI.prototype, 'getMovie', async () => ({
+      ...movie,
+      performers: [
+        { ...DRAGON_TPDB, id: 'site-dragon', _id: 2, parent: DRAGON_TPDB },
+      ],
+    }));
+    mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
+    const getPerformerImages = mock.method(
+      StashDbAPI.prototype,
+      'getPerformerImages'
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get(`/adultmovie/${MOVIE_ID}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.performers[0].stashDbId, undefined);
+    assert.strictEqual(getPerformerImages.mock.callCount(), 0);
   });
 });

@@ -1,6 +1,8 @@
+import type { StashDbImage } from '@server/api/stashdb/interfaces';
 import { tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie } from '@server/api/tpdb/interfaces';
 import type Media from '@server/entity/Media';
+import { pickImage } from '@server/models/Scene';
 
 export interface AdultMovieResult {
   // ThePornDB movie UUID
@@ -39,7 +41,10 @@ export interface AdultMovieDetails extends AdultMovieResult {
     // the name is plain text
     stashDbId?: string;
     name: string;
+    // The StashDB performer's photo when linked, as everywhere else; the
+    // client sizes and proxies the two differently
     imageUrl?: string;
+    imageType?: 'stashdb' | 'tpdb';
   }[];
   tags: { id: number; name: string }[];
   directors: string[];
@@ -135,6 +140,8 @@ export const playableTrailer = (
 export interface AdultMovieLinks {
   performers: Map<number, string>;
   studios: Map<number, string>;
+  // The linked performers' StashDB images, by StashDB id
+  performerImages?: Map<string, StashDbImage[]>;
 }
 
 // Site performers point to the performer across all sites
@@ -175,14 +182,22 @@ export const mapAdultMovieDetails = (
           stashDbId: links.studios.get(movie.site.network.id),
         }
       : undefined,
-  performers: moviePerformers(movie).map((performer) => ({
-    id: performer.id,
-    stashDbId: performer.hasProfile
+  performers: moviePerformers(movie).map((performer) => {
+    const stashDbId = performer.hasProfile
       ? links.performers.get(performer._id)
-      : undefined,
-    name: performer.name,
-    imageUrl: performer.image ?? undefined,
-  })),
+      : undefined;
+    const stashDbImage =
+      stashDbId && pickImage(links.performerImages?.get(stashDbId) ?? []);
+    const imageUrl = stashDbImage || performer.image || undefined;
+
+    return {
+      id: performer.id,
+      stashDbId,
+      name: performer.name,
+      imageUrl,
+      imageType: imageUrl ? (stashDbImage ? 'stashdb' : 'tpdb') : undefined,
+    };
+  }),
   tags: (movie.tags ?? []).map(({ id, name }) => ({ id, name })),
   directors: (movie.directors ?? []).map((director) => director.name),
   url: movie.url ?? undefined,

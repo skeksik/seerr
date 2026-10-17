@@ -153,7 +153,7 @@ const mapPerformer = (
   disambiguation: performer.disambiguation ?? undefined,
   as: as && as !== performer.name ? as : undefined,
   gender: performer.gender ?? undefined,
-  imageUrl: performer.images[0]?.url,
+  imageUrl: pickImage(performer.images),
 });
 
 export const mapSceneResult = (

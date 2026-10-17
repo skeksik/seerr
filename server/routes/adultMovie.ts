@@ -1,5 +1,6 @@
 import type { StashDbLookup } from '@server/api/stashdb';
 import StashDbAPI from '@server/api/stashdb';
+import type { StashDbImage } from '@server/api/stashdb/interfaces';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
 import TpdbAPI, { tpdbUrl } from '@server/api/tpdb';
 import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
@@ -25,6 +26,7 @@ import {
   tpdbDateOperations,
 } from '@server/lib/adultLists';
 import { isOnWatchlist, mapAdultMovieList } from '@server/lib/adultMedia';
+import logger from '@server/logger';
 import type { AdultMovieListResponse } from '@server/models/AdultMovie';
 import {
   MAX_DURATION,
@@ -39,13 +41,14 @@ const PAGE_SIZE = 20;
 
 const adultMovieRoutes = Router();
 
+// Named like the Movies tab's sorts (field.direction)
 const adultMovieSorts = [
-  'released',
-  'oldest',
-  'added',
-  'added_asc',
-  'duration',
-  'duration_asc',
+  'release_date.desc',
+  'release_date.asc',
+  'created_at.desc',
+  'created_at.asc',
+  'duration.desc',
+  'duration.asc',
 ] as const;
 
 const tpdbId = z
@@ -75,9 +78,9 @@ const movieFilters = z.object({
   performer: refs.optional(),
   tags: ids.optional(),
   // ThePornDB cannot leave anything out, so these are filtered here
-  studioExclude: refs.optional(),
-  performerExclude: refs.optional(),
-  tagsExclude: ids.optional(),
+  excludeStudios: refs.optional(),
+  excludePerformers: refs.optional(),
+  excludeTags: ids.optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   ...sharedFilters,
 });
@@ -89,7 +92,7 @@ type MovieFilters = Omit<MovieFilterRefs, keyof AdultMovieIds> & AdultMovieIds;
 
 const discoverQuery = movieFilters.extend({
   page: pageParam,
-  sort: z.enum(adultMovieSorts).catch('released'),
+  sortBy: z.enum(adultMovieSorts).catch('release_date.desc'),
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
@@ -159,28 +162,28 @@ const planMovies = (filters: MovieFilters): MoviePlan => {
       date,
     },
     filter: {
-      siteIds: filters.studioExclude,
-      performerIds: filters.performerExclude,
-      tagIds: filters.tagsExclude,
+      siteIds: filters.excludeStudios,
+      performerIds: filters.excludePerformers,
+      tagIds: filters.excludeTags,
     },
     empty:
       pickedAndExcluded(filters) ||
       (filters.studio !== undefined &&
-        !!filters.studioExclude?.includes(filters.studio)),
+        !!filters.excludeStudios?.includes(filters.studio)),
   };
 };
 
 const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
-  released: 'recently_released',
-  oldest: 'former_released',
-  added: 'recently_created',
-  added_asc: 'former_created',
-  duration: 'duration_desc',
-  duration_asc: 'duration_asc',
+  'release_date.desc': 'recently_released',
+  'release_date.asc': 'former_released',
+  'created_at.desc': 'recently_created',
+  'created_at.asc': 'former_created',
+  'duration.desc': 'duration_desc',
+  'duration.asc': 'duration_asc',
 };
 
 const discoverMovies = async (
-  { page, sort, ...refs }: DiscoverQuery,
+  { page, sortBy, ...refs }: DiscoverQuery,
   user?: User
 ): Promise<AdultMovieListResponse> => {
   const filters = await tpdbFilterIds(refs);
@@ -197,9 +200,9 @@ const discoverMovies = async (
     ...plan.query,
     page,
     perPage: PAGE_SIZE,
-    sort: filters.upcoming ? 'former_released' : tpdbSorts[sort],
+    sort: filters.upcoming ? 'former_released' : tpdbSorts[sortBy],
     // Some durations are far off, like 535 hours, and would lead the list
-    maxDuration: sort.startsWith('duration') ? MAX_DURATION : undefined,
+    maxDuration: sortBy.startsWith('duration') ? MAX_DURATION : undefined,
   });
 
   return {
@@ -364,6 +367,29 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 
 const movieId = z.string().uuid();
 
+// The StashDB images of a movie's linked cast, who show their StashDB photo
+// like everywhere else; the page keeps ThePornDB's when StashDB fails
+const linkedPerformerImages = async (
+  links: Map<number, string>
+): Promise<Map<string, StashDbImage[]>> => {
+  const ids = [...new Set(links.values())];
+
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  try {
+    return await StashDbAPI.fromSettings().getPerformerImages(ids);
+  } catch (e) {
+    logger.debug('Unable to read performer images from StashDB', {
+      label: 'API',
+      ids,
+      errorMessage: e.message,
+    });
+    return new Map();
+  }
+};
+
 // Released movies with any of this movie's performers, newest first
 adultMovieRoutes.get<{ id: string }>(
   '/:id/recommendations',
@@ -471,6 +497,7 @@ adultMovieRoutes.get('/:id', async (req, res, next) => {
       ...mapAdultMovieDetails(movie, media?.filter(req.user), {
         performers,
         studios,
+        performerImages: await linkedPerformerImages(performers),
       }),
       onUserWatchlist,
     });

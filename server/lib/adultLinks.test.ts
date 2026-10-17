@@ -102,16 +102,16 @@ describe('tpdbFilterIds', () => {
     assert.deepStrictEqual(
       await tpdbFilterIds({
         studio: 'blacked',
-        studioExclude: [1, 'blacked'],
+        excludeStudios: [1, 'blacked'],
         performer: [DRAGON, 7],
-        performerExclude: [DRAGON],
+        excludePerformers: [DRAGON],
         year: 2020,
       }),
       {
         studio: 200,
-        studioExclude: [1, 200],
+        excludeStudios: [1, 200],
         performer: [114293, 7],
-        performerExclude: [114293],
+        excludePerformers: [114293],
         year: 2020,
       }
     );
@@ -128,14 +128,14 @@ describe('tpdbFilterIds', () => {
   it('drops exclusions without one', async () => {
     assert.deepStrictEqual(
       await tpdbFilterIds({
-        studioExclude: ['unknown', 3],
-        performerExclude: ['unknown'],
+        excludeStudios: ['unknown', 3],
+        excludePerformers: ['unknown'],
       }),
       {
         studio: undefined,
-        studioExclude: [3],
+        excludeStudios: [3],
         performer: undefined,
-        performerExclude: [],
+        excludePerformers: [],
       }
     );
   });
@@ -144,12 +144,16 @@ describe('tpdbFilterIds', () => {
     getSettings().stashdb = { endpoint: '', apiKey: '' };
 
     assert.deepStrictEqual(
-      await tpdbFilterIds({ studio: 4, performer: [5], performerExclude: [6] }),
+      await tpdbFilterIds({
+        studio: 4,
+        performer: [5],
+        excludePerformers: [6],
+      }),
       {
         studio: 4,
-        studioExclude: undefined,
+        excludeStudios: undefined,
         performer: [5],
-        performerExclude: [6],
+        excludePerformers: [6],
       }
     );
   });

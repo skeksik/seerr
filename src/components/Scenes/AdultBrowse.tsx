@@ -57,17 +57,17 @@ const browseConfigs: Record<AdultFilterKind, BrowseConfig> = {
   scene: {
     endpoint: '/api/v1/scene/discover',
     sortOptions: [
-      ['popularity', messages.sortPopularityDesc],
-      ['popularity_asc', messages.sortPopularityAsc],
-      ['trending', messages.sortTrending],
-      ['date', messages.sortDateDesc],
-      ['oldest', messages.sortDateAsc],
-      ['created_at', messages.sortAddedDesc],
-      ['created_at_asc', messages.sortAddedAsc],
-      ['duration', messages.sortDurationDesc],
-      ['duration_asc', messages.sortDurationAsc],
-      ['title', messages.sortTitleAsc],
-      ['title_desc', messages.sortTitleDesc],
+      ['popularity.desc', messages.sortPopularityDesc],
+      ['popularity.asc', messages.sortPopularityAsc],
+      ['trending.desc', messages.sortTrending],
+      ['release_date.desc', messages.sortDateDesc],
+      ['release_date.asc', messages.sortDateAsc],
+      ['created_at.desc', messages.sortAddedDesc],
+      ['created_at.asc', messages.sortAddedAsc],
+      ['duration.desc', messages.sortDurationDesc],
+      ['duration.asc', messages.sortDurationAsc],
+      ['original_title.asc', messages.sortTitleAsc],
+      ['original_title.desc', messages.sortTitleDesc],
     ],
     title: globalMessages.scenes,
     provider: 'StashDB',
@@ -76,12 +76,12 @@ const browseConfigs: Record<AdultFilterKind, BrowseConfig> = {
   adultmovie: {
     endpoint: '/api/v1/adultmovie/discover',
     sortOptions: [
-      ['released', messages.sortDateDesc],
-      ['oldest', messages.sortDateAsc],
-      ['added', messages.sortAddedDesc],
-      ['added_asc', messages.sortAddedAsc],
-      ['duration', messages.sortDurationDesc],
-      ['duration_asc', messages.sortDurationAsc],
+      ['release_date.desc', messages.sortDateDesc],
+      ['release_date.asc', messages.sortDateAsc],
+      ['created_at.desc', messages.sortAddedDesc],
+      ['created_at.asc', messages.sortAddedAsc],
+      ['duration.desc', messages.sortDurationDesc],
+      ['duration.asc', messages.sortDurationAsc],
     ],
     title: globalMessages.adultMovies,
     provider: 'ThePornDB',
@@ -106,10 +106,10 @@ const AdultBrowse = ({ kind }: AdultBrowseProps) => {
     provider,
   } = browseConfigs[kind];
 
-  const sort =
-    typeof router.query.sort === 'string' &&
-    sortOptions.some(([value]) => value === router.query.sort)
-      ? router.query.sort
+  const sortBy =
+    typeof router.query.sortBy === 'string' &&
+    sortOptions.some(([value]) => value === router.query.sortBy)
+      ? router.query.sortBy
       : sortOptions[0][0];
   const filters = Object.fromEntries(
     adultFilterParams
@@ -127,7 +127,7 @@ const AdultBrowse = ({ kind }: AdultBrowseProps) => {
     error,
   } = useDiscover<SceneResult | AdultMovieResult>(
     endpoint,
-    { ...filters, sort },
+    { ...filters, sortBy },
     { filteredPages: true }
   );
   const title = intl.formatMessage(titleMessage);
@@ -175,8 +175,8 @@ const AdultBrowse = ({ kind }: AdultBrowseProps) => {
               id="sortBy"
               name="sortBy"
               className="rounded-r-only"
-              value={sort}
-              onChange={(e) => updateQueryParams('sort', e.target.value)}
+              value={sortBy}
+              onChange={(e) => updateQueryParams('sortBy', e.target.value)}
             >
               {sortOptions.map(([value, message]) => (
                 <option key={value} value={value}>

@@ -10,15 +10,15 @@ import {
 describe('list helpers', () => {
   it('tells a performer or tag both picked and excluded', () => {
     assert.strictEqual(
-      pickedAndExcluded({ tags: [1, 2], tagsExclude: [2] }),
+      pickedAndExcluded({ tags: [1, 2], excludeTags: [2] }),
       true
     );
     assert.strictEqual(
-      pickedAndExcluded({ performer: ['a'], performerExclude: ['a'] }),
+      pickedAndExcluded({ performer: ['a'], excludePerformers: ['a'] }),
       true
     );
     assert.strictEqual(
-      pickedAndExcluded({ tags: [1], performerExclude: [1] }),
+      pickedAndExcluded({ tags: [1], excludePerformers: [1] }),
       false
     );
     assert.strictEqual(pickedAndExcluded({}), false);

@@ -7885,11 +7885,19 @@ paths:
             type: number
             default: 1
         - in: query
-          name: sort
+          name: sortBy
           schema:
             type: string
-            enum: [released, oldest, added, added_asc, duration, duration_asc]
-            default: released
+            enum:
+              [
+                release_date.desc,
+                release_date.asc,
+                created_at.desc,
+                created_at.asc,
+                duration.desc,
+                duration.asc,
+              ]
+            default: release_date.desc
         - in: query
           name: studio
           description: A StashDB studio id, translated to the ThePornDB site it is linked to (a network to the network of its studios' sites), or a ThePornDB site id
@@ -7906,17 +7914,17 @@ paths:
           schema:
             type: string
         - in: query
-          name: studioExclude
+          name: excludeStudios
           description: Comma-separated StashDB studio ids or ThePornDB site ids to leave out, with the sites under them
           schema:
             type: string
         - in: query
-          name: performerExclude
+          name: excludePerformers
           description: Comma-separated StashDB performer ids or ThePornDB performer ids to leave out
           schema:
             type: string
         - in: query
-          name: tagsExclude
+          name: excludeTags
           description: Comma-separated ThePornDB tag ids to leave out
           schema:
             type: string
@@ -8142,24 +8150,24 @@ paths:
             example: 1
             default: 1
         - in: query
-          name: sort
+          name: sortBy
           schema:
             type: string
             enum:
               [
-                trending,
-                popularity,
-                popularity_asc,
-                date,
-                oldest,
-                title,
-                title_desc,
-                duration,
-                duration_asc,
-                created_at,
-                created_at_asc,
+                trending.desc,
+                popularity.desc,
+                popularity.asc,
+                release_date.desc,
+                release_date.asc,
+                original_title.asc,
+                original_title.desc,
+                duration.desc,
+                duration.asc,
+                created_at.desc,
+                created_at.asc,
               ]
-            default: trending
+            default: trending.desc
         - in: query
           name: studio
           description: Comma-separated StashDB studio ids (any may match)
@@ -8176,17 +8184,17 @@ paths:
           schema:
             type: string
         - in: query
-          name: studioExclude
+          name: excludeStudios
           description: Comma-separated StashDB studio ids to leave out, with the studios under them
           schema:
             type: string
         - in: query
-          name: performerExclude
+          name: excludePerformers
           description: Comma-separated StashDB performer ids to leave out
           schema:
             type: string
         - in: query
-          name: tagsExclude
+          name: excludeTags
           description: Comma-separated StashDB tag ids to leave out
           schema:
             type: string
@@ -8323,20 +8331,20 @@ paths:
             example: 1
             default: 1
         - in: query
-          name: sort
+          name: sortBy
           schema:
             type: string
             enum:
               [
-                name,
-                name_desc,
-                newest,
-                newest_asc,
-                trending,
-                popular,
-                popular_asc,
+                name.asc,
+                name.desc,
+                created_at.desc,
+                created_at.asc,
+                trending.desc,
+                popularity.desc,
+                popularity.asc,
               ]
-            default: name
+            default: name.asc
         - in: query
           name: query
           description: Part of the studio name

@@ -40,18 +40,18 @@ export const sharedFilters = {
 // picked ones, so then none is left
 export const pickedAndExcluded = <I>({
   performer,
-  performerExclude,
+  excludePerformers,
   tags,
-  tagsExclude,
+  excludeTags,
 }: {
   performer?: I[];
-  performerExclude?: I[];
+  excludePerformers?: I[];
   tags?: I[];
-  tagsExclude?: I[];
+  excludeTags?: I[];
 }): boolean =>
   [
-    [performer, performerExclude],
-    [tags, tagsExclude],
+    [performer, excludePerformers],
+    [tags, excludeTags],
   ].some(([picked, excluded]) =>
     (picked ?? []).some((id) => excluded?.includes(id))
   );

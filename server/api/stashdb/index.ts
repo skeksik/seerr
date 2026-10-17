@@ -18,6 +18,7 @@ import type {
 } from '@server/api/stashdb/interfaces';
 import cacheManager from '@server/lib/cache';
 import { getSettings } from '@server/lib/settings';
+import { pickImage } from '@server/models/Scene';
 
 // pickImage only reads the url and width
 const IMAGE_FIELDS = 'url width';
@@ -479,6 +480,28 @@ class StashDbAPI extends ExternalAPI {
     return data.findPerformer;
   }
 
+  // The images of several performers, in one request, for the photos of a
+  // movie's linked cast
+  public async getPerformerImages(
+    ids: string[]
+  ): Promise<Map<string, StashDbImage[]>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const data = await this.query<
+      Record<string, { images: StashDbImage[] } | null>
+    >(
+      `query (${ids.map((_, i) => `$p${i}: ID!`).join(', ')}) {
+        ${ids.map((_, i) => `p${i}: findPerformer(id: $p${i}) { id images { ${IMAGE_FIELDS} } }`).join('\n')}
+      }`,
+      Object.fromEntries(ids.map((id, i) => [`p${i}`, id])),
+      DETAILS_TTL
+    );
+
+    return new Map(ids.map((id, i) => [id, data[`p${i}`]?.images ?? []]));
+  }
+
   public async getStudio(id: string): Promise<StashDbStudio | null> {
     const data = await this.query<{ findStudio: StashDbStudio | null }>(
       `query ($id: ID!) {
@@ -642,7 +665,7 @@ class StashDbAPI extends ExternalAPI {
       id: performer.id,
       name: performer.name,
       disambiguation: performer.disambiguation,
-      imageUrl: performer.images[0]?.url,
+      imageUrl: pickImage(performer.images),
       ...(urls ? { urls: performer.urls ?? [] } : {}),
     }));
   }

@@ -48,25 +48,30 @@ export type AdultFilterKind = 'scene' | 'adultmovie';
 const countedParams = [
   'releaseDate',
   'studio',
-  'studioExclude',
+  'excludeStudios',
   'performer',
-  'performerExclude',
+  'excludePerformers',
   'tags',
-  'tagsExclude',
+  'excludeTags',
 ] as const;
 
 // The filter params the browse APIs take
 export const adultFilterParams = [...countedParams, 'released'] as const;
 
-// Query params the filters own; everything else (like sort) is kept.
+// Query params the filters own; everything else (like sortBy) is kept.
 // ThePornDB's tag names only ride along for the panel
-// The And/Or modes of older links go too
+// The And/Or modes, exclusions and sort of older links go too
 const filterKeys = [
   ...adultFilterParams,
   'tagNames',
-  'tagsExcludeNames',
+  'excludeTagNames',
   'performerMode',
   'tagMode',
+  'studioExclude',
+  'performerExclude',
+  'tagsExclude',
+  'tagsExcludeNames',
+  'sort',
 ] as const;
 
 type Option = { value: string; label: string };
@@ -238,13 +243,13 @@ const AdultFilterSlideover = ({
   const released = param(router.query.released) ?? 'gte';
   const releaseDate = param(router.query.releaseDate);
   const studio = param(router.query.studio);
-  const studioExclude = param(router.query.studioExclude);
+  const excludeStudios = param(router.query.excludeStudios);
   const performer = param(router.query.performer);
-  const performerExclude = param(router.query.performerExclude);
+  const excludePerformers = param(router.query.excludePerformers);
   const tags = param(router.query.tags)?.split(',') ?? [];
-  const tagsExclude = param(router.query.tagsExclude);
+  const excludeTags = param(router.query.excludeTags);
   const tagNames = param(router.query.tagNames)?.split('|');
-  const tagsExcludeNames = param(router.query.tagsExcludeNames)?.split('|');
+  const excludeTagNames = param(router.query.excludeTagNames)?.split('|');
   const isScene = kind === 'scene';
   const lookupBase = isScene ? '/api/v1/scene/lookup' : '/api/v1/adultmovie';
   // Picked studios and performers are StashDB's for both, so its pages name
@@ -334,13 +339,13 @@ const AdultFilterSlideover = ({
           {intl.formatMessage(messages.excludeStudios)}
         </SectionTitle>
         <LookupSelect
-          inputId="studioExcludeFilter"
+          inputId="excludeStudiosFilter"
           isMulti
-          ids={ids(studioExclude)}
+          ids={ids(excludeStudios)}
           searchUrl={`${lookupBase}/studios`}
           nameUrl={nameUrl('studio')}
           onChange={(options) =>
-            batchUpdate({ studioExclude: joined(options) })
+            batchUpdate({ excludeStudios: joined(options) })
           }
         />
         <SectionTitle>{intl.formatMessage(messages.performers)}</SectionTitle>
@@ -356,13 +361,13 @@ const AdultFilterSlideover = ({
           {intl.formatMessage(messages.excludePerformers)}
         </SectionTitle>
         <LookupSelect
-          inputId="performerExcludeFilter"
+          inputId="excludePerformersFilter"
           isMulti
-          ids={ids(performerExclude)}
+          ids={ids(excludePerformers)}
           searchUrl={`${lookupBase}/performers`}
           nameUrl={nameUrl('performer')}
           onChange={(options) =>
-            batchUpdate({ performerExclude: joined(options) })
+            batchUpdate({ excludePerformers: joined(options) })
           }
         />
         <SectionTitle>{intl.formatMessage(messages.tags)}</SectionTitle>
@@ -385,16 +390,16 @@ const AdultFilterSlideover = ({
         />
         <SectionTitle>{intl.formatMessage(messages.excludeTags)}</SectionTitle>
         <LookupSelect
-          inputId="tagExcludeFilter"
+          inputId="excludeTagsFilter"
           isMulti
-          ids={ids(tagsExclude)}
+          ids={ids(excludeTags)}
           searchUrl={`${lookupBase}/tags`}
           nameUrl={isScene ? nameUrl('tag') : undefined}
-          knownNames={isScene ? undefined : tagsExcludeNames}
+          knownNames={isScene ? undefined : excludeTagNames}
           onChange={(options) =>
             batchUpdate({
-              tagsExclude: joined(options),
-              tagsExcludeNames: isScene
+              excludeTags: joined(options),
+              excludeTagNames: isScene
                 ? undefined
                 : options.map((option) => option.label).join('|') || undefined,
             })

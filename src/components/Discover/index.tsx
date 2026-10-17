@@ -416,8 +416,8 @@ const Discover = () => {
                 mediaType="scene"
                 sliderKey="trending-scenes"
                 title={intl.formatMessage(sliderTitles.trendingScenes)}
-                url="/api/v1/scene/discover?sort=trending&page=1"
-                linkUrl="/discover/scenes?sort=trending"
+                url="/api/v1/scene/discover?sortBy=trending.desc&page=1"
+                linkUrl="/discover/scenes?sortBy=trending.desc"
               />
             );
             break;
@@ -427,7 +427,7 @@ const Discover = () => {
                 mediaType="scene"
                 sliderKey="popular-scenes"
                 title={intl.formatMessage(sliderTitles.popularScenes)}
-                url="/api/v1/scene/discover?sort=popularity&page=1"
+                url="/api/v1/scene/discover?sortBy=popularity.desc&page=1"
                 linkUrl="/discover/scenes"
               />
             );
@@ -438,8 +438,8 @@ const Discover = () => {
                 mediaType="scene"
                 sliderKey="new-scenes"
                 title={intl.formatMessage(sliderTitles.newScenes)}
-                url={`/api/v1/scene/discover?sort=date&released=lt&releaseDate=${upcomingDate}&page=1`}
-                linkUrl={`/discover/scenes?sort=date&released=lt&releaseDate=${upcomingDate}`}
+                url={`/api/v1/scene/discover?sortBy=release_date.desc&released=lt&releaseDate=${upcomingDate}&page=1`}
+                linkUrl={`/discover/scenes?sortBy=release_date.desc&released=lt&releaseDate=${upcomingDate}`}
               />
             );
             break;
@@ -450,7 +450,7 @@ const Discover = () => {
                 sliderKey="upcoming-scenes"
                 title={intl.formatMessage(sliderTitles.upcomingScenes)}
                 url="/api/v1/scene/discover?upcoming=true&page=1"
-                linkUrl={`/discover/scenes?sort=oldest&releaseDate=${upcomingDate}`}
+                linkUrl={`/discover/scenes?sortBy=release_date.asc&releaseDate=${upcomingDate}`}
               />
             );
             break;
@@ -476,7 +476,7 @@ const Discover = () => {
                 mediaType="adultmovie"
                 sliderKey="new-adult-movies"
                 title={intl.formatMessage(sliderTitles.newAdultMovies)}
-                url="/api/v1/adultmovie/discover?sort=released&page=1"
+                url="/api/v1/adultmovie/discover?sortBy=release_date.desc&page=1"
                 linkUrl="/discover/adultmovies"
               />
             );
@@ -488,7 +488,7 @@ const Discover = () => {
                 sliderKey="upcoming-adult-movies"
                 title={intl.formatMessage(sliderTitles.upcomingAdultMovies)}
                 url="/api/v1/adultmovie/discover?upcoming=true&page=1"
-                linkUrl={`/discover/adultmovies?sort=oldest&releaseDate=${upcomingDate}`}
+                linkUrl={`/discover/adultmovies?sortBy=release_date.asc&releaseDate=${upcomingDate}`}
               />
             );
             break;
