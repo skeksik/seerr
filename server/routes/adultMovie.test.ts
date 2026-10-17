@@ -786,3 +786,37 @@ describe('GET /adultmovie/:type/:id', () => {
     ]);
   });
 });
+
+describe('GET /adultmovie/tags/names', () => {
+  it('names the tags ThePornDB lists', async () => {
+    const getTagNames = mock.method(
+      TpdbAPI.prototype,
+      'getTagNames',
+      async () => new Map([[70, 'Anal']])
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/adultmovie/tags/names?ids=70,12,70');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, [{ id: 70, name: 'Anal' }]);
+    assert.deepStrictEqual(getTagNames.mock.calls[0].arguments[0], [70, 12]);
+  });
+
+  it('takes only tag numbers', async () => {
+    const getTagNames = mock.method(
+      TpdbAPI.prototype,
+      'getTagNames',
+      async () => new Map()
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    for (const ids of ['', 'anal', '70,', '0', '70;12']) {
+      const res = await agent.get(
+        `/adultmovie/tags/names?ids=${encodeURIComponent(ids)}`
+      );
+      assert.strictEqual(res.status, 400, ids);
+    }
+    assert.strictEqual(getTagNames.mock.callCount(), 0);
+  });
+});

@@ -1,7 +1,8 @@
 import useToasts from '@app/hooks/useToasts';
 import globalMessages from '@app/i18n/globalMessages';
 import { emptyPagesInARow } from '@app/utils/filteredPages';
-import { MediaStatus } from '@server/constants/media';
+import { isTitleShown } from '@app/utils/titleShown';
+import type { MediaStatus } from '@server/constants/media';
 import { useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import useSWRInfinite from 'swr/infinite';
@@ -53,40 +54,6 @@ export const encodeURIExtraParams = (string: string): string => {
 
   return finalString;
 };
-
-// Titles the hide-available, hide-blocklisted and hide-requested settings
-// leave out of lists; scenes and adult movies too, by their media status
-export const isTitleShown =
-  (
-    settings: {
-      hideAvailable?: boolean;
-      hideBlocklisted?: boolean;
-      hideRequested?: boolean;
-    },
-    wanted: {
-      hideAvailable: boolean;
-      hideBlocklisted: boolean;
-      hideRequested: boolean;
-    }
-  ) =>
-  (title: BaseMedia): boolean => {
-    if (!['movie', 'tv', 'scene', 'adultmovie'].includes(title.mediaType)) {
-      return true;
-    }
-    const status = title.mediaInfo?.status;
-    return !(
-      (settings.hideAvailable &&
-        wanted.hideAvailable &&
-        (status === MediaStatus.AVAILABLE ||
-          status === MediaStatus.PARTIALLY_AVAILABLE)) ||
-      (settings.hideBlocklisted &&
-        wanted.hideBlocklisted &&
-        status === MediaStatus.BLOCKLISTED) ||
-      (settings.hideRequested &&
-        wanted.hideRequested &&
-        title.mediaInfo?.hasActiveRequest)
-    );
-  };
 
 // Lists start with this many pages
 const INITIAL_PAGES = 3;

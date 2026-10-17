@@ -51,10 +51,10 @@ const messages = defineMessages('components.Settings.SettingsMain', {
     'Automatically add content with tags to the blocklist using the "Process Blocklisted Tags" job',
   blocklistedSceneTags: 'Blocklist Scenes with StashDB Tags',
   blocklistedSceneTagsTip:
-    'Automatically add scenes with these StashDB tags to the blocklist using the "Process Blocklisted Tags" job',
+    'Automatically add scenes with StashDB tags to the blocklist using the "Process Blocklisted Tags" job',
   blocklistedAdultMovieTags: 'Blocklist Adult Movies with ThePornDB Tags',
   blocklistedAdultMovieTagsTip:
-    'Automatically add adult movies with these ThePornDB tags to the blocklist using the "Process Blocklisted Tags" job',
+    'Automatically add adult movies with ThePornDB tags to the blocklist using the "Process Blocklisted Tags" job',
   blocklistedTagsLimit: 'Limit Content Blocklisted per Tag',
   blocklistedTagsLimitTip:
     'The "Process Blocklisted Tags" job will blocklist this many pages into each sort. Larger numbers will create a more accurate blocklist, but use more space.',

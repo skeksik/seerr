@@ -79,9 +79,12 @@ class Media {
     }
   }
 
-  // Sets hasActiveRequest, which lists need to hide requested titles
+  // Sets hasActiveRequest, which lists need to hide requested titles. Set
+  // whether or not Hide Requested Media is on, like the status the other
+  // hide settings go by: lists already read keep it, so turning the setting
+  // on hides their requested titles without reading them again
   private static async markActiveRequests(media: Media[]): Promise<void> {
-    if (!getSettings().main.hideRequested || media.length === 0) {
+    if (media.length === 0) {
       return;
     }
 
