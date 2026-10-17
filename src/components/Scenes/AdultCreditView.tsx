@@ -142,36 +142,27 @@ const SingleTitles = ({ mediaType, source }: SingleTitlesProps) => {
 interface CreditTitlesProps {
   view: CreditView;
   movies?: CreditSource;
-  scenes?: CreditSource;
+  scenes: CreditSource;
 }
 
 // While they are looked up, the rows as Seerr shows them loading, their
 // titles not linking yet; real rows or a grid take their place
-export const CreditTitlesPlaceholder = ({
-  scenes = true,
-}: {
-  // ThePornDB pages have no scenes
-  scenes?: boolean;
-}) => {
+export const CreditTitlesPlaceholder = () => {
   const intl = useIntl();
 
   return (
     <>
-      {scenes && (
-        <>
-          <SliderHeader
-            title={intl.formatMessage(globalMessages.scenes)}
-            linkPending
-          />
-          <Slider
-            sliderKey="credit-scenes-loading"
-            isLoading
-            isEmpty={false}
-            placeholder={<SceneCard.Placeholder />}
-            items={[]}
-          />
-        </>
-      )}
+      <SliderHeader
+        title={intl.formatMessage(globalMessages.scenes)}
+        linkPending
+      />
+      <Slider
+        sliderKey="credit-scenes-loading"
+        isLoading
+        isEmpty={false}
+        placeholder={<SceneCard.Placeholder />}
+        items={[]}
+      />
       <SliderHeader
         title={intl.formatMessage(globalMessages.adultMovies)}
         linkPending
@@ -205,15 +196,15 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
     firstPageUrl('scene', scenes)
   );
   const hasMovies = !!movies && (movieList?.totalResults ?? 0) > 0;
-  const hasScenes = !!scenes && (sceneList?.totalResults ?? 0) > 0;
-  const known = (!movies || !!movieList) && (!scenes || !!sceneList);
+  const hasScenes = (sceneList?.totalResults ?? 0) > 0;
+  const known = (!movies || !!movieList) && !!sceneList;
 
   if (view === 'all') {
     if (!known) {
-      return <CreditTitlesPlaceholder scenes={!!scenes} />;
+      return <CreditTitlesPlaceholder />;
     }
 
-    if (hasMovies && hasScenes && movies && scenes) {
+    if (hasMovies && hasScenes && movies) {
       return (
         <>
           <AdultTitleSlider
@@ -244,7 +235,7 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
 
   return showMovies && movies ? (
     <SingleTitles key="movies" mediaType="adultmovie" source={movies} />
-  ) : showScenes && scenes ? (
+  ) : showScenes ? (
     <SingleTitles key="scenes" mediaType="scene" source={scenes} />
   ) : null;
 };

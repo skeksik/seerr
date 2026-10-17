@@ -38,7 +38,6 @@ export interface ProfileLink {
 const alignments = {
   // Centred on small screens, like the rest of a person page's header
   responsive: 'justify-center lg:justify-start',
-  start: 'justify-start',
   center: 'justify-center',
   end: 'justify-end',
 };

@@ -55,10 +55,8 @@ export interface TpdbMovieQuery {
   // A movie must feature every one of them, unless anyPerformer is set
   performerIds?: number[];
   anyPerformer?: boolean;
-  // Likewise every tag, unless anyTag is set
+  // Likewise every tag
   tagIds?: number[];
-  anyTag?: boolean;
-  year?: number;
   // ThePornDB takes a single date bound per query
   date?: { value: string; operation: '>' | '>=' | '<' | '<=' | '=' };
   // Seconds; leaves out longer movies
@@ -114,8 +112,6 @@ class TpdbAPI extends ExternalAPI {
     performerIds,
     anyPerformer = false,
     tagIds,
-    anyTag = false,
-    year,
     date,
     maxDuration,
   }: TpdbMovieQuery = {}): Promise<TpdbPage<TpdbMovie>> {
@@ -140,8 +136,7 @@ class TpdbAPI extends ExternalAPI {
           ...Object.fromEntries(
             (tagIds ?? []).map((id) => [`tags[${id}]`, id])
           ),
-          tag_and: !anyTag && (tagIds ?? []).length > 1 ? 1 : undefined,
-          year,
+          tag_and: (tagIds ?? []).length > 1 ? 1 : undefined,
           date: date?.value,
           date_operation: date?.operation,
           duration: maxDuration,

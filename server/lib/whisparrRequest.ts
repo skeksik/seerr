@@ -140,7 +140,6 @@ export const sendToWhisparr = async (
       qualityProfileId,
       rootFolderPath,
       tags,
-      monitored: true,
       searchNow: !server.preventSearch,
     })
     .then(async (added) => {

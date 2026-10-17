@@ -1,5 +1,4 @@
 import type {
-  StashDbGender,
   StashDbImage,
   StashDbPerformer,
   StashDbPerformerSummary,
@@ -24,7 +23,6 @@ export interface ScenePerformer {
   disambiguation?: string;
   // Name the performer is credited as in this scene, when it differs
   as?: string;
-  gender?: StashDbGender;
   imageUrl?: string;
 }
 
@@ -104,7 +102,6 @@ export interface SceneChildStudio extends SceneFilterDetails {
 
 export interface ScenePerformerDetails extends SceneFilterDetails {
   disambiguation?: string;
-  gender?: StashDbGender;
   aliases: string[];
   birthDate?: string;
   careerStart?: number;
@@ -174,7 +171,6 @@ const mapPerformer = (
   name: performer.name,
   disambiguation: performer.disambiguation ?? undefined,
   as: as && as !== performer.name ? as : undefined,
-  gender: performer.gender ?? undefined,
   imageUrl: pickImage(performer.images),
 });
 
@@ -224,7 +220,6 @@ export const mapPerformerDetails = (
     : performer.name,
   imageUrl: pickImage(performer.images),
   disambiguation: performer.disambiguation ?? undefined,
-  gender: performer.gender ?? undefined,
   aliases: performer.aliases,
   birthDate: performer.birth_date ?? undefined,
   careerStart: performer.career_start_year ?? undefined,

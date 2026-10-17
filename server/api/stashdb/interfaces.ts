@@ -8,7 +8,6 @@ export interface StashDbGraphqlResponse<T> {
 
 // Only the url is asked for
 export interface StashDbImage {
-  id?: string;
   url: string;
 }
 
@@ -49,19 +48,10 @@ export interface StashDbStudio extends StashDbStudioSummary {
   child_studios?: { id: string; name: string; images: StashDbImage[] }[];
 }
 
-export type StashDbGender =
-  | 'MALE'
-  | 'FEMALE'
-  | 'TRANSGENDER_MALE'
-  | 'TRANSGENDER_FEMALE'
-  | 'INTERSEX'
-  | 'NON_BINARY';
-
 export interface StashDbPerformerSummary {
   id: string;
   name: string;
   disambiguation?: string | null;
-  gender?: StashDbGender | null;
   images: StashDbImage[];
 }
 

@@ -2366,8 +2366,6 @@ components:
           type: string
         as:
           type: string
-        gender:
-          type: string
         imageUrl:
           type: string
     SceneResult:
@@ -2513,8 +2511,6 @@ components:
           properties:
             disambiguation:
               type: string
-            gender:
-              type: string
             birthDate:
               type: string
             careerStart:
@@ -2598,8 +2594,6 @@ components:
           id:
             type: number
           name:
-            type: string
-          imageUrl:
             type: string
     StashDbLookup:
       type: array
@@ -7970,12 +7964,8 @@ paths:
           schema:
             type: string
         - in: query
-          name: year
-          schema:
-            type: number
-        - in: query
           name: released
-          description: How the release date compares to releaseDate (gte when unset; after and before are older names for gte and lt)
+          description: How the release date compares to releaseDate (gte when unset)
           schema:
             type: string
             enum: [eq, gt, gte, lt, lte]
@@ -8140,8 +8130,7 @@ paths:
         the ThePornDB profile, or when the ThePornDB performer links the StashDB
         one (sites keep no StashDB links); a StashDB network linking no site of
         its own gets the ThePornDB network its studios' sites belong to. Names
-        alone never match. `via` says which: Whisparr reads StashDB's links
-        only, so it monitors the movies of `stashdb` matches alone.
+        alone never match.
       tags:
         - adultmovies
       parameters:
@@ -8167,18 +8156,9 @@ paths:
                 properties:
                   id:
                     type: number
-                  name:
-                    type: string
                   url:
                     type: string
                     description: The performer's or site's ThePornDB page
-                  via:
-                    type: string
-                    enum: [stashdb, tpdb, network]
-                    description: >-
-                      How they are linked: by the StashDB profile's ThePornDB
-                      link, by the ThePornDB performer's StashDB link, or, for
-                      a network, by its studios' ThePornDB links
         '404':
           description: No match on ThePornDB
   /adultmovie/{adultMovieId}:

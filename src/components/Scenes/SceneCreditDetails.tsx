@@ -64,7 +64,6 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   const { data: tpdbMatch, error: matchError } = useSWR<{
     id: number;
     url?: string;
-    via: 'stashdb' | 'tpdb' | 'network';
   }>(id ? `/api/v1/adultmovie/match/${type}/${id}` : null, {
     shouldRetryOnError: false,
   });
@@ -106,7 +105,6 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
       <AdultCreditHeader
         type={type}
         name={data.name}
-        imageType="stashdb"
         imageUrl={stashImageUrl(data.imageUrl, 600)}
         backdrops={backdrops}
         // StashDB first, then ThePornDB, then the rest as StashDB lists them

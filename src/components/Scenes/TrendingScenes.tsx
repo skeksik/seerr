@@ -1,9 +1,5 @@
+import { sliderTitles } from '@app/components/Discover/constants';
 import AdultBrowse from '@app/components/Scenes/AdultBrowse';
-import defineMessages from '@app/utils/defineMessages';
-
-const messages = defineMessages('components.Scenes.TrendingScenes', {
-  trendingScenes: 'Trending Scenes',
-});
 
 // Like the Trending page, for scenes: the Scenes tab with its filters, held
 // to StashDB's trending order, which has no daily or weekly window, so there
@@ -12,7 +8,7 @@ const TrendingScenes = () => (
   <AdultBrowse
     kind="scene"
     fixedSort="trending.desc"
-    title={messages.trendingScenes}
+    title={sliderTitles.trendingScenes}
   />
 );
 

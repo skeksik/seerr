@@ -63,7 +63,7 @@ export interface AdultMovieListResponse {
 }
 
 // The CDN copies are the most reliable; studio-site images often vanish
-const pickPoster = (movie: TpdbMovie): string | undefined =>
+export const pickPoster = (movie: TpdbMovie): string | undefined =>
   movie.posters?.large ??
   movie.posters?.full ??
   movie.posters?.medium ??

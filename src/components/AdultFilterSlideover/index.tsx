@@ -60,18 +60,10 @@ export const adultFilterParams = [...countedParams, 'released'] as const;
 
 // Query params the filters own; everything else (like sortBy) is kept.
 // ThePornDB's tag names only ride along for the panel
-// The And/Or modes, exclusions and sort of older links go too
 const filterKeys = [
   ...adultFilterParams,
   'tagNames',
   'excludeTagNames',
-  'performerMode',
-  'tagMode',
-  'studioExclude',
-  'performerExclude',
-  'tagsExclude',
-  'tagsExcludeNames',
-  'sort',
 ] as const;
 
 type Option = { value: string; label: string };

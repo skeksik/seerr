@@ -37,8 +37,8 @@ const scene: StashDbScene = {
   duration: 316,
   deleted: false,
   images: [
-    { id: 'first', url: 'https://stashdb.test/images/first' },
-    { id: 'second', url: 'https://stashdb.test/images/second' },
+    { url: 'https://stashdb.test/images/first' },
+    { url: 'https://stashdb.test/images/second' },
   ],
   studio: { id: 'studio', name: 'Studio', parent: null },
   performers: [
@@ -47,7 +47,6 @@ const scene: StashDbScene = {
       performer: {
         id: 'performer',
         name: 'Performer',
-        gender: 'FEMALE',
         // The first is picked, whatever follows
         images: [
           { url: 'https://stashdb.test/images/performer-first' },
@@ -132,7 +131,6 @@ const performer: StashDbPerformer = {
   id: SCENE_ID,
   name: 'Performer',
   disambiguation: null,
-  gender: 'FEMALE',
   aliases: ['Alias'],
   birth_date: '1990-01-01',
   career_start_year: 2010,

@@ -7,7 +7,7 @@ import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
-import type { AdultMovieIds, LinkVia } from '@server/lib/adultLinks';
+import type { AdultMovieIds } from '@server/lib/adultLinks';
 import {
   linkedStashDbPerformers,
   linkedStashDbStudios,
@@ -82,7 +82,6 @@ const movieFilters = z.object({
   excludeStudios: refs.optional(),
   excludePerformers: refs.optional(),
   excludeTags: ids.optional(),
-  year: z.coerce.number().int().min(1900).max(2100).optional(),
   ...sharedFilters,
 });
 
@@ -93,7 +92,7 @@ type MovieFilters = Omit<MovieFilterRefs, keyof AdultMovieIds> & AdultMovieIds;
 
 const discoverQuery = movieFilters.extend({
   page: pageParam,
-  sortBy: z.enum(adultMovieSorts).catch('release_date.desc'),
+  sortBy: z.enum(adultMovieSorts).default('release_date.desc'),
 });
 
 type DiscoverQuery = z.infer<typeof discoverQuery>;
@@ -158,8 +157,6 @@ const planMovies = (filters: MovieFilters): MoviePlan => {
       siteId: filters.studio,
       performerIds: filters.performer,
       tagIds: filters.tags,
-      anyTag: false,
-      year: filters.year,
       date,
     },
     filter: {
@@ -350,8 +347,7 @@ for (const [path, lookup] of Object.entries(lookups)) {
 }
 
 // The ThePornDB performer or site linked to a StashDB performer or studio,
-// whose movies its page adds, and how they are linked, as Whisparr only
-// monitors the movies of ones StashDB links itself
+// whose movies its page adds
 adultMovieRoutes.get<{ type: string; id: string }>(
   '/match/:type/:id',
   async (req, res, next) => {
@@ -363,31 +359,22 @@ adultMovieRoutes.get<{ type: string; id: string }>(
 
     try {
       const stashDb = StashDbAPI.fromSettings();
-      let match: {
-        id: number;
-        name: string;
-        url: string;
-        via: LinkVia;
-      } | null = null;
+      let match: { id: number; url: string } | null = null;
 
       if (req.params.type === 'performer') {
         const found = await linkedTpdbPerformer(id.data, stashDb);
         match = found
           ? {
-              id: found.match._id,
-              name: found.match.name,
-              url: tpdbUrl('performers', found.match.id),
-              via: found.via,
+              id: found._id,
+              url: tpdbUrl('performers', found.id),
             }
           : null;
       } else {
         const found = await linkedTpdbSite(id.data, stashDb);
         match = found
           ? {
-              id: found.match.id,
-              name: found.match.name,
-              url: tpdbUrl('sites', found.match.uuid),
-              via: found.via,
+              id: found.id,
+              url: tpdbUrl('sites', found.uuid),
             }
           : null;
       }

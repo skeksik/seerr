@@ -168,7 +168,6 @@ describe('Scene requests', () => {
       qualityProfileId: 4,
       rootFolderPath: '/data/xxx',
       tags: [],
-      monitored: true,
       searchNow: true,
     });
     const media = await Media.getAdultMedia(MediaType.SCENE, STASH_ID);

@@ -67,7 +67,6 @@ export const personAttributes = (
 interface AdultCreditHeaderProps {
   type: 'performer' | 'studio';
   name: string;
-  imageType: 'stashdb' | 'tpdb';
   imageUrl?: string;
   // Backdrops of their first titles, faded through like a person page's
   backdrops: string[];
@@ -83,11 +82,10 @@ interface AdultCreditHeaderProps {
   picker?: React.ReactNode;
 }
 
-// The person page's header, for StashDB and ThePornDB performers and studios
+// The person page's header, for StashDB performers and studios
 const AdultCreditHeader = ({
   type,
   name,
-  imageType,
   imageUrl,
   backdrops,
   links,
@@ -108,7 +106,7 @@ const AdultCreditHeader = ({
         <div className="absolute left-0 right-0 top-0 z-0 h-96">
           <ImageFader
             isDarker
-            imageType={imageType}
+            imageType="stashdb"
             backgroundImages={backdrops}
           />
         </div>
@@ -123,7 +121,7 @@ const AdultCreditHeader = ({
             }`}
           >
             <CachedImage
-              type={imageType}
+              type="stashdb"
               src={imageUrl}
               alt=""
               style={{

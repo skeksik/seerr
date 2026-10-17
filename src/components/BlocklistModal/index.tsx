@@ -16,7 +16,7 @@ import useSWR from 'swr';
 interface BlocklistModalProps {
   // TMDB id, or the StashDB or ThePornDB UUID of a scene or adult movie
   id?: number | string;
-  // Old name of id, still used by MovieDetails and CollectionDetails
+  // Old name of id, which the upstream detail pages still pass
   tmdbId?: number;
   type: 'movie' | 'tv' | 'collection' | 'scene' | 'adultmovie';
   show: boolean;

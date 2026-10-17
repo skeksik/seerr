@@ -14,15 +14,7 @@ export interface TpdbSiteSummary {
   name: string;
   // The site's slug, as in its ThePornDB address
   short_name?: string | null;
-  url?: string | null;
-  logo?: string | null;
   network?: {
-    id: number;
-    uuid: string;
-    name: string;
-    short_name?: string | null;
-  } | null;
-  parent?: {
     id: number;
     uuid: string;
     name: string;
@@ -35,12 +27,7 @@ export interface TpdbSiteSummary {
 
 // Profile links by site name, e.g. { StashDB: 'https://stashdb.org/…' }
 export interface TpdbPerformerExtras {
-  gender?: string | null;
   links?: Record<string, string> | null;
-  birthday?: string | null;
-  birthplace?: string | null;
-  career_start_year?: number | null;
-  career_end_year?: number | null;
 }
 
 export interface TpdbPerformerSummary {
@@ -49,13 +36,8 @@ export interface TpdbPerformerSummary {
   // As in the performer's ThePornDB address, like the id
   slug?: string | null;
   name: string;
-  // Only on the performer endpoint
-  bio?: string | null;
-  aliases?: string[] | null;
   image?: string | null;
   extras?: TpdbPerformerExtras | null;
-  // Movie performers carry theirs singular
-  extra?: TpdbPerformerExtras | null;
   // The performer across all sites; site performers point to it
   parent?: {
     id: string;

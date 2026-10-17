@@ -8,7 +8,7 @@ import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { Watchlist } from '@server/entity/Watchlist';
 import type { AdultMovieResult } from '@server/models/AdultMovie';
-import { mapAdultMovieResult } from '@server/models/AdultMovie';
+import { mapAdultMovieResult, pickPoster } from '@server/models/AdultMovie';
 import { mapSceneResult } from '@server/models/Scene';
 import type { EntityManager } from 'typeorm';
 
@@ -111,7 +111,7 @@ export const describeAdultMedia = async (
 
     return {
       title: withYear(movie.title, movie.date),
-      image: movie.posters?.large ?? movie.image ?? undefined,
+      image: pickPoster(movie),
       overview: movie.description ?? undefined,
       studio: movie.site?.name,
     };

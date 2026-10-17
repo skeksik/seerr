@@ -55,8 +55,8 @@ const sortOptions = [
 
 type StudioSort = (typeof sortOptions)[number][0];
 
-// Every StashDB studio or network, behind the rows of the same name; the
-// rows go by trending scenes, the lists start by popular ones
+// Every StashDB studio or network, behind the rows of the same name, by
+// their popular scenes unless sorted otherwise
 const AdultStudioList = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const router = useRouter();

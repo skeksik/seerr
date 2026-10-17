@@ -41,7 +41,6 @@ export interface WhisparrAddOptions {
   qualityProfileId: number;
   rootFolderPath: string;
   tags: number[];
-  monitored?: boolean;
   searchNow?: boolean;
 }
 
@@ -248,7 +247,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
           qualityProfileId: options.qualityProfileId,
           rootFolderPath: options.rootFolderPath,
           tags: Array.from(new Set([...item.tags, ...options.tags])),
-          monitored: options.monitored ?? true,
+          monitored: true,
         });
 
         logger.info('Found existing item in Whisparr and set it to monitored', {
@@ -273,7 +272,7 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
         qualityProfileId: options.qualityProfileId,
         rootFolderPath: options.rootFolderPath,
         tags: options.tags,
-        monitored: options.monitored ?? true,
+        monitored: true,
         addOptions: {
           searchForMovie: options.searchNow,
           monitor: 'movieOnly',
@@ -566,7 +565,6 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
   }
 
-  // Takes a library item, or its id when the item itself is not needed
   public async removeItem(
     item: Pick<WhisparrItem, 'id' | 'title' | 'foreignId'>
   ): Promise<void> {

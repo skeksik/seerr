@@ -149,26 +149,22 @@ describe('GET /adultmovie/discover', () => {
     assert.strictEqual(query?.date?.operation, '<=');
   });
 
-  it('falls back to the release order for unknown sorts', async () => {
+  it('rejects unknown sorts and sorts by release without one', async () => {
     const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () => ({
       data: [],
       meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
     }));
     const agent = await loginAs('admin@seerr.dev');
 
-    for (const url of [
-      '/adultmovie/discover',
-      '/adultmovie/discover?sortBy=random',
-    ]) {
-      const res = await agent.get(url);
-
-      assert.strictEqual(res.status, 200, url);
-      assert.strictEqual(
-        getMovies.mock.calls.at(-1)?.arguments[0]?.sort,
-        'recently_released',
-        url
-      );
-    }
+    assert.strictEqual(
+      (await agent.get('/adultmovie/discover?sortBy=random')).status,
+      400
+    );
+    assert.strictEqual((await agent.get('/adultmovie/discover')).status, 200);
+    assert.strictEqual(
+      getMovies.mock.calls[0].arguments[0]?.sort,
+      'recently_released'
+    );
   });
 
   it('leaves out excluded movies, which ThePornDB cannot', async () => {
@@ -193,8 +189,6 @@ describe('GET /adultmovie/discover', () => {
     const query = getMovies.mock.calls[0].arguments[0];
     assert.strictEqual(query?.perPage, 20);
     assert.deepStrictEqual(query?.tagIds, [1, 2]);
-    // Movies need all of the picked tags
-    assert.strictEqual(query?.anyTag, false);
   });
 
   it('finds nothing for filters that leave nothing', async () => {
@@ -536,9 +530,7 @@ describe('linking StashDB and ThePornDB', () => {
       assert.strictEqual(res.status, 200);
       assert.deepStrictEqual(res.body, {
         id: 169067,
-        name: 'Sasha Paige',
         url: 'https://theporndb.net/performers/sasha',
-        via: 'stashdb',
       });
       assert.deepStrictEqual(getPerformer.mock.calls[0].arguments, [
         'sasha-paige',
@@ -562,7 +554,6 @@ describe('linking StashDB and ThePornDB', () => {
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.id, 241509);
-      assert.strictEqual(res.body.via, 'tpdb');
       assert.deepStrictEqual(search.mock.calls[0].arguments, ['Gal Ritchie']);
     });
 
@@ -609,9 +600,7 @@ describe('linking StashDB and ThePornDB', () => {
       assert.strictEqual(res.status, 200);
       assert.deepStrictEqual(res.body, {
         id: 92,
-        name: 'Brazzers',
         url: `https://theporndb.net/sites/${brazzers.uuid}`,
-        via: 'stashdb',
       });
       assert.deepStrictEqual(getSite.mock.calls[0].arguments, ['brazzers']);
     });
@@ -648,9 +637,7 @@ describe('linking StashDB and ThePornDB', () => {
       assert.strictEqual(res.status, 200);
       assert.deepStrictEqual(res.body, {
         id: vixenGroup.id,
-        name: 'Vixen Media Group',
         url: `https://theporndb.net/sites/${vixenGroup.uuid}`,
-        via: 'network',
       });
     });
 

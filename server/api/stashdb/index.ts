@@ -33,7 +33,7 @@ const SCENE_SUMMARY_FIELDS = `
   studio { id name parent { id name } }
   performers {
     as
-    performer { id name disambiguation gender images { ${IMAGE_FIELDS} } }
+    performer { id name disambiguation images { ${IMAGE_FIELDS} } }
   }
   tags { id name }
 `;
@@ -467,7 +467,7 @@ class StashDbAPI extends ExternalAPI {
     const data = await this.query<{ findPerformer: StashDbPerformer | null }>(
       `query ($id: ID!) {
         findPerformer(id: $id) {
-          id name disambiguation gender aliases birth_date country scene_count
+          id name disambiguation aliases birth_date country scene_count
           career_start_year career_end_year
           images { ${IMAGE_FIELDS} }
           urls { url site { name icon } }
@@ -652,7 +652,7 @@ class StashDbAPI extends ExternalAPI {
     }>(
       `query ($term: String!) {
         searchPerformers(term: $term, per_page: 25) {
-          performers { id name disambiguation gender images { ${IMAGE_FIELDS} } ${urls ? URL_FIELDS : ''} }
+          performers { id name disambiguation images { ${IMAGE_FIELDS} } ${urls ? URL_FIELDS : ''} }
         }
       }`,
       { term },
