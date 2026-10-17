@@ -8,6 +8,12 @@ import {
 import AdultCreditHeader, {
   personAttributes,
 } from '@app/components/Scenes/AdultCreditHeader';
+import type { CreditView } from '@app/components/Scenes/AdultCreditView';
+import {
+  CreditTitles,
+  CreditViewPicker,
+  useCreditView,
+} from '@app/components/Scenes/AdultCreditView';
 import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
 import MonitorControls from '@app/components/Scenes/MonitorControls';
@@ -68,6 +74,14 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
   // The slider's own request, so both share it
   const scenesUrl = creditTitlesUrl('scene', type, id);
   const { data: scenes } = useSWR<SceneListResponse>(id ? scenesUrl : null);
+  // Movies once the match is known; until then a link to them waits for it
+  const views: CreditView[] = tpdbMatch
+    ? ['all', 'scenes', 'adultmovies']
+    : ['all', 'scenes'];
+  const { view, setView, waiting } = useCreditView(
+    views,
+    !tpdbMatch && !matchError ? ['adultmovies'] : []
+  );
 
   // The person page's backdrop carousel, from the first scenes listed
   const backdrops = useMemo(
@@ -132,6 +146,9 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
             : undefined
         }
         aliases={data.aliases}
+        picker={
+          <CreditViewPicker views={views} view={view} onChange={setView} />
+        }
         actions={
           data.whisparr && (
             <MonitorControls
@@ -146,35 +163,45 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
-        {hasStudios && (
-          <AdultStudioRow
-            sliderKey={`network-studios-${data.id}`}
-            title={intl.formatMessage(messages.studios)}
-            linkUrl={`${creditHref('studio', data.id)}/studios`}
-            mediaType="scene"
-            studios={data.studios}
-          />
+        {waiting ? (
+          <LoadingSpinner />
+        ) : view === 'scenes' ? (
+          <CreditTitles mediaType="scene" type={type} id={data.id} />
+        ) : view === 'adultmovies' && tpdbMatch ? (
+          <CreditTitles mediaType="adultmovie" type={type} id={tpdbMatch.id} />
+        ) : (
+          <>
+            {hasStudios && (
+              <AdultStudioRow
+                sliderKey={`network-studios-${data.id}`}
+                title={intl.formatMessage(messages.studios)}
+                linkUrl={`${creditHref('studio', data.id)}/studios`}
+                mediaType="scene"
+                studios={data.studios}
+              />
+            )}
+            {/* Their titles open the tabs filtered to them, which sort */}
+            <AdultTitleSlider
+              mediaType="scene"
+              sliderKey={`scenes-${type}-${data.id}`}
+              title={intl.formatMessage(globalMessages.scenes)}
+              url={scenesUrl}
+              linkUrl={creditBrowseHref('scene', type, data.id)}
+              onSettled={(empty) => reportRow('scenes', empty)}
+            />
+            {tpdbMatch && (
+              <AdultTitleSlider
+                mediaType="adultmovie"
+                sliderKey={`adult-${type}-${tpdbMatch.id}`}
+                title={intl.formatMessage(globalMessages.adultMovies)}
+                url={creditTitlesUrl('adultmovie', type, tpdbMatch.id)}
+                linkUrl={creditBrowseHref('adultmovie', type, tpdbMatch.id)}
+                onSettled={(empty) => reportRow('movies', empty)}
+              />
+            )}
+            {allRowsEmpty && !hasStudios && <NoResults />}
+          </>
         )}
-        {/* Their titles open the tabs filtered to them, which sort */}
-        <AdultTitleSlider
-          mediaType="scene"
-          sliderKey={`scenes-${type}-${data.id}`}
-          title={intl.formatMessage(globalMessages.scenes)}
-          url={scenesUrl}
-          linkUrl={creditBrowseHref('scene', type, data.id)}
-          onSettled={(empty) => reportRow('scenes', empty)}
-        />
-        {tpdbMatch && (
-          <AdultTitleSlider
-            mediaType="adultmovie"
-            sliderKey={`adult-${type}-${tpdbMatch.id}`}
-            title={intl.formatMessage(globalMessages.adultMovies)}
-            url={creditTitlesUrl('adultmovie', type, tpdbMatch.id)}
-            linkUrl={creditBrowseHref('adultmovie', type, tpdbMatch.id)}
-            onSettled={(empty) => reportRow('movies', empty)}
-          />
-        )}
-        {allRowsEmpty && !hasStudios && <NoResults />}
       </div>
     </>
   );

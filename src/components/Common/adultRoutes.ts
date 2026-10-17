@@ -15,16 +15,31 @@ export const creditHref = (type: CreditType, id: string | number): string =>
 export const isTpdbCreditId = (id: string | number | undefined): boolean =>
   id !== undefined && /^\d+$/.test(String(id));
 
-// A performer's or studio's titles, newest first. Their pages and the
-// title pages' studio banner share these, so they share the SWR cache
+// A performer's or studio's titles, newest first, as an endpoint and its
+// params, which useDiscover pages through
+export const creditTitlesQuery = (
+  mediaType: AdultMediaType,
+  type: CreditType,
+  id: string | number
+): { endpoint: string; params: Record<string, string> } => ({
+  endpoint: `/api/v1/${mediaType}/discover`,
+  params: {
+    sort: mediaType === 'scene' ? 'date' : 'released',
+    [type]: String(id),
+  },
+});
+
+// Their first page. Their pages and the title pages' studio banner share
+// it, so they share the SWR cache
 export const creditTitlesUrl = (
   mediaType: AdultMediaType,
   type: CreditType,
   id: string | number
-): string =>
-  mediaType === 'scene'
-    ? `/api/v1/scene/discover?page=1&sort=date&${type}=${id}`
-    : `/api/v1/adultmovie/discover?page=1&sort=released&${type}=${id}`;
+): string => {
+  const { endpoint, params } = creditTitlesQuery(mediaType, type, id);
+
+  return `${endpoint}?${new URLSearchParams({ page: '1', ...params })}`;
+};
 
 // The browse tab filtered to them, which sorts
 export const creditBrowseHref = (
