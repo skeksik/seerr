@@ -51,6 +51,8 @@ export interface AdultMovieDetails extends AdultMovieResult {
   directors: string[];
   // Movie page on the studio's own site
   url?: string;
+  // A video file a browser plays in a tab of its own
+  trailerUrl?: string;
   tpdbUrl: string;
 }
 
@@ -91,6 +93,43 @@ export const mapAdultMovieResult = (
   studio: movie.site ? { id: movie.site.id, name: movie.site.name } : undefined,
   mediaInfo: media,
 });
+
+// Streaming playlists only play in Safari; elsewhere they download
+const PLAYLIST = /\.(m3u8|mpd)$/i;
+// Signed links name their end as a Unix time
+const EXPIRY_PARAMS = ['validto', 'expires', 'exp'];
+
+// ThePornDB keeps the trailer link it was given, so signed links stay
+// expired; a fresh lookup would not help
+export const playableTrailer = (
+  trailer: string | null | undefined,
+  now = Date.now()
+): string | undefined => {
+  if (!trailer) {
+    return undefined;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(trailer.trim());
+  } catch {
+    return undefined;
+  }
+
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    PLAYLIST.test(url.pathname)
+  ) {
+    return undefined;
+  }
+
+  const expired = EXPIRY_PARAMS.some((param) => {
+    const value = url.searchParams.get(param);
+    return value && /^\d{9,}$/.test(value) && Number(value) * 1000 < now;
+  });
+
+  return expired ? undefined : url.toString();
+};
 
 // The StashDB performers and studios a movie's ThePornDB ones are linked
 // to, by ThePornDB id
@@ -147,5 +186,6 @@ export const mapAdultMovieDetails = (
   tags: (movie.tags ?? []).map(({ id, name }) => ({ id, name })),
   directors: (movie.directors ?? []).map((director) => director.name),
   url: movie.url ?? undefined,
+  trailerUrl: playableTrailer(movie.trailer),
   tpdbUrl: tpdbUrl('movies', movie.id),
 });

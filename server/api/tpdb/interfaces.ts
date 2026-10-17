@@ -86,6 +86,9 @@ export interface TpdbMovie {
   back_image?: string | null;
   posters?: TpdbImageSizes | null;
   background?: TpdbImageSizes | null;
+  // The studio's trailer, as they host it: mostly MP4 files, some HLS
+  // playlists and links signed to expire
+  trailer?: string | null;
   site?: TpdbSiteSummary | null;
   performers?: TpdbPerformerSummary[];
   tags?: TpdbTag[];

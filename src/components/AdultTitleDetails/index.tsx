@@ -9,6 +9,7 @@ import type { SliderPerformer } from '@app/components/Common/adultRoutes';
 import ButtonWithDropdown from '@app/components/Common/ButtonWithDropdown';
 import CachedImage from '@app/components/Common/CachedImage';
 import PageTitle from '@app/components/Common/PageTitle';
+import type { PlayButtonLink } from '@app/components/Common/PlayButton';
 import PlayButton from '@app/components/Common/PlayButton';
 import Tag from '@app/components/Common/Tag';
 import { orientationMessages } from '@app/components/OrientationSelector';
@@ -22,7 +23,11 @@ import { Permission, useUser } from '@app/hooks/useUser';
 import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { refreshIntervalHelper } from '@app/utils/refreshIntervalHelper';
-import { ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowDownTrayIcon,
+  FilmIcon,
+  PlayIcon,
+} from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type Media from '@server/entity/Media';
 import type { Orientation } from '@server/lib/orientation';
@@ -46,6 +51,7 @@ const messages = defineMessages('components.AdultTitleDetails', {
   minutes: '{minutes} min',
   showalltags: 'Show all {count} tags',
   playonstash: 'Play on Stash',
+  watchtrailer: 'Watch Trailer',
 });
 
 // StashDB scenes often carry 70+ tags
@@ -92,6 +98,8 @@ export interface AdultTitle {
   onUserWatchlist?: boolean;
   // Scenes play on Stash
   playUrl?: string;
+  // A video file, opened in a new tab like a movie's trailer
+  trailerUrl?: string;
   stashDbUrl?: string;
   tpdbUrl?: string;
 }
@@ -189,6 +197,25 @@ const AdultTitleDetails = ({
 
   if (minutes) {
     attributes.push(intl.formatMessage(messages.minutes, { minutes }));
+  }
+
+  // Like a movie's: playing first, the trailer in its dropdown
+  const mediaLinks: PlayButtonLink[] = [];
+
+  if (data.playUrl) {
+    mediaLinks.push({
+      text: intl.formatMessage(messages.playonstash),
+      url: data.playUrl,
+      svg: <PlayIcon />,
+    });
+  }
+
+  if (data.trailerUrl) {
+    mediaLinks.push({
+      text: intl.formatMessage(messages.watchtrailer),
+      url: data.trailerUrl,
+      svg: <FilmIcon />,
+    });
   }
 
   return (
@@ -307,17 +334,9 @@ const AdultTitleDetails = ({
             onUserWatchlist={data.onUserWatchlist}
             onChange={revalidate}
           />
-          {data.playUrl && (
+          {mediaLinks.length > 0 && (
             <div className="z-20">
-              <PlayButton
-                links={[
-                  {
-                    text: intl.formatMessage(messages.playonstash),
-                    url: data.playUrl,
-                    svg: <PlayIcon />,
-                  },
-                ]}
-              />
+              <PlayButton links={mediaLinks} />
             </div>
           )}
           {firstButton && (

@@ -73,6 +73,7 @@ const AdultMovieDetails = () => {
         ),
         mediaInfo: data.mediaInfo,
         onUserWatchlist: data.onUserWatchlist,
+        trailerUrl: data.trailerUrl,
         tpdbUrl: data.tpdbUrl,
       }}
       manage={{ mediaType: 'adultmovie', data, revalidate: () => mutate() }}
