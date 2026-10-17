@@ -46,6 +46,7 @@ Search shows matching scenes in a row above the regular results. Adult movies an
 
 Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 
+
 ### Discover Rows
 
 The Discover page gets adult rows at the bottom: trending, popular, new and upcoming scenes; new and upcoming adult movies; and **Studios** and **Networks**, the studios behind the scenes trending on StashDB. Their titles and **See More** cards open every StashDB studio or network, searchable by name; the Studios list leaves out networks. Listed by name or searched, the Studios list also takes in ThePornDB's sites that no StashDB studio has the name of or links to, leaving out clip store channels like "Manyvids: Someone"; they open their ThePornDB page. ThePornDB can't tell networks apart or sort its sites by date, so the Networks list and the other orders stay StashDB's. These lists start out like the rows, by trending, and also sort by popularity, date added to StashDB or title, each either way; ThePornDB's sites only join the title order from A to Z. StashDB can't rank studios itself, so trending and popularity count each studio's scenes among the top 5,000 trending or popular ones; studios without any there are only listed by name or newest. A network's page links to all its studios the same way. Recently Added gets a row of its own for scenes, and Recent Requests includes scene and adult movie requests. Admins can reorder or hide them in the Discover editor like any other row. Users without adult access never see them.
@@ -114,7 +115,7 @@ Once a [Whisparr](./whisparr) server marked **4K** is the default 4K server, sce
 
 #### Auto-Request
 
-Scenes and adult movies live on Seerr's own watchlist rather than on Plex's. Adding one to the watchlist requests it (not in 4K, on the default Whisparr server) for users with **Auto-Request**, **Auto-Request Scenes** or **Auto-Request Adult Movies**, like the Plex watchlist sync does for movies and series. Titles that are already requested or available are left alone. If the request can't be made, for example because the user is over their quota, the title is still added to the watchlist.
+Like for movies and series, Auto-Request only works through the [Plex Watchlist](../plex/watchlist-auto-request). Scenes and adult movies can't be on the Plex Watchlist, so **Auto-Request Scenes** and **Auto-Request Adult Movies** have no effect on them: adding a scene or adult movie to Seerr's watchlist only adds it to the watchlist and never requests it. Request it from its page instead.
 
 ### Quotas
 

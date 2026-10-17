@@ -60,8 +60,6 @@ const AdultMediaActions = ({
       removed: messages.watchlistDeleted,
       error: messages.watchlistError,
     },
-    // Users with Auto-Request get the title requested too
-    onAdded: () => onChange(),
   });
   const blocklist = useBlocklistToggle({
     id,
