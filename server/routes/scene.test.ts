@@ -543,6 +543,9 @@ describe('GET /scene/discover', () => {
       `/scene/discover?studio=${STUDIO}&studioExclude=${NETWORK}`,
       // Every scene with the tag is lesbian, which is hidden
       `/scene/discover?tags=${LESBIAN_TAG}&orientation=straight`,
+      // Only lesbian scenes show, and those tagged Lesbian are excluded
+      `/scene/discover?orientation=lesbian&tagsExclude=${LESBIAN_TAG}`,
+      `/scene/discover?orientation=lesbian&tags=${INCLUDED_TAG}&tagsExclude=${LESBIAN_TAG}`,
     ]) {
       const res = await agent.get(url);
 

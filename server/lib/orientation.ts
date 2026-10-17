@@ -377,17 +377,22 @@ export interface OrientationTagPlan<T> {
   hiddenTagIds: T[];
   // Asked for tagged titles only, which leaves out unidentified ones
   narrowed: boolean;
-  // A picked tag stands for a hidden orientation, so no title can show
+  // A picked tag stands for a hidden orientation, or the orientation tags
+  // asked for are all excluded, so no title can show
   empty: boolean;
   // A picked tag stands for an orientation, so no title is unidentified
   identified: boolean;
 }
 
 // The tags a list asks its source for, given the picked tags, which titles
-// need all of, and the orientations it hides
+// need all of, the excluded ones, and the orientations it hides
 export const planOrientationTags = <T extends string | number>(
   user: User | undefined,
-  { orientation, picked }: { orientation?: string; picked: T[] },
+  {
+    orientation,
+    picked,
+    excluded = [],
+  }: { orientation?: string; picked: T[]; excluded?: T[] },
   ids: Partial<Record<Orientation, T>>,
   narrow: Narrow = 'needed'
 ): OrientationTagPlan<T> => {
@@ -396,13 +401,21 @@ export const planOrientationTags = <T extends string | number>(
   const tags = [...new Set(picked)];
   const hiddenTagIds = orientationTagIds(ids, [...hidden]);
   const known = new Set(Object.values(ids));
-  const needed = orientationTagIds(ids, tagsNeeded(hidden));
+  const identified = tags.some((id) => known.has(id));
+  const wanted = orientationTagIds(ids, tagsNeeded(hidden));
+  // Excluded orientation tags are never asked for
+  const needed = wanted.filter((id) => !excluded.includes(id));
   // Without straight, titles tagged with a shown orientation are asked for:
   // any of them without picked tags, or the one shown next to all of those
-  const narrowed =
+  const narrows = (values: T[]) =>
     narrow !== 'none' &&
-    needed.length > 0 &&
-    (!tags.length || needed.length === 1);
+    values.length > 0 &&
+    (!tags.length || values.length === 1);
+  const narrowed = narrows(needed);
+  // When every tag the list would ask for is excluded, the tagged titles
+  // it shows are all left out. Unidentified ones still show, by filtering,
+  // when picked; otherwise nothing does
+  const excludedAway = !narrowed && narrows(wanted);
 
   return {
     hidden,
@@ -410,8 +423,10 @@ export const planOrientationTags = <T extends string | number>(
     anyTag: narrowed && !tags.length,
     hiddenTagIds,
     narrowed,
-    empty: tags.some((id) => hiddenTagIds.includes(id)),
-    identified: tags.some((id) => known.has(id)),
+    empty:
+      tags.some((id) => hiddenTagIds.includes(id)) ||
+      (excludedAway && (identified || hidden.has('unidentified'))),
+    identified,
   };
 };
 
