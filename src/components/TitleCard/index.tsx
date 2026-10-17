@@ -320,7 +320,13 @@ const TitleCard = ({
               {/* Sexual preferences, which the Filters panel goes by, by
                   their first letter */}
               {orientations?.some((value) => value !== 'unidentified') && (
-                <div className="absolute left-0 top-full mt-1 flex gap-1">
+                // Hidden while the details show, which can reach up to them
+                // on short scene cards
+                <div
+                  className={`absolute left-0 top-full mt-1 flex gap-1 transition-opacity duration-300 ${
+                    showDetail ? 'opacity-0' : 'opacity-100'
+                  }`}
+                >
                   {orientations
                     .filter((orientation) => orientation !== 'unidentified')
                     .map((orientation) => {

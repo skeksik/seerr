@@ -76,59 +76,6 @@ describe('TpdbAPI', () => {
     );
   });
 
-  it('names tags by id from its list of tags, reading only what it needs', async () => {
-    const pages: Record<number, { id: number; name: string }[]> = {
-      1: [
-        { id: 30, name: 'Anal' },
-        { id: 20, name: 'Blonde' },
-      ],
-      2: [
-        { id: 12, name: 'Big, Bold' },
-        { id: 11, name: 'Kissing' },
-      ],
-      3: [{ id: 5, name: 'Outdoors' }],
-    };
-    const get = mock.method(
-      ExternalAPI.prototype as unknown as { get: Get },
-      'get',
-      async (
-        _endpoint: string,
-        config?: { params?: Record<string, unknown> }
-      ) => {
-        const page = Number(config?.params?.page);
-        return { data: pages[page], meta: { last_page: 3 } };
-      }
-    );
-
-    const names = await new TpdbAPI({ apiKey: 'key' }).getTagNames([12, 30]);
-
-    assert.deepStrictEqual(
-      [...names],
-      [
-        [30, 'Anal'],
-        [12, 'Big, Bold'],
-      ]
-    );
-    assert.strictEqual(get.mock.callCount(), 2);
-    assert.strictEqual(get.mock.calls[0].arguments[0], '/tags');
-    assert.deepStrictEqual(get.mock.calls[0].arguments[1]?.params, {
-      page: 1,
-      per_page: 100,
-    });
-  });
-
-  it('leaves out tag ids its list does not have', async () => {
-    const get = stubGet({
-      data: [{ id: 30, name: 'Anal' }],
-      meta: { last_page: 1 },
-    });
-
-    const names = await new TpdbAPI({ apiKey: 'key' }).getTagNames([30, 7]);
-
-    assert.deepStrictEqual([...names], [[30, 'Anal']]);
-    assert.strictEqual(get.mock.callCount(), 1);
-  });
-
   it('reads StashDB links to the configured instance only', () => {
     const extras = {
       links: {

@@ -370,34 +370,6 @@ for (const [path, lookup] of Object.entries(lookups)) {
   });
 }
 
-// Names of ThePornDB tags by id, for tag ids imported into the tag
-// blocklist without their names; ids ThePornDB doesn't list are left out
-const tagNamesQuery = z.object({
-  ids: z
-    .string()
-    .regex(/^[1-9]\d*(,[1-9]\d*)*$/)
-    .transform((ids) => [...new Set(ids.split(',').map(Number))])
-    .pipe(z.array(z.number()).max(200)),
-});
-
-adultMovieRoutes.get('/tags/names', async (req, res, next) => {
-  const parsed = tagNamesQuery.safeParse(req.query);
-
-  if (!parsed.success) {
-    return next({ status: 400, message: 'Tag ids are required.' });
-  }
-
-  try {
-    const names = await TpdbAPI.fromSettings().getTagNames(parsed.data.ids);
-
-    return res.status(200).json([...names].map(([id, name]) => ({ id, name })));
-  } catch (e) {
-    return handleError(e, next, 'Unable to look up tag names.', {
-      ids: parsed.data.ids,
-    });
-  }
-});
-
 // The ThePornDB performer or site linked to a StashDB performer or studio,
 // whose movies its page adds
 adultMovieRoutes.get<{ type: string; id: string }>(

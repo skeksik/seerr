@@ -14,10 +14,6 @@ import { getSettings } from '@server/lib/settings';
 // Details rarely change once a movie is listed; lists move with new releases.
 const DETAILS_TTL = 21600;
 const LIST_TTL = 3600;
-// ThePornDB's largest page, and how many of them the tag list may take: it
-// had 27 in 2026
-const TAG_PAGE_SIZE = 100;
-const MAX_TAG_PAGES = 100;
 
 export class TpdbNotConfiguredError extends Error {
   constructor() {
@@ -266,35 +262,6 @@ class TpdbAPI extends ExternalAPI {
       DETAILS_TTL
     );
     return response.data;
-  }
-
-  // Names of tags by id. ThePornDB looks tags up by name only, so this reads
-  // its list of all tags, a page at a time, until every one is found; ids
-  // missing from the list are left out
-  public async getTagNames(ids: number[]): Promise<Map<number, string>> {
-    const wanted = new Set(ids);
-    const names = new Map<number, string>();
-
-    for (let page = 1, lastPage = 1; page <= lastPage; page++) {
-      const response = await this.get<TpdbPage<TpdbTag>>(
-        '/tags',
-        { params: { page, per_page: TAG_PAGE_SIZE } },
-        DETAILS_TTL
-      );
-      lastPage = Math.min(response.meta.last_page, MAX_TAG_PAGES);
-
-      for (const tag of response.data) {
-        if (wanted.has(tag.id)) {
-          names.set(tag.id, tag.name);
-        }
-      }
-
-      if (names.size === wanted.size) {
-        break;
-      }
-    }
-
-    return names;
   }
 }
 

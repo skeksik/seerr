@@ -2,12 +2,7 @@ import { VerifyClearIndicator } from '@app/components/BlocklistedTagsSelector';
 import Modal from '@app/components/Common/Modal';
 import Tooltip from '@app/components/Common/Tooltip';
 import CopyButton from '@app/components/Settings/CopyButton';
-import useToasts from '@app/hooks/useToasts';
-import type {
-  AdultTagKind,
-  AdultTagListError,
-  ParsedAdultTag,
-} from '@app/utils/adultTagList';
+import type { AdultTagKind, AdultTagListError } from '@app/utils/adultTagList';
 import { formatAdultTags, parseAdultTags } from '@app/utils/adultTagList';
 import defineMessages from '@app/utils/defineMessages';
 import { Transition } from '@headlessui/react';
@@ -30,23 +25,18 @@ const messages = defineMessages('components.AdultBlocklistedTagsSelector', {
   importTagsTip: 'Import blocklisted tag configuration',
   importTitle: 'Import Blocklisted Tag Configuration',
   importStashDbInstructions:
-    'Paste blocklist tag configuration below: StashDB tags as id:Name, or tag ids alone, separated by commas.',
+    'Paste blocklist tag configuration below: StashDB tag ids, separated by commas.',
   importTpdbInstructions:
-    'Paste blocklist tag configuration below: ThePornDB tags as id:Name, or tag ids alone, separated by commas. Tag ids alone are named from ThePornDB’s tag list, which takes a few seconds.',
+    'Paste blocklist tag configuration below: ThePornDB tag names, separated by commas.',
   confirm: 'Confirm',
   valueRequired: 'You must provide a value.',
   emptyEntry:
     'Tags must be separated by single commas, and the configuration must not start or end with a comma.',
-  danglingEscape:
-    'A backslash must be followed by the character it keeps, such as a comma in a name.',
-  invalidStashDbId: '{entry} does not start with a StashDB tag id.',
-  invalidTpdbId: '{entry} does not start with a ThePornDB tag id.',
+  invalidStashDbId: '{entry} is not a StashDB tag id.',
   notStashDbTag: '{tagId} is not a StashDB tag.',
   stashDbLookupFailed: 'Could not look up StashDB tag {tagId}.',
-  unnamedTpdbTags:
-    'ThePornDB’s tag list has no {count, plural, one {tag} other {tags}} {tagIds}, so {count, plural, one {it was} other {they were}} imported named by id.',
-  tpdbLookupFailed:
-    'Could not read ThePornDB’s tag list, so {count, plural, one {tag} other {tags}} {tagIds} {count, plural, one {was} other {were}} imported named by id.',
+  notTpdbTag: '{name} is not a ThePornDB tag.',
+  tpdbLookupFailed: 'Could not look up ThePornDB tag {name}.',
 });
 
 type Option = { label: string; value: string };
@@ -68,16 +58,13 @@ const fields = {
   },
 } as const;
 
-// What a ThePornDB tag no name was found for is called
-const placeholderName = (id: string) => `Tag ${id}`;
-
 interface AdultBlocklistedTagsSelectorProps {
   mediaType: AdultTagKind;
 }
 
 // BlocklistedTagsSelector for StashDB tags of scenes and ThePornDB tags of
-// adult movies, with its copy and import buttons. They copy the names with
-// the ids, as ThePornDB cannot name a tag by its id
+// adult movies, with its copy and import buttons. They copy StashDB tag ids
+// and ThePornDB tag names, as ThePornDB looks tags up by name only
 const AdultBlocklistedTagsSelector = ({
   mediaType,
 }: AdultBlocklistedTagsSelectorProps) => {
@@ -143,11 +130,8 @@ const AdultBlocklistedTagsSelector = ({
       />
       <CopyButton
         textToCopy={formatAdultTags(
-          selected.map(({ value, label }) => ({
-            id: value,
-            // Tags saved without a name show their id
-            name: label === value ? '' : label,
-          }))
+          mediaType,
+          selected.map(({ value, label }) => ({ id: value, name: label }))
         )}
         disabled={copyDisabled}
         toastMessage={intl.formatMessage(messages.copyTags)}
@@ -159,6 +143,35 @@ const AdultBlocklistedTagsSelector = ({
       <AdultTagsImportButton mediaType={mediaType} onImport={update} />
     </>
   );
+};
+
+class TagNotFound extends Error {}
+
+// Each entry's tag, or why it has none
+const lookUp = async (
+  entries: string[],
+  find: (entry: string) => Promise<Option>,
+  error: (entry: string, notFound: boolean) => string
+): Promise<{ options: Option[]; errors: string[] }> => {
+  const results = await Promise.allSettled(entries.map(find));
+  const options: Option[] = [];
+  const errors: string[] = [];
+
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      options.push(result.value);
+    } else {
+      errors.push(
+        error(
+          entries[index],
+          result.reason instanceof TagNotFound ||
+            result.reason?.response?.status === 404
+        )
+      );
+    }
+  });
+
+  return { options, errors };
 };
 
 interface AdultTagsImportButtonProps {
@@ -173,7 +186,6 @@ const AdultTagsImportButton = ({
   onImport,
 }: AdultTagsImportButtonProps) => {
   const intl = useIntl();
-  const { addToast } = useToasts();
   const [show, setShow] = useState(false);
   const [formValue, setFormValue] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
@@ -183,88 +195,56 @@ const AdultTagsImportButton = ({
     switch (error.type) {
       case 'emptyEntry':
         return intl.formatMessage(messages.emptyEntry);
-      case 'danglingEscape':
-        return intl.formatMessage(messages.danglingEscape);
       case 'invalidId':
-        return intl.formatMessage(
-          mediaType === 'scene'
-            ? messages.invalidStashDbId
-            : messages.invalidTpdbId,
-          { entry: error.entry }
-        );
+        return intl.formatMessage(messages.invalidStashDbId, {
+          entry: error.entry,
+        });
     }
   };
 
   // StashDB names every tag by id, so each is checked and named by it
-  const nameStashDbTags = async (
-    tags: ParsedAdultTag[]
-  ): Promise<{ options: Option[]; errors: string[] }> => {
-    const results = await Promise.allSettled(
-      tags.map(({ id }) =>
-        axios.get<{ id: string; name: string }>(`/api/v1/scene/tag/${id}`)
-      )
-    );
-    const options: Option[] = [];
-    const failures: string[] = [];
-
-    results.forEach((result, index) => {
-      const tag = tags[index];
-
-      if (result.status === 'fulfilled') {
-        options.push({ value: tag.id, label: result.value.data.name });
-      } else if (result.reason?.response?.status === 404) {
-        failures.push(
-          intl.formatMessage(messages.notStashDbTag, { tagId: tag.id })
+  const nameStashDbTags = (ids: string[]) =>
+    lookUp(
+      ids,
+      async (id) => {
+        const { data } = await axios.get<{ id: string; name: string }>(
+          `/api/v1/scene/tag/${id}`
         );
-      } else if (tag.name) {
-        // StashDB is out of reach: the copied name will do
-        options.push({ value: tag.id, label: tag.name });
-      } else {
-        failures.push(
-          intl.formatMessage(messages.stashDbLookupFailed, { tagId: tag.id })
-        );
-      }
-    });
-
-    return { options, errors: failures };
-  };
-
-  // ThePornDB tags keep their copied names; ids alone are looked up in its
-  // tag list, and the ones it lacks are named by id
-  const nameTpdbTags = async (tags: ParsedAdultTag[]): Promise<Option[]> => {
-    const unnamed = tags.filter((tag) => !tag.name).map((tag) => tag.id);
-    const found = new Map<string, string>();
-    let lookupFailed = false;
-
-    if (unnamed.length > 0) {
-      try {
-        const { data } = await axios.get<{ id: number; name: string }[]>(
-          '/api/v1/adultmovie/tags/names',
-          { params: { ids: unnamed.join(',') } }
-        );
-        data.forEach((tag) => found.set(String(tag.id), tag.name));
-      } catch {
-        lookupFailed = true;
-      }
-    }
-
-    const missing = unnamed.filter((id) => !found.has(id));
-
-    if (missing.length > 0) {
-      addToast(
+        return { value: id, label: data.name };
+      },
+      (id, notFound) =>
         intl.formatMessage(
-          lookupFailed ? messages.tpdbLookupFailed : messages.unnamedTpdbTags,
-          { count: missing.length, tagIds: missing.join(', ') }
-        ),
-        { appearance: 'warning', autoDismiss: true }
-      );
-    }
+          notFound ? messages.notStashDbTag : messages.stashDbLookupFailed,
+          { tagId: id }
+        )
+    );
 
-    return tags.map(({ id, name }) => ({
-      value: id,
-      label: name ?? found.get(id) ?? placeholderName(id),
-    }));
-  };
+  // ThePornDB finds tags by name, so each is searched for and taken from the
+  // results by its whole name
+  const nameTpdbTags = (names: string[]) =>
+    lookUp(
+      names,
+      async (name) => {
+        const { data } = await axios.get<{ id: number; name: string }[]>(
+          '/api/v1/adultmovie/tags',
+          { params: { query: name } }
+        );
+        const tag = data.find(
+          (result) => result.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (!tag) {
+          throw new TagNotFound();
+        }
+
+        return { value: String(tag.id), label: tag.name };
+      },
+      (name, notFound) =>
+        intl.formatMessage(
+          notFound ? messages.notTpdbTag : messages.tpdbLookupFailed,
+          { name }
+        )
+    );
 
   const validate = async (): Promise<boolean> => {
     if (formValue.trim().length === 0) {
@@ -279,19 +259,22 @@ const AdultTagsImportButton = ({
       return false;
     }
 
-    if (mediaType === 'scene') {
-      const named = await nameStashDbTags(parsed.tags);
+    const named = await (mediaType === 'scene'
+      ? nameStashDbTags(parsed.entries)
+      : nameTpdbTags(parsed.entries));
 
-      if (named.errors.length > 0) {
-        setErrors(named.errors);
-        return false;
-      }
-
-      onImport(named.options);
-    } else {
-      onImport(await nameTpdbTags(parsed.tags));
+    if (named.errors.length > 0) {
+      setErrors(named.errors);
+      return false;
     }
 
+    // Two ThePornDB names can find one tag
+    onImport(
+      named.options.filter(
+        (option, index, options) =>
+          options.findIndex((other) => other.value === option.value) === index
+      )
+    );
     setErrors([]);
     return true;
   };

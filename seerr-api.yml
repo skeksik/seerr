@@ -8011,37 +8011,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdultMovieLookup'
-  /adultmovie/tags/names:
-    get:
-      summary: Name ThePornDB tags by id
-      description: Returns the names of ThePornDB tags by id, read from ThePornDB's list of all tags, as ThePornDB looks tags up by name only. Ids the list doesn't have are left out.
-      tags:
-        - adultmovies
-      parameters:
-        - in: query
-          name: ids
-          required: true
-          description: Comma separated ThePornDB tag ids, at most 200
-          allowReserved: true
-          schema:
-            type: string
-            example: '70,13316'
-      responses:
-        '200':
-          description: The tags found
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: number
-                      example: 70
-                    name:
-                      type: string
-                      example: Anal
   /adultmovie/{adultMovieId}/recommendations:
     get:
       summary: Adult movies with the same performers
