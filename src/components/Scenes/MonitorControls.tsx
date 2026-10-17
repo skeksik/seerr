@@ -31,10 +31,6 @@ const messages = defineMessages('components.Scenes.MonitorControls', {
     'Whisparr adds every scene and movie {type, select, performer {with} other {from}} {name} it monitors here, and picks new ones up as they are released.',
   monitorScenes: 'Monitor scenes',
   monitorMovies: 'Monitor movies',
-  moviesUnavailable:
-    "Whisparr finds movies by the ThePornDB link on the StashDB profile, which {name}'s does not have.",
-  moviesUnavailableNetwork:
-    "Whisparr finds movies by the ThePornDB link on a studio's StashDB profile. Neither {name} nor any studio picked below has one.",
   monitorNewItems: 'Monitor new items',
   monitorNewItemsTip:
     'New scenes and movies are added monitored and downloaded as they are released; unchecked, Whisparr adds them unmonitored.',
@@ -70,9 +66,6 @@ interface MonitorControlsProps {
   id: string;
   name: string;
   status: WhisparrMonitorStatus;
-  // Whether StashDB links them to ThePornDB, which Whisparr needs to find
-  // their movies
-  tpdbLinked: boolean;
   // A network's studios, which Whisparr follows in its place
   studios?: SceneChildStudio[];
   onChange: (
@@ -89,30 +82,21 @@ const isMonitored = (status?: {
 interface OptionProps {
   id: string;
   checked: boolean;
-  disabled?: boolean;
   onChange: () => void;
   label: string;
   tip?: string;
 }
 
-const Option = ({
-  id,
-  checked,
-  disabled,
-  onChange,
-  label,
-  tip,
-}: OptionProps) => (
+const Option = ({ id, checked, onChange, label, tip }: OptionProps) => (
   <div className="flex items-start space-x-3">
     <input
       id={id}
       type="checkbox"
       className="mt-1"
       checked={checked}
-      disabled={disabled}
       onChange={onChange}
     />
-    <label htmlFor={id} className={disabled ? 'opacity-60' : ''}>
+    <label htmlFor={id}>
       <span className="text-white">{label}</span>
       {tip && <span className="block text-sm text-gray-400">{tip}</span>}
     </label>
@@ -127,7 +111,6 @@ const MonitorControls = ({
   id,
   name,
   status,
-  tpdbLinked,
   studios = [],
   onChange,
 }: MonitorControlsProps) => {
@@ -146,11 +129,6 @@ const MonitorControls = ({
   const fullyMonitored =
     status.monitored &&
     (status.moviesMonitored || status.moviesAvailable !== true);
-  // Whisparr reads the link from the StashDB profile, so without one on
-  // the entity or a picked studio there are no movies to monitor
-  const moviesPossible =
-    tpdbLinked ||
-    studios.some((studio) => picked.has(studio.id) && studio.tpdbLinked);
   // Whether the dialog has anything to stop
   const anyPickedMonitored =
     anyMonitored ||
@@ -278,9 +256,7 @@ const MonitorControls = ({
         <Modal
           title={intl.formatMessage(messages.monitorTitle, { name })}
           onCancel={() => setShowDialog(false)}
-          onOk={() =>
-            update({ scenes, movies: movies && moviesPossible, search })
-          }
+          onOk={() => update({ scenes, movies, search })}
           okText={intl.formatMessage(messages.save)}
           okButtonType="primary"
           okDisabled={isUpdating}
@@ -306,20 +282,9 @@ const MonitorControls = ({
             />
             <Option
               id="monitorMovies"
-              checked={movies && moviesPossible}
-              disabled={!moviesPossible}
+              checked={movies}
               onChange={() => setMovies((on) => !on)}
               label={intl.formatMessage(messages.monitorMovies)}
-              tip={
-                moviesPossible
-                  ? undefined
-                  : intl.formatMessage(
-                      isNetwork
-                        ? messages.moviesUnavailableNetwork
-                        : messages.moviesUnavailable,
-                      { name }
-                    )
-              }
             />
             <Option
               id="monitorNewItems"

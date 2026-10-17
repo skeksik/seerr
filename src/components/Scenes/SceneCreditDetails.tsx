@@ -154,7 +154,6 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
               id={data.id}
               name={data.name}
               status={data.whisparr}
-              tpdbLinked={data.tpdbLinked}
               studios={isPerformer(data) ? undefined : data.studios}
               onChange={(whisparr, studios) =>
                 mutate(

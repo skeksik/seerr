@@ -741,8 +741,6 @@
   "components.Scenes.MonitorControls.monitorTitle": "Monitor {name}",
   "components.Scenes.MonitorControls.monitored": "Monitored in Whisparr",
   "components.Scenes.MonitorControls.moviesMonitored": "Movies Monitored",
-  "components.Scenes.MonitorControls.moviesUnavailable": "Whisparr finds movies by the ThePornDB link on the StashDB profile, which {name}'s does not have.",
-  "components.Scenes.MonitorControls.moviesUnavailableNetwork": "Whisparr finds movies by the ThePornDB link on a studio's StashDB profile. Neither {name} nor any studio picked below has one.",
   "components.Scenes.MonitorControls.openinwhisparr": "Open in Whisparr",
   "components.Scenes.MonitorControls.save": "Save",
   "components.Scenes.MonitorControls.scenesMonitored": "Scenes Monitored",
