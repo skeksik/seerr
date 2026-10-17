@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/solid';
 import type { WhisparrMonitorStatus } from '@server/models/Scene';
 import axios from 'axios';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const messages = defineMessages('components.Scenes.MonitorControls', {
@@ -72,6 +72,41 @@ const MonitorControls = ({
         ? messages.monitorScenesOnly
         : messages.monitorMaybeMovies;
 
+  // Every label the button can show takes the same cell, the others kept
+  // invisible, so it keeps one width whatever it says and doesn't slip from
+  // under the cursor when hovering swaps its label
+  const stateLabels = [
+    messages.monitor,
+    messages.monitored,
+    messages.scenesMonitored,
+    messages.moviesMonitored,
+    messages.unmonitor,
+  ];
+  const stateLabel = (
+    shown: (typeof stateLabels)[number],
+    stopOnHover: boolean
+  ) => (
+    <span className="grid">
+      {stateLabels.map((label) => (
+        <span
+          key={label.id}
+          aria-hidden={label !== shown}
+          className={`col-start-1 row-start-1 ${
+            label === shown
+              ? stopOnHover
+                ? 'group-hover:invisible'
+                : ''
+              : stopOnHover && label === messages.unmonitor
+                ? 'invisible group-hover:visible'
+                : 'invisible'
+          }`}
+        >
+          {intl.formatMessage(label)}
+        </span>
+      ))}
+    </span>
+  );
+
   const update = async (monitored: boolean) => {
     setIsUpdating(true);
 
@@ -101,8 +136,9 @@ const MonitorControls = ({
 
   return (
     <>
+      {/* A fragment, as a wrapper would join the button row and shift it */}
       <Transition
-        as="div"
+        as={Fragment}
         show={showConfirm}
         enter="transition-opacity duration-300"
         enterFrom="opacity-0"
@@ -158,18 +194,14 @@ const MonitorControls = ({
         >
           <CheckIcon className="group-hover:hidden" />
           <EyeSlashIcon className="hidden group-hover:block" />
-          <span className="group-hover:hidden">
-            {intl.formatMessage(
-              fullyMonitored
-                ? messages.monitored
-                : status.monitored
-                  ? messages.scenesMonitored
-                  : messages.moviesMonitored
-            )}
-          </span>
-          <span className="hidden group-hover:inline">
-            {intl.formatMessage(messages.unmonitor)}
-          </span>
+          {stateLabel(
+            fullyMonitored
+              ? messages.monitored
+              : status.monitored
+                ? messages.scenesMonitored
+                : messages.moviesMonitored,
+            true
+          )}
         </Button>
       ) : (
         <Button
@@ -178,7 +210,7 @@ const MonitorControls = ({
           onClick={() => setShowConfirm(true)}
         >
           <EyeIcon />
-          <span>{intl.formatMessage(messages.monitor)}</span>
+          {stateLabel(messages.monitor, false)}
         </Button>
       )}
       {/* Monitoring completes the half Whisparr does not monitor yet */}

@@ -292,7 +292,10 @@ const TitleCard = ({
             />
           )}
           <div className="absolute left-0 right-0 flex items-center justify-between p-2">
-            <div className="pointer-events-none z-40 flex flex-col items-start gap-1 self-start">
+            {/* The sexual preference letters hang below the type badge, out
+                of the row, so the buttons and status line up with the badge
+                as on other cards */}
+            <div className="pointer-events-none relative z-40 self-start">
               <div
                 className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
                   adultType
@@ -317,7 +320,7 @@ const TitleCard = ({
               {/* Sexual preferences, which the Filters panel goes by, by
                   their first letter */}
               {orientations?.some((value) => value !== 'unidentified') && (
-                <div className="flex gap-1">
+                <div className="absolute left-0 top-full mt-1 flex gap-1">
                   {orientations
                     .filter((orientation) => orientation !== 'unidentified')
                     .map((orientation) => {
@@ -397,7 +400,9 @@ const TitleCard = ({
                 >
                   <Button
                     buttonType={'ghost'}
-                    className="z-40"
+                    // On wide scene cards it sits right, like the watchlist
+                    // button
+                    className={`z-40 ${isScene ? 'ml-auto mr-5' : ''}`}
                     buttonSize={'sm'}
                     onClick={() => blocklist.unblocklist()}
                   >

@@ -609,33 +609,19 @@ const RequestCard = ({ request, onTitleData }: RequestCardProps) => {
         </div>
         <Link
           href={title.href}
-          // Scene stills fill a poster's box, so every card is the same size
-          className={`w-20 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md shadow-sm transition duration-300 hover:scale-105 hover:shadow-md sm:w-28 ${
-            title.portrait ? '' : 'relative bg-gray-700'
-          }`}
-          style={title.portrait ? undefined : { aspectRatio: '2 / 3' }}
+          // Every image fills a poster's box, so cards are the same size
+          // whether they show a scene still or a DVD cover that isn't 2:3
+          className="relative w-20 flex-shrink-0 scale-100 transform-gpu cursor-pointer overflow-hidden rounded-md bg-gray-700 shadow-sm transition duration-300 hover:scale-105 hover:shadow-md sm:w-28"
+          style={{ aspectRatio: '2 / 3' }}
         >
-          {title.portrait ? (
-            <CachedImage
-              type={title.posterUrl ? title.imageType : 'tmdb'}
-              src={title.posterUrl ?? '/images/seerr_poster_not_found.png'}
-              alt=""
-              sizes="100vw"
-              style={{ width: '100%', height: 'auto' }}
-              width={600}
-              height={900}
-            />
-          ) : (
-            title.posterUrl && (
-              <CachedImage
-                type={title.imageType}
-                src={title.posterUrl}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                fill
-              />
-            )
-          )}
+          <CachedImage
+            type={title.posterUrl ? title.imageType : 'tmdb'}
+            src={title.posterUrl ?? '/images/seerr_poster_not_found.png'}
+            alt=""
+            sizes="(min-width: 640px) 112px, 80px"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            fill
+          />
         </Link>
       </div>
     </>

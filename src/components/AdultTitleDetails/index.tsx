@@ -36,10 +36,8 @@ const messages = defineMessages('components.AdultTitleDetails', {
   cast: 'Cast',
   releasedate: 'Release Date',
   productiondate: 'Production Date',
-  duration: 'Duration',
   studio: 'Studio',
   network: 'Network',
-  code: 'Studio Code',
   director: 'Director',
   links: 'Links',
   recommendations: 'Recommendations',
@@ -77,7 +75,6 @@ export interface AdultTitle {
   orientations?: Orientation[];
   studio?: CreditLink & { id: string | number };
   network?: CreditLink;
-  code?: string;
   directors: string[];
   tags: { id: string | number; name: string }[];
   // The browse tab filtered to the tag
@@ -446,14 +443,6 @@ const AdultTitleDetails = ({
                   </span>
                 </div>
               )}
-            {minutes && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.duration)}</span>
-                <span className="media-fact-value">
-                  {intl.formatMessage(messages.minutes, { minutes })}
-                </span>
-              </div>
-            )}
             {data.studio && (
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.studio)}</span>
@@ -468,12 +457,6 @@ const AdultTitleDetails = ({
                 <span className="media-fact-value">
                   <Link href={data.network.href}>{data.network.name}</Link>
                 </span>
-              </div>
-            )}
-            {data.code && (
-              <div className="media-fact">
-                <span>{intl.formatMessage(messages.code)}</span>
-                <span className="media-fact-value">{data.code}</span>
               </div>
             )}
             {/* Laid out like a movie's Currently Streaming On */}

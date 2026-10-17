@@ -59,7 +59,6 @@ const SceneDetails = ({ scene }: SceneDetailsProps) => {
           name: data.studio.parent.name,
           href: creditHref('studio', data.studio.parent.id),
         },
-        code: data.code,
         directors: data.director ? [data.director] : [],
         tags: data.tags,
         tagHref: ({ id }) => `/discover/scenes?tags=${id}`,
