@@ -71,6 +71,9 @@ export const CreditViewPicker = ({ view, onChange }: CreditViewPickerProps) => {
 export interface CreditSource {
   type: 'performer' | 'studio';
   id: string | number;
+  // The id the browse tab filters by when not this one: the Adult Movies
+  // filters pick StashDB's studios and performers, and name them
+  browseId?: string;
 }
 
 type Title = SceneResult | AdultMovieResult;
@@ -116,7 +119,11 @@ const SingleTitles = ({ mediaType, source }: SingleTitlesProps) => {
             ? globalMessages.scenes
             : globalMessages.adultMovies
         )}
-        linkUrl={creditBrowseHref(mediaType, source.type, source.id)}
+        linkUrl={creditBrowseHref(
+          mediaType,
+          source.type,
+          source.browseId ?? source.id
+        )}
       />
       <ListView
         items={titles}
@@ -214,7 +221,11 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
             sliderKey={`adult-${movies.type}-${movies.id}`}
             title={intl.formatMessage(globalMessages.adultMovies)}
             url={firstPageUrl('adultmovie', movies) ?? ''}
-            linkUrl={creditBrowseHref('adultmovie', movies.type, movies.id)}
+            linkUrl={creditBrowseHref(
+              'adultmovie',
+              movies.type,
+              movies.browseId ?? movies.id
+            )}
           />
           <AdultTitleSlider
             mediaType="scene"

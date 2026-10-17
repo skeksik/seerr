@@ -243,7 +243,80 @@ describe('GET /adultmovie/discover', () => {
   });
 });
 
-describe('ThePornDB filter lookups', () => {
+describe('Adult movie filter lookups', () => {
+  beforeEach(() => {
+    getSettings().stashdb = {
+      endpoint: 'https://stashdb.test/graphql',
+      apiKey: 'key',
+    };
+  });
+
+  it('offers the StashDB studios linked to ThePornDB, without their links', async () => {
+    const searchStudios = mock.method(
+      StashDbAPI.prototype,
+      'searchStudios',
+      async () => [
+        {
+          id: BRAZZERS_STASHDB,
+          name: 'Brazzers',
+          disambiguation: 'Mindgeek',
+          urls: [
+            {
+              url: 'https://theporndb.net/sites/brazzers',
+              site: { name: 'ThePornDB' },
+            },
+          ],
+        },
+        {
+          id: 'unlinked',
+          name: 'Brazzers Live',
+          urls: [{ url: 'https://brazzers.com', site: { name: 'Home' } }],
+        },
+      ]
+    );
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/adultmovie/studios?query=brazzers');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, [
+      { id: BRAZZERS_STASHDB, name: 'Brazzers', disambiguation: 'Mindgeek' },
+    ]);
+    assert.deepStrictEqual(searchStudios.mock.calls[0].arguments, [
+      'brazzers',
+      { urls: true },
+    ]);
+  });
+
+  it('offers the StashDB performers linked to ThePornDB', async () => {
+    mock.method(StashDbAPI.prototype, 'searchPerformers', async () => [
+      {
+        id: GAL_STASHDB,
+        name: 'Gal Ritchie',
+        imageUrl: 'https://stashdb.test/images/gal',
+        urls: [
+          {
+            url: 'https://theporndb.net/performers/gal-ritchie',
+            site: { name: 'ThePornDB' },
+          },
+        ],
+      },
+      { id: DRAGON_STASHDB, name: 'Little Dragon', urls: [] },
+    ]);
+    const agent = await loginAs('admin@seerr.dev');
+
+    const res = await agent.get('/adultmovie/performers?query=gal');
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body, [
+      {
+        id: GAL_STASHDB,
+        name: 'Gal Ritchie',
+        imageUrl: 'https://stashdb.test/images/gal',
+      },
+    ]);
+  });
+
   it("returns all of ThePornDB's suggestions whatever else is picked", async () => {
     const searchTags = mock.method(TpdbAPI.prototype, 'searchTags', async () =>
       Array.from({ length: 25 }, (_, i) => ({ id: i + 1, name: `Tag ${i}` }))
@@ -528,6 +601,150 @@ describe('linking StashDB and ThePornDB', () => {
 
       assert.strictEqual(res.status, 404);
       assert.strictEqual(searchSites.mock.callCount(), 0);
+    });
+  });
+
+  describe('GET /adultmovie/discover with StashDB ids', () => {
+    beforeEach(() => {
+      // Sites belong to the studio linking them; none does here
+      mock.method(StashDbAPI.prototype, 'findIdsByUrls', async () => []);
+    });
+
+    const page = (data: TpdbMovie[] = []) => ({
+      data,
+      meta: { current_page: 1, last_page: 1, per_page: 20, total: data.length },
+    });
+    const linkedStudio = (id: string, slug: string) => ({
+      id,
+      name: slug,
+      aliases: [],
+      images: [],
+      urls: [
+        {
+          url: `https://theporndb.net/sites/${slug}`,
+          site: { name: 'ThePornDB' },
+        },
+      ],
+    });
+
+    it('translates a StashDB studio to its ThePornDB site', async () => {
+      mock.method(StashDbAPI.prototype, 'getStudio', async () =>
+        linkedStudio(BRAZZERS_STASHDB, 'brazzers')
+      );
+      mock.method(TpdbAPI.prototype, 'getSite', async () => brazzers);
+      const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () =>
+        page([movie])
+      );
+      const agent = await loginAs('admin@seerr.dev');
+
+      const res = await agent.get(
+        `/adultmovie/discover?studio=${BRAZZERS_STASHDB}`
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.totalResults, 1);
+      assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.siteId, 92);
+    });
+
+    it('translates StashDB performers to their ThePornDB ones', async () => {
+      mock.method(StashDbAPI.prototype, 'getPerformer', async (id: string) =>
+        stashDbPerformer(id, 'Sasha Paige', [
+          `https://theporndb.net/performers/${id}`,
+        ])
+      );
+      mock.method(TpdbAPI.prototype, 'getPerformer', async (id: string) => ({
+        id,
+        _id: id === DRAGON_STASHDB ? 169067 : 241509,
+        name: 'Performer',
+      }));
+      const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () =>
+        page([movie])
+      );
+      const agent = await loginAs('admin@seerr.dev');
+
+      const res = await agent.get(
+        `/adultmovie/discover?performer=${DRAGON_STASHDB},${GAL_STASHDB}&performerExclude=99899`
+      );
+
+      assert.strictEqual(res.status, 200);
+      const query = getMovies.mock.calls[0].arguments[0];
+      assert.deepStrictEqual(query?.performerIds, [169067, 241509]);
+      // ThePornDB's own ids still work, for the pages' lists
+      assert.deepStrictEqual(res.body.results, []);
+    });
+
+    it('finds nothing for a pick without a ThePornDB counterpart', async () => {
+      mock.method(StashDbAPI.prototype, 'getStudio', async () => null);
+      mock.method(StashDbAPI.prototype, 'getPerformer', async (id: string) =>
+        stashDbPerformer(id, 'Little Dragon')
+      );
+      mock.method(TpdbAPI.prototype, 'searchPerformers', async () => []);
+      const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () =>
+        page([movie])
+      );
+      const agent = await loginAs('admin@seerr.dev');
+
+      for (const url of [
+        `/adultmovie/discover?studio=${BRAZZERS_STASHDB}`,
+        `/adultmovie/discover?performer=${DRAGON_STASHDB}`,
+      ]) {
+        const res = await agent.get(url);
+
+        assert.strictEqual(res.status, 200, url);
+        assert.deepStrictEqual(
+          res.body,
+          { page: 1, totalPages: 1, totalResults: 0, results: [] },
+          url
+        );
+      }
+      assert.strictEqual(getMovies.mock.callCount(), 0);
+    });
+
+    it('drops exclusions without a ThePornDB counterpart', async () => {
+      mock.method(StashDbAPI.prototype, 'getStudio', async () => null);
+      mock.method(StashDbAPI.prototype, 'getPerformer', async () => null);
+      const getMovies = mock.method(TpdbAPI.prototype, 'getMovies', async () =>
+        page([movie])
+      );
+      const agent = await loginAs('admin@seerr.dev');
+
+      const res = await agent.get(
+        `/adultmovie/discover?studio=37335&studioExclude=${BRAZZERS_STASHDB},1&performerExclude=${DRAGON_STASHDB}`
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.totalResults, 1);
+      assert.strictEqual(getMovies.mock.calls[0].arguments[0]?.siteId, 37335);
+    });
+
+    it('finds nothing for a studio excluded under its StashDB id', async () => {
+      mock.method(StashDbAPI.prototype, 'getStudio', async () =>
+        linkedStudio(BRAZZERS_STASHDB, 'brazzers')
+      );
+      mock.method(TpdbAPI.prototype, 'getSite', async () => brazzers);
+      const getMovies = mock.method(TpdbAPI.prototype, 'getMovies');
+      const agent = await loginAs('admin@seerr.dev');
+
+      const res = await agent.get(
+        `/adultmovie/discover?studio=92&studioExclude=${BRAZZERS_STASHDB}`
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.totalResults, 0);
+      assert.strictEqual(getMovies.mock.callCount(), 0);
+    });
+
+    it('rejects ids that are neither', async () => {
+      const agent = await loginAs('admin@seerr.dev');
+
+      assert.strictEqual(
+        (await agent.get('/adultmovie/discover?studio=brazzers')).status,
+        400
+      );
+      assert.strictEqual(
+        (await agent.get('/adultmovie/discover?performer=1,,2')).status,
+        400
+      );
     });
   });
 

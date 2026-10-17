@@ -36,7 +36,8 @@ export const creditTitlesUrl = (
   return `${endpoint}?${new URLSearchParams({ page: '1', ...params })}`;
 };
 
-// The browse tab filtered to them, which sorts
+// The browse tab filtered to them, which sorts. Both tabs' filters take
+// the StashDB id, which they name
 export const creditBrowseHref = (
   mediaType: AdultMediaType,
   type: CreditType,

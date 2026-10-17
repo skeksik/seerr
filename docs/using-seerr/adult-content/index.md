@@ -31,12 +31,12 @@ Users without the permission never see adult titles: scene pages show "not found
 
 Users with access get two sidebar tabs that work like **Movies** and **Series**: a grid with sorting and a **Filters** panel. Like them, they live under Discover, at `/discover/scenes` and `/discover/adultmovies`. **Scenes** sorts by popularity (the default), release date, date added to StashDB, duration and title, each either way, and by StashDB's trending order. Performer and studio pages (see [Performers and Studios](#performers-and-studios)) list their scenes and adult movies in a grid, newest first. Like movie rows, every adult row (on Discover and detail pages, and network studios) holds up to 20 cards, or 13 of the wider scene and studio cards, reading further pages when the hide settings leave the first one short; the title always links the full list, and the **See More** card only shows when there is more than fits. Rows with nothing in them are left out.
 
-- **Adult Movies** filters by release date, studio, performers and tags from ThePornDB.
+- **Adult Movies** filters by release date, one StashDB studio and any StashDB performers among those linked to ThePornDB (a studio also counts through the ThePornDB network its studios' sites belong to), and tags from ThePornDB.
 - **Scenes** filters by release date, studios, performers and tags from StashDB.
 
 The release date compares as equal, greater, greater or equal, less, or less or equal to the picked day; neither source takes a date range.
 
-Both also leave out studios, performers and tags picked under **Exclude**. Filters always add up: a title needs all of the picked performers, all of the picked tags, and the studio. Studios are either-or: a title needs one of them, not all. ThePornDB filters by one studio at a time. Suggestions are whatever StashDB or ThePornDB finds for the typed text, whatever else is picked, so the same names show under a field and its **Exclude** twin. Filters that leave nothing, like a studio, performer or tag both picked and excluded, show no results.
+Both also leave out studios, performers and tags picked under **Exclude**. Filters always add up: a title needs all of the picked performers, all of the picked tags, and the studio. Studios are either-or: a title needs one of them, not all. ThePornDB filters by one studio at a time. Suggestions are whatever StashDB finds for the typed text (ThePornDB, for its tags), whatever else is picked, so the same names show under a field and its **Exclude** twin; the **Adult Movies** studios and performers are only the ones linked to ThePornDB. Filters that leave nothing, like a studio, performer or tag both picked and excluded, show no results.
 
 Search shows matching scenes in a row above the regular results. Adult movies and StashDB performers join the regular results.
 

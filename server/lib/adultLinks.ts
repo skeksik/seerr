@@ -352,3 +352,90 @@ export const tpdbNetworkFor = async (
     return !owner || owner === studio.id ? network : null;
   });
 };
+
+// The ThePornDB performer of a StashDB performer id, for its page's movies
+// and the Adult Movies filters
+export const linkedTpdbPerformer = async (
+  id: string,
+  stashDb: StashDbAPI
+): Promise<TpdbPerformerSummary | null> => {
+  const performer = await stashDb.getPerformer(id);
+  return performer && tpdbPerformerFor(performer);
+};
+
+// The ThePornDB site of a StashDB studio id: the one it links or, for a
+// network linking no site of its own, its studios' network
+export const linkedTpdbSite = async (
+  id: string,
+  stashDb: StashDbAPI
+): Promise<TpdbSiteSummary | null> => {
+  const studio = await stashDb.getStudio(id);
+  return (
+    studio &&
+    ((await tpdbSiteFor(studio)) ?? (await tpdbNetworkFor(studio, stashDb)))
+  );
+};
+
+// A studio or performer the Adult Movies list is filtered by: a StashDB id
+// from the Filters panel, or ThePornDB's own from the pages' lists
+export type AdultMovieRef = number | string;
+
+export interface AdultMovieRefs {
+  studio?: AdultMovieRef;
+  studioExclude?: AdultMovieRef[];
+  performer?: AdultMovieRef[];
+  performerExclude?: AdultMovieRef[];
+}
+
+export interface AdultMovieIds {
+  studio?: number;
+  studioExclude?: number[];
+  performer?: number[];
+  performerExclude?: number[];
+}
+
+// The filters with ThePornDB's ids for the picked studio and performers,
+// which its query takes. StashDB ids are translated through the links, all
+// at once; ThePornDB's pass. A picked one without a ThePornDB counterpart
+// leaves no movie (null), as titles need all of the picks; an excluded one
+// without leaves nothing to exclude. StashDB is only asked for StashDB ids,
+// so ThePornDB's work without it
+export const tpdbFilterIds = async <T extends AdultMovieRefs>(
+  refs: T
+): Promise<(Omit<T, keyof AdultMovieIds> & AdultMovieIds) | null> => {
+  const resolve = async (
+    type: 'performer' | 'studio',
+    ref: AdultMovieRef
+  ): Promise<number | null> =>
+    typeof ref === 'number'
+      ? ref
+      : type === 'studio'
+        ? ((await linkedTpdbSite(ref, StashDbAPI.fromSettings()))?.id ?? null)
+        : ((await linkedTpdbPerformer(ref, StashDbAPI.fromSettings()))?._id ??
+          null);
+  const resolveAll = (type: 'performer' | 'studio', list?: AdultMovieRef[]) =>
+    list ? Promise.all(list.map((ref) => resolve(type, ref))) : undefined;
+
+  const [studio, studioExclude, performer, performerExclude] =
+    await Promise.all([
+      refs.studio === undefined ? undefined : resolve('studio', refs.studio),
+      resolveAll('studio', refs.studioExclude),
+      resolveAll('performer', refs.performer),
+      resolveAll('performer', refs.performerExclude),
+    ]);
+
+  if (studio === null || performer?.includes(null)) {
+    return null;
+  }
+
+  const found = (list?: (number | null)[]) =>
+    list?.filter((id): id is number => id !== null);
+
+  return {
+    ...refs,
+    studio,
+    studioExclude: found(studioExclude),
+    performer: found(performer),
+    performerExclude: found(performerExclude),
+  };
+};

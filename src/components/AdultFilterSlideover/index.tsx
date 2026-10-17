@@ -38,7 +38,9 @@ const messages = defineMessages('components.AdultFilterSlideover', {
 // Also the browse pages' Filters button
 export const activeFiltersMessage = messages.activefilters;
 
-// Scenes filter on StashDB; adult movies on ThePornDB
+// Scenes filter on StashDB; adult movies on ThePornDB, whose studios and
+// performers are picked among StashDB's linked to it, and whose tags are
+// its own
 export type AdultFilterKind = 'scene' | 'adultmovie';
 
 // Filters that count as active; the release comparison only qualifies the
@@ -245,8 +247,10 @@ const AdultFilterSlideover = ({
   const tagsExcludeNames = param(router.query.tagsExcludeNames)?.split('|');
   const isScene = kind === 'scene';
   const lookupBase = isScene ? '/api/v1/scene/lookup' : '/api/v1/adultmovie';
+  // Picked studios and performers are StashDB's for both, so its pages name
+  // them; only scene tags are
   const nameUrl = (type: 'studio' | 'performer' | 'tag') => (id: string) =>
-    `/api/v1/${kind}/${type}/${id}`;
+    `/api/v1/scene/${type}/${id}`;
   const activeFilters = countAdultFilters(router.query);
 
   const ids = (value?: string) => value?.split(',') ?? [];
@@ -315,7 +319,7 @@ const AdultFilterSlideover = ({
           </div>
         </div>
         <SectionTitle>
-          {/* ThePornDB filters on a single studio */}
+          {/* ThePornDB filters on one site, so movies take one studio */}
           {intl.formatMessage(isScene ? messages.studios : messages.studio)}
         </SectionTitle>
         <LookupSelect

@@ -13,6 +13,7 @@ import type {
   StashDbStudio,
   StashDbStudioSummary,
   StashDbTag,
+  StashDbUrl,
   StashDbVersion,
 } from '@server/api/stashdb/interfaces';
 import cacheManager from '@server/lib/cache';
@@ -98,7 +99,20 @@ export interface StashDbLookup {
   name: string;
   disambiguation?: string | null;
   imageUrl?: string;
+  // Only when asked for, by callers that filter on the links; responses
+  // leave them out
+  urls?: StashDbUrl[];
 }
+
+// The searches select links only when asked, as the scene filters have no
+// use for them; the Adult Movies filters read them to keep the studios and
+// performers linked to ThePornDB, which this module cannot tell apart
+// without importing the link code that imports it
+export interface StashDbSearchOptions {
+  urls?: boolean;
+}
+
+const URL_FIELDS = 'urls { url site { name } }';
 
 // One client per endpoint and key, so the rate limit holds across requests
 let shared: { key: string; api: StashDbAPI } | undefined;
@@ -578,11 +592,19 @@ class StashDbAPI extends ExternalAPI {
     return data.querySites.sites;
   }
 
-  public async searchStudios(term: string): Promise<StashDbLookup[]> {
+  public async searchStudios(
+    term: string,
+    { urls = false }: StashDbSearchOptions = {}
+  ): Promise<StashDbLookup[]> {
     const data = await this.query<{
-      searchStudio: { id: string; name: string; parent?: { name: string } }[];
+      searchStudio: {
+        id: string;
+        name: string;
+        parent?: { name: string };
+        urls?: StashDbUrl[];
+      }[];
     }>(
-      'query ($term: String!) { searchStudio(term: $term, limit: 25) { id name parent { name } } }',
+      `query ($term: String!) { searchStudio(term: $term, limit: 25) { id name parent { name } ${urls ? URL_FIELDS : ''} } }`,
       { term },
       LIST_TTL
     );
@@ -591,18 +613,25 @@ class StashDbAPI extends ExternalAPI {
       id: studio.id,
       name: studio.name,
       disambiguation: studio.parent?.name,
+      ...(urls ? { urls: studio.urls ?? [] } : {}),
     }));
   }
 
-  public async searchPerformers(term: string): Promise<StashDbLookup[]> {
+  public async searchPerformers(
+    term: string,
+    { urls = false }: StashDbSearchOptions = {}
+  ): Promise<StashDbLookup[]> {
     const data = await this.query<{
       searchPerformers: {
-        performers: (StashDbPerformerSummary & { disambiguation?: string })[];
+        performers: (StashDbPerformerSummary & {
+          disambiguation?: string;
+          urls?: StashDbUrl[];
+        })[];
       };
     }>(
       `query ($term: String!) {
         searchPerformers(term: $term, per_page: 25) {
-          performers { id name disambiguation gender images { ${IMAGE_FIELDS} } }
+          performers { id name disambiguation gender images { ${IMAGE_FIELDS} } ${urls ? URL_FIELDS : ''} }
         }
       }`,
       { term },
@@ -614,6 +643,7 @@ class StashDbAPI extends ExternalAPI {
       name: performer.name,
       disambiguation: performer.disambiguation,
       imageUrl: performer.images[0]?.url,
+      ...(urls ? { urls: performer.urls ?? [] } : {}),
     }));
   }
 

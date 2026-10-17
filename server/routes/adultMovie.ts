@@ -1,3 +1,4 @@
+import type { StashDbLookup } from '@server/api/stashdb';
 import StashDbAPI from '@server/api/stashdb';
 import type { TpdbMovieQuery } from '@server/api/tpdb';
 import TpdbAPI, { tpdbUrl } from '@server/api/tpdb';
@@ -5,12 +6,14 @@ import type { TpdbMovie, TpdbMovieSort } from '@server/api/tpdb/interfaces';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
+import type { AdultMovieIds } from '@server/lib/adultLinks';
 import {
   linkedStashDbPerformers,
   linkedStashDbStudios,
-  tpdbNetworkFor,
-  tpdbPerformerFor,
-  tpdbSiteFor,
+  linkedTpdbPerformer,
+  linkedTpdbSite,
+  tpdbFilterIds,
+  tpdbProfileIds,
 } from '@server/lib/adultLinks';
 import {
   handleError,
@@ -45,26 +48,44 @@ const adultMovieSorts = [
   'duration_asc',
 ] as const;
 
+const tpdbId = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
+
 const ids = z
   .string()
   .regex(/^\d+(,\d+)*$/)
   .transform((value) => value.split(',').map(Number));
 
+// A studio or performer: a StashDB id, which the Filters panel picks and
+// tpdbFilterIds translates, or ThePornDB's own, which the pages' lists pass
+const ref = z.union([tpdbId, z.string().uuid()]);
+
+const refs = z
+  .string()
+  .transform((value) => value.split(','))
+  .pipe(z.array(ref));
+
 // The Filters panel
 const movieFilters = z.object({
-  studio: z.coerce.number().int().positive().optional(),
+  studio: ref.optional(),
   // ThePornDB takes one site but any number of performers
-  performer: ids.optional(),
+  performer: refs.optional(),
   tags: ids.optional(),
   // ThePornDB cannot leave anything out, so these are filtered here
-  studioExclude: ids.optional(),
-  performerExclude: ids.optional(),
+  studioExclude: refs.optional(),
+  performerExclude: refs.optional(),
   tagsExclude: ids.optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   ...sharedFilters,
 });
 
-type MovieFilters = z.infer<typeof movieFilters>;
+type MovieFilterRefs = z.infer<typeof movieFilters>;
+
+// The same with ThePornDB's ids, which its query takes
+type MovieFilters = Omit<MovieFilterRefs, keyof AdultMovieIds> & AdultMovieIds;
 
 const discoverQuery = movieFilters.extend({
   page: pageParam,
@@ -159,14 +180,16 @@ const tpdbSorts: Record<(typeof adultMovieSorts)[number], TpdbMovieSort> = {
 };
 
 const discoverMovies = async (
-  { page, sort, ...filters }: DiscoverQuery,
+  { page, sort, ...refs }: DiscoverQuery,
   user?: User
 ): Promise<AdultMovieListResponse> => {
-  const plan = planMovies(filters);
+  const filters = await tpdbFilterIds(refs);
+  const plan = filters && planMovies(filters);
 
-  // Filters that leave nothing, like a tag both picked and excluded, find
-  // no movie rather than pages of nothing
-  if (plan.empty) {
+  // Filters that leave nothing, like a tag both picked and excluded or a
+  // studio with no ThePornDB counterpart, find no movie rather than pages
+  // of nothing
+  if (!plan || plan.empty) {
     return { page, totalPages: 1, totalResults: 0, results: [] };
   }
 
@@ -222,27 +245,43 @@ const mapMovieList = async (
   results: await mapAdultMovieList(movies, user),
 });
 
-// Lookups for the ThePornDB filters, by path: what ThePornDB's search finds
+// The StashDB studios or performers among a search's matches linked to
+// ThePornDB, whose movies the filter can find, without their links. Only
+// the links tell, so a search's 25 matches may leave few
+const linkedToTpdb = (
+  found: StashDbLookup[],
+  type: 'performer' | 'studio'
+): StashDbLookup[] =>
+  found.flatMap(({ urls, ...lookup }) =>
+    tpdbProfileIds(urls ?? [], type).length > 0 ? [lookup] : []
+  );
+
+// Lookups for the Adult Movies filters, by path. Studios and performers are
+// StashDB's, like the scene filters', the ones linked to ThePornDB; tags are
+// ThePornDB's own
 const lookups: Record<
   string,
-  (
-    tpdb: TpdbAPI,
-    query: string
-  ) => Promise<{ id: number; name: string; imageUrl?: string }[]>
+  (query: string) => Promise<
+    {
+      id: number | string;
+      name: string;
+      disambiguation?: string | null;
+      imageUrl?: string;
+    }[]
+  >
 > = {
-  studios: async (tpdb, query) =>
-    (await tpdb.searchSites(query)).map((site) => ({
-      id: site.id,
-      name: site.name,
-    })),
-  performers: async (tpdb, query) =>
-    (await tpdb.searchPerformers(query)).map((performer) => ({
-      id: performer._id,
-      name: performer.name,
-      imageUrl: performer.image ?? undefined,
-    })),
-  tags: async (tpdb, query) =>
-    (await tpdb.searchTags(query)).map((tag) => ({
+  studios: async (query) =>
+    linkedToTpdb(
+      await StashDbAPI.fromSettings().searchStudios(query, { urls: true }),
+      'studio'
+    ),
+  performers: async (query) =>
+    linkedToTpdb(
+      await StashDbAPI.fromSettings().searchPerformers(query, { urls: true }),
+      'performer'
+    ),
+  tags: async (query) =>
+    (await TpdbAPI.fromSettings().searchTags(query)).map((tag) => ({
       id: tag.id,
       name: tag.name,
     })),
@@ -257,9 +296,7 @@ for (const [path, lookup] of Object.entries(lookups)) {
     }
 
     try {
-      return res
-        .status(200)
-        .json(await lookup(TpdbAPI.fromSettings(), parsed.data.query));
+      return res.status(200).json(await lookup(parsed.data.query));
     } catch (e) {
       return handleError(e, next, `Unable to search ${path}.`, {
         query: parsed.data.query,
@@ -284,8 +321,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
       let match: { id: number; name: string; url: string } | null = null;
 
       if (req.params.type === 'performer') {
-        const performer = await stashDb.getPerformer(id.data);
-        const found = performer && (await tpdbPerformerFor(performer));
+        const found = await linkedTpdbPerformer(id.data, stashDb);
         match = found
           ? {
               id: found._id,
@@ -294,12 +330,7 @@ adultMovieRoutes.get<{ type: string; id: string }>(
             }
           : null;
       } else {
-        const studio = await stashDb.getStudio(id.data);
-        // A network linking no site of its own has its studios' network
-        const found =
-          studio &&
-          ((await tpdbSiteFor(studio)) ??
-            (await tpdbNetworkFor(studio, stashDb)));
+        const found = await linkedTpdbSite(id.data, stashDb);
         match = found
           ? {
               id: found.id,

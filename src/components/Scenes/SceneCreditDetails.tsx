@@ -158,7 +158,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
         {tpdbMatch || matchError ? (
           <CreditTitles
             view={view}
-            movies={tpdbMatch && { type, id: tpdbMatch.id }}
+            movies={tpdbMatch && { type, id: tpdbMatch.id, browseId: data.id }}
             scenes={{ type, id: data.id }}
           />
         ) : (

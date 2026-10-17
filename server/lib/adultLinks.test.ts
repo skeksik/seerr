@@ -5,7 +5,7 @@ import StashDbAPI from '@server/api/stashdb';
 import type { StashDbStudio } from '@server/api/stashdb/interfaces';
 import TpdbAPI from '@server/api/tpdb';
 import type { TpdbSiteSummary } from '@server/api/tpdb/interfaces';
-import { tpdbSiteFor } from '@server/lib/adultLinks';
+import { tpdbFilterIds, tpdbSiteFor } from '@server/lib/adultLinks';
 import cacheManager from '@server/lib/cache';
 import { getSettings } from '@server/lib/settings';
 
@@ -63,6 +63,94 @@ describe('tpdbSiteFor', () => {
     assert.strictEqual(
       await tpdbSiteFor(studio('adult-time-blacked', 'Adult Time x Blacked')),
       null
+    );
+  });
+});
+
+describe('tpdbFilterIds', () => {
+  const DRAGON = 'aaa97940-4c08-410d-bebb-641e2a145be6';
+
+  beforeEach(() => {
+    mock.method(StashDbAPI.prototype, 'getStudio', async (id: string) =>
+      id === 'blacked' ? studio(id, 'Blacked') : null
+    );
+    mock.method(StashDbAPI.prototype, 'getPerformer', async (id: string) =>
+      id === DRAGON
+        ? {
+            id,
+            name: 'Little Dragon',
+            aliases: [],
+            scene_count: 0,
+            images: [],
+            urls: [
+              {
+                url: 'https://theporndb.net/performers/little-dragon',
+                site: { name: 'ThePornDB' },
+              },
+            ],
+          }
+        : null
+    );
+    mock.method(TpdbAPI.prototype, 'getPerformer', async () => ({
+      id: 'da50f9cc',
+      _id: 114293,
+      name: 'Little Dragon',
+    }));
+  });
+
+  it('translates StashDB ids and passes ThePornDB ones, keeping the rest', async () => {
+    assert.deepStrictEqual(
+      await tpdbFilterIds({
+        studio: 'blacked',
+        studioExclude: [1, 'blacked'],
+        performer: [DRAGON, 7],
+        performerExclude: [DRAGON],
+        year: 2020,
+      }),
+      {
+        studio: 200,
+        studioExclude: [1, 200],
+        performer: [114293, 7],
+        performerExclude: [114293],
+        year: 2020,
+      }
+    );
+  });
+
+  it('leaves nothing for a pick without a ThePornDB counterpart', async () => {
+    assert.strictEqual(await tpdbFilterIds({ studio: 'unknown' }), null);
+    assert.strictEqual(
+      await tpdbFilterIds({ performer: [DRAGON, 'unknown'] }),
+      null
+    );
+  });
+
+  it('drops exclusions without one', async () => {
+    assert.deepStrictEqual(
+      await tpdbFilterIds({
+        studioExclude: ['unknown', 3],
+        performerExclude: ['unknown'],
+      }),
+      {
+        studio: undefined,
+        studioExclude: [3],
+        performer: undefined,
+        performerExclude: [],
+      }
+    );
+  });
+
+  it('leaves StashDB alone for ThePornDB ids', async () => {
+    getSettings().stashdb = { endpoint: '', apiKey: '' };
+
+    assert.deepStrictEqual(
+      await tpdbFilterIds({ studio: 4, performer: [5], performerExclude: [6] }),
+      {
+        studio: 4,
+        studioExclude: undefined,
+        performer: [5],
+        performerExclude: [6],
+      }
     );
   });
 });

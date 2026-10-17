@@ -2560,6 +2560,20 @@ components:
             type: string
           imageUrl:
             type: string
+    StashDbLookup:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          disambiguation:
+            type: string
+            nullable: true
+          imageUrl:
+            type: string
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -7878,12 +7892,12 @@ paths:
             default: released
         - in: query
           name: studio
-          description: ThePornDB site id
+          description: A StashDB studio id, translated to the ThePornDB site it is linked to (a network to the network of its studios' sites), or a ThePornDB site id
           schema:
-            type: number
+            type: string
         - in: query
           name: performer
-          description: Comma-separated ThePornDB performer ids (all must match)
+          description: Comma-separated StashDB performer ids, translated to the ThePornDB performers they are linked to, or ThePornDB performer ids (all must match)
           schema:
             type: string
         - in: query
@@ -7893,12 +7907,12 @@ paths:
             type: string
         - in: query
           name: studioExclude
-          description: Comma-separated ThePornDB site ids to leave out, with the sites under them
+          description: Comma-separated StashDB studio ids or ThePornDB site ids to leave out, with the sites under them
           schema:
             type: string
         - in: query
           name: performerExclude
-          description: Comma-separated ThePornDB performer ids to leave out
+          description: Comma-separated StashDB performer ids or ThePornDB performer ids to leave out
           schema:
             type: string
         - in: query
@@ -7935,7 +7949,8 @@ paths:
                 $ref: '#/components/schemas/AdultMovieList'
   /adultmovie/studios:
     get:
-      summary: Search ThePornDB studios
+      summary: Search StashDB studios linked to ThePornDB
+      description: Autocomplete for the adult movie filters, which ThePornDB answers; only StashDB studios linking a ThePornDB site are offered.
       tags:
         - adultmovies
       parameters:
@@ -7952,10 +7967,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdultMovieLookup'
+                $ref: '#/components/schemas/StashDbLookup'
   /adultmovie/performers:
     get:
-      summary: Search ThePornDB performers
+      summary: Search StashDB performers linked to ThePornDB
+      description: Autocomplete for the adult movie filters, which ThePornDB answers; only StashDB performers linking a ThePornDB performer are offered.
       tags:
         - adultmovies
       parameters:
@@ -7972,7 +7988,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdultMovieLookup'
+                $ref: '#/components/schemas/StashDbLookup'
   /adultmovie/tags:
     get:
       summary: Search ThePornDB tags
@@ -8254,19 +8270,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    name:
-                      type: string
-                    disambiguation:
-                      type: string
-                      nullable: true
-                    imageUrl:
-                      type: string
+                $ref: '#/components/schemas/StashDbLookup'
   /scene/trending-studios:
     get:
       summary: Trending StashDB studios or networks
