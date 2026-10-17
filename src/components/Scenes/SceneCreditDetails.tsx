@@ -9,6 +9,7 @@ import AdultCreditHeader, {
 } from '@app/components/Scenes/AdultCreditHeader';
 import {
   CreditTitles,
+  CreditTitlesPlaceholder,
   CreditViewPicker,
   useCreditView,
 } from '@app/components/Scenes/AdultCreditView';
@@ -155,12 +156,14 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
           />
         )}
         {/* Movies wait for the ThePornDB match, if there is one */}
-        {(tpdbMatch || matchError) && (
+        {tpdbMatch || matchError ? (
           <CreditTitles
             view={view}
             movies={tpdbMatch && { type, id: tpdbMatch.id }}
             scenes={{ type, id: data.id }}
           />
+        ) : (
+          <CreditTitlesPlaceholder />
         )}
       </div>
     </>

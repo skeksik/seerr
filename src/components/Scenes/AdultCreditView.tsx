@@ -6,6 +6,7 @@ import {
   creditTitlesUrl,
 } from '@app/components/Common/adultRoutes';
 import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
+import Slider from '@app/components/Slider';
 import useDiscover from '@app/hooks/useDiscover';
 import globalMessages from '@app/i18n/globalMessages';
 import { CircleStackIcon } from '@heroicons/react/24/solid';
@@ -136,6 +137,22 @@ interface CreditTitlesProps {
   scenes?: CreditSource;
 }
 
+// What shows while they are looked up: a row of card placeholders under a
+// bar where its title will be, so the page doesn't look empty meanwhile
+export const CreditTitlesPlaceholder = () => (
+  <>
+    <div className="slider-header">
+      <div className="h-7 w-40 animate-pulse rounded-md bg-gray-700" />
+    </div>
+    <Slider
+      sliderKey="credit-titles-loading"
+      isLoading
+      isEmpty={false}
+      items={[]}
+    />
+  </>
+);
+
 const firstPageUrl = (
   mediaType: 'scene' | 'adultmovie',
   source?: CreditSource
@@ -160,7 +177,7 @@ export const CreditTitles = ({ view, movies, scenes }: CreditTitlesProps) => {
 
   if (view === 'all') {
     if (!known) {
-      return null;
+      return <CreditTitlesPlaceholder />;
     }
 
     if (hasMovies && hasScenes && movies && scenes) {
