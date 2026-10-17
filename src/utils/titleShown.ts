@@ -24,8 +24,6 @@ export const isTitleShown =
       return true;
     }
     const status = title.mediaInfo?.status;
-    const isAdult =
-      title.mediaType === 'scene' || title.mediaType === 'adultmovie';
     return !(
       (settings.hideAvailable &&
         wanted.hideAvailable &&
@@ -36,11 +34,6 @@ export const isTitleShown =
         status === MediaStatus.BLOCKLISTED) ||
       (settings.hideRequested &&
         wanted.hideRequested &&
-        (title.mediaInfo?.hasActiveRequest ||
-          // Whisparr fetches what it monitors without a request in Seerr,
-          // like a followed studio's titles; they show as requested too
-          (isAdult &&
-            (status === MediaStatus.PENDING ||
-              status === MediaStatus.PROCESSING))))
+        title.mediaInfo?.hasActiveRequest)
     );
   };

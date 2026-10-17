@@ -15,8 +15,7 @@ import type { MultiValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
 const messages = defineMessages('components.AdultBlocklistedTagsSelector', {
-  searchStashDbTags: 'Search StashDB tags…',
-  searchTpdbTags: 'Search ThePornDB tags…',
+  searchTags: 'Search tags…',
   starttyping: 'Start typing to search.',
   nooptions: 'No results.',
   copyTags: 'Copied blocklisted tags to clipboard.',
@@ -24,10 +23,7 @@ const messages = defineMessages('components.AdultBlocklistedTagsSelector', {
   copyTagsEmpty: 'Nothing to copy',
   importTagsTip: 'Import blocklisted tag configuration',
   importTitle: 'Import Blocklisted Tag Configuration',
-  importStashDbInstructions:
-    'Paste blocklist tag configuration below: StashDB tag ids, separated by commas.',
-  importTpdbInstructions:
-    'Paste blocklist tag configuration below: ThePornDB tag names, separated by commas.',
+  importInstructions: 'Paste blocklist tag configuration below.',
   confirm: 'Confirm',
   valueRequired: 'You must provide a value.',
   emptyEntry:
@@ -48,13 +44,11 @@ const fields = {
     ids: 'blocklistedSceneTags',
     names: 'blocklistedSceneTagNames',
     searchUrl: '/api/v1/scene/lookup/tags',
-    placeholder: messages.searchStashDbTags,
   },
   adultmovie: {
     ids: 'blocklistedAdultMovieTags',
     names: 'blocklistedAdultMovieTagNames',
     searchUrl: '/api/v1/adultmovie/tags',
-    placeholder: messages.searchTpdbTags,
   },
 } as const;
 
@@ -120,7 +114,7 @@ const AdultBlocklistedTagsSelector = ({
         }
         value={selected}
         loadOptions={loadOptions}
-        placeholder={intl.formatMessage(field.placeholder)}
+        placeholder={intl.formatMessage(messages.searchTags)}
         onChange={update}
         components={{
           DropdownIndicator: undefined,
@@ -321,11 +315,7 @@ const AdultTagsImportButton = ({
           >
             <div>
               <label htmlFor={`${mediaType}-tag-import`}>
-                {intl.formatMessage(
-                  mediaType === 'scene'
-                    ? messages.importStashDbInstructions
-                    : messages.importTpdbInstructions
-                )}
+                {intl.formatMessage(messages.importInstructions)}
               </label>
               <textarea
                 id={`${mediaType}-tag-import`}

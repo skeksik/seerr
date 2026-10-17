@@ -17,31 +17,24 @@ const title = (
 ) => ({ mediaType, mediaInfo: { status, hasActiveRequest } });
 
 describe('isTitleShown', () => {
-  it('hides requested titles, and adult ones Whisparr fetches too', () => {
+  it('hides requested scenes and adult movies like movies and series', () => {
     const shown = isTitleShown({ hideRequested: true }, all);
 
     for (const mediaType of ['movie', 'tv', 'scene', 'adultmovie']) {
-      const adult = mediaType === 'scene' || mediaType === 'adultmovie';
       assert.strictEqual(
         shown(title(mediaType, MediaStatus.PROCESSING, true)),
         false,
         mediaType
       );
-      // Monitored by Whisparr without a request in Seerr; movies keep
-      // upstream's rule of requests alone
       assert.strictEqual(
         shown(title(mediaType, MediaStatus.PROCESSING, false)),
-        !adult,
+        true,
         mediaType
       );
-      assert.strictEqual(
-        shown(title(mediaType, MediaStatus.PENDING)),
-        !adult,
-        mediaType
-      );
+      // Without media info, or read before the flag was known
       assert.strictEqual(shown({ mediaType }), true, mediaType);
       assert.strictEqual(
-        shown(title(mediaType, MediaStatus.AVAILABLE)),
+        shown(title(mediaType, MediaStatus.PENDING)),
         true,
         mediaType
       );
