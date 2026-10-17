@@ -24,7 +24,7 @@ Go to **Settings &rarr; Metadata Providers**. The **Adult Content** section show
 - It filters by release date, one studio (ThePornDB takes a single site per query; networks include their sites), any number of performers (a movie must feature all of them) and tags.
 - Release dates in the future are often placeholders on ThePornDB, so the default list stops at today. **Upcoming Adult Movies** on Discover shows the rest.
 - Movies with a trailer on ThePornDB show **Watch Trailer**, like a movie's, which plays the studio's video file on a page of its own in a new tab (studios' servers send them as downloads, so they are not opened directly). Only a few percent of movies have one. Streaming playlists (`.m3u8`), which only Safari plays, and signed links that have expired are left out; some studios have also taken their old trailers down, which Seerr can't tell beforehand.
-- Cast and studio links open the performer's or studio's page at `/performer/[id]` or `/studio/[id]`. Performers and studios linked to StashDB, by a link on either side, open their StashDB page, which adds their adult movies to their scenes. The others open their ThePornDB page, with their bio, profile links (with StashDB's site icons when StashDB is set up), a network's sites and their adult movies. See [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
+- The cast and the studio open the StashDB performer's or studio's page at `/performer/[id]` or `/studio/[id]` when StashDB or ThePornDB links them, which adds their adult movies to their scenes. Performers and studios neither links are shown without a link, like the crew. See [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
 
 ## Images
 

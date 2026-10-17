@@ -8079,133 +8079,14 @@ paths:
                     description: The performer's or site's ThePornDB page
         '404':
           description: No match on ThePornDB
-  /adultmovie/studio/{id}:
-    get:
-      summary: Get a ThePornDB studio
-      description: Details for the studio page; filters use its name.
-      tags:
-        - adultmovies
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: number
-      responses:
-        '200':
-          description: The studio
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: number
-                  name:
-                    type: string
-                  imageUrl:
-                    type: string
-                  url:
-                    type: string
-                  network:
-                    type: object
-                    properties:
-                      id:
-                        type: number
-                      name:
-                        type: string
-                      stashDbId:
-                        type: string
-                        description: The StashDB studio the network is linked to
-                  sites:
-                    type: array
-                    description: The sites of a network
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: number
-                        name:
-                          type: string
-                        imageUrl:
-                          type: string
-                        stashDbId:
-                          type: string
-                          description: The StashDB studio the site is linked to
-                  stashDbId:
-                    type: string
-                    description: >-
-                      The StashDB studio linking to this site. Linked sites have
-                      the StashDB studio's page instead of their own.
-                  tpdbUrl:
-                    type: string
-  /adultmovie/performer/{id}:
-    get:
-      summary: Get a ThePornDB performer
-      description: Details for the performer page; filters use its name.
-      tags:
-        - adultmovies
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: number
-      responses:
-        '200':
-          description: The performer
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: number
-                  name:
-                    type: string
-                  imageUrl:
-                    type: string
-                  bio:
-                    type: string
-                  aliases:
-                    type: array
-                    items:
-                      type: string
-                  birthDate:
-                    type: string
-                  birthplace:
-                    type: string
-                  careerStart:
-                    type: number
-                  careerEnd:
-                    type: number
-                  links:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        url:
-                          type: string
-                        site:
-                          type: string
-                        icon:
-                          type: string
-                          description: The site's icon on StashDB
-                  stashDbId:
-                    type: string
-                    description: >-
-                      The StashDB performer linked to this one, by a link on
-                      either side. Linked performers have the StashDB
-                      performer's page instead of their own.
-                  tpdbUrl:
-                    type: string
   /adultmovie/{adultMovieId}:
     get:
       summary: Get adult movie details
       description: >-
         Returns a ThePornDB movie with its Seerr media info. Performers, the
         studio and the network carry `stashDbId` when they are linked to a
-        StashDB performer or studio, whose page they have.
+        StashDB performer or studio, whose page they have; the others are
+        plain names.
       tags:
         - adultmovies
       parameters:
@@ -8411,7 +8292,7 @@ paths:
   /scene/studios:
     get:
       summary: List StashDB studios or networks
-      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have. By name, studios also list the ThePornDB sites no StashDB studio has the name of, marked with source tpdb.
+      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have.
       tags:
         - scenes
       parameters:
@@ -8465,16 +8346,7 @@ paths:
                   results:
                     type: array
                     items:
-                      allOf:
-                        - $ref: '#/components/schemas/SceneFilterDetails'
-                        - type: object
-                          properties:
-                            source:
-                              type: string
-                              enum: [tpdb]
-                            imageType:
-                              type: string
-                              enum: [tpdb]
+                      $ref: '#/components/schemas/SceneFilterDetails'
   /scene/search:
     get:
       summary: Search scenes

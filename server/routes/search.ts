@@ -5,7 +5,6 @@ import TpdbAPI from '@server/api/tpdb';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
 import { canViewAdult } from '@server/lib/adult';
-import { linkedStashDbPerformers } from '@server/lib/adultLinks';
 import { mapAdultMovieList } from '@server/lib/adultMedia';
 import { findSearchProvider } from '@server/lib/search';
 import logger from '@server/logger';
@@ -38,8 +37,8 @@ const tryAdultSource = async <T>(
   }
 };
 
-// StashDB performers lead the first page, then ThePornDB's; ThePornDB
-// movies join TMDB's results page by page
+// StashDB performers lead the first page; ThePornDB movies join TMDB's
+// results page by page
 const searchAdult = async (
   query: string,
   page: number,
@@ -49,22 +48,17 @@ const searchAdult = async (
     return { results: [], totalPages: 0, totalResults: 0 };
   }
 
-  const [performers, tpdbPerformers, movies] = await Promise.all([
+  const [performers, movies] = await Promise.all([
     page === 1
       ? tryAdultSource('StashDB performers', () =>
           StashDbAPI.fromSettings().searchPerformers(query)
-        )
-      : null,
-    page === 1
-      ? tryAdultSource('ThePornDB performers', () =>
-          TpdbAPI.fromSettings().searchPerformers(query)
         )
       : null,
     tryAdultSource('ThePornDB movies', () =>
       TpdbAPI.fromSettings().getMovies({ query, page, perPage: 20 })
     ),
   ]);
-  const stashDbResults = (performers ?? []).slice(0, PERFORMER_LIMIT).map(
+  const performerResults = (performers ?? []).slice(0, PERFORMER_LIMIT).map(
     (performer): PerformerResult => ({
       id: performer.id,
       mediaType: 'performer',
@@ -73,42 +67,6 @@ const searchAdult = async (
       imageUrl: performer.imageUrl,
     })
   );
-  // ThePornDB performers linked to a StashDB one open its page, and are left
-  // out next to it; the others open their ThePornDB page
-  const tpdbFound = (tpdbPerformers ?? []).slice(0, PERFORMER_LIMIT);
-  const links = await linkedStashDbPerformers(tpdbFound);
-  const listed = new Set(stashDbResults.map((performer) => performer.id));
-  const tpdbResults = tpdbFound.flatMap((performer): PerformerResult[] => {
-    const stashDbId = links.get(performer._id);
-
-    if (stashDbId) {
-      if (listed.has(stashDbId)) {
-        return [];
-      }
-      listed.add(stashDbId);
-    }
-
-    return [
-      stashDbId
-        ? {
-            id: stashDbId,
-            mediaType: 'performer',
-            name: performer.name,
-            imageUrl: performer.image ?? undefined,
-            imageType: 'tpdb',
-          }
-        : {
-            id: String(performer._id),
-            tpdbId: performer._id,
-            mediaType: 'performer',
-            name: performer.name,
-            imageUrl: performer.image ?? undefined,
-            source: 'tpdb',
-            imageType: 'tpdb',
-          },
-    ];
-  });
-  const performerResults = [...stashDbResults, ...tpdbResults];
 
   return {
     results: [

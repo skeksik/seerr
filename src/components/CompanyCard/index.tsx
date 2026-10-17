@@ -6,8 +6,8 @@ interface CompanyCardProps {
   name: string;
   image?: string;
   url: string;
-  // Adult studio logos come from StashDB or ThePornDB
-  imageType?: 'tmdb' | 'stashdb' | 'tpdb';
+  // Adult studio logos come from StashDB
+  imageType?: 'tmdb' | 'stashdb';
   // Takes the width of its grid cell instead of a fixed one
   fullWidth?: boolean;
 }

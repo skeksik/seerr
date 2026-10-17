@@ -46,15 +46,20 @@ const AdultMovieDetails = () => {
         releaseDate: data.releaseDate,
         duration: data.duration,
         // Like the cast, studios open their StashDB page when linked to
-        // one, else their ThePornDB page. The banner shows the site's movies
+        // one, and are plain text otherwise. The banner lists the site's
+        // movies by its ThePornDB id
         studio: data.studio && {
           id: data.studio.id,
           name: data.studio.name,
-          href: creditHref('studio', data.studio.stashDbId ?? data.studio.id),
+          href: data.studio.stashDbId
+            ? creditHref('studio', data.studio.stashDbId)
+            : null,
         },
         network: data.network && {
           name: data.network.name,
-          href: creditHref('studio', data.network.stashDbId ?? data.network.id),
+          href: data.network.stashDbId
+            ? creditHref('studio', data.network.stashDbId)
+            : null,
         },
         directors: data.directors,
         tags: data.tags,

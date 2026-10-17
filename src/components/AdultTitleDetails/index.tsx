@@ -62,9 +62,10 @@ const DATE_FORMAT = {
   timeZone: 'UTC',
 } as const;
 
+// A studio or network; plain text when it has no page
 interface CreditLink {
   name: string;
-  href: string;
+  href: string | null;
 }
 
 // A scene or adult movie, as the title page shows it
@@ -424,7 +425,8 @@ const AdultTitleDetails = ({
           )}
         </div>
         <div className="media-overview-right">
-          {data.studio && (
+          {/* Only studios with a page, which the banner opens */}
+          {data.studio?.href && (
             <StudioBanner
               href={data.studio.href}
               studio={data.studio.name}
@@ -456,7 +458,11 @@ const AdultTitleDetails = ({
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.studio)}</span>
                 <span className="media-fact-value">
-                  <Link href={data.studio.href}>{data.studio.name}</Link>
+                  {data.studio.href ? (
+                    <Link href={data.studio.href}>{data.studio.name}</Link>
+                  ) : (
+                    data.studio.name
+                  )}
                 </span>
               </div>
             )}
@@ -464,7 +470,11 @@ const AdultTitleDetails = ({
               <div className="media-fact">
                 <span>{intl.formatMessage(messages.network)}</span>
                 <span className="media-fact-value">
-                  <Link href={data.network.href}>{data.network.name}</Link>
+                  {data.network.href ? (
+                    <Link href={data.network.href}>{data.network.name}</Link>
+                  ) : (
+                    data.network.name
+                  )}
                 </span>
               </div>
             )}

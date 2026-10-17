@@ -4,16 +4,11 @@ type AdultMediaType = 'scene' | 'adultmovie';
 type CreditType = 'performer' | 'studio';
 
 // Performer and studio pages, like /person/[id]: /performer/[id] and
-// /studio/[id] serve both sources. StashDB ids are UUIDs and ThePornDB's
-// numbers, so they never collide. ThePornDB performers and studios linked to
-// StashDB ones have StashDB's page only, so links pass the StashDB id when
-// there is one
+// /studio/[id] serve StashDB's performers and studios, by their UUIDs.
+// ThePornDB's have no page of their own: linked to a StashDB one, by a link
+// on either side, they share its page, so links pass the StashDB id
 export const creditHref = (type: CreditType, id: string | number): string =>
   `/${type}/${id}`;
-
-// ThePornDB's numeric ids, as opposed to StashDB's UUIDs
-export const isTpdbCreditId = (id: string | number | undefined): boolean =>
-  id !== undefined && /^\d+$/.test(String(id));
 
 // A performer's or studio's titles, newest first, as an endpoint and its
 // params, which useDiscover pages through
@@ -68,38 +63,28 @@ interface AdultPerformer {
   // Credited as, on scenes
   as?: string;
   disambiguation?: string;
-  // ThePornDB's numeric id, which its pages take
-  tpdbId?: number;
-  // The StashDB performer a ThePornDB one is linked to, which has its page
+  // The StashDB performer a ThePornDB one is linked to, which has the page
   stashDbId?: string;
-  // StashDB performers in search results can carry ThePornDB's image
-  imageType?: 'tpdb';
 }
 
-// A performer of the given kind of title, as cast rows and lists show them
+// A performer of the given kind of title, as cast rows and lists show them.
+// Scene and search result performers are StashDB's; adult movie performers
+// are ThePornDB's, with a page only when linked to a StashDB one
 export const toSliderPerformer = (
   mediaType: AdultMediaType,
   performer: AdultPerformer
 ): SliderPerformer => {
-  const imageType =
-    performer.imageType ?? (mediaType === 'scene' ? 'stashdb' : 'tpdb');
-  const src =
-    imageType === 'stashdb'
-      ? stashImageUrl(performer.imageUrl, 300)
-      : performer.imageUrl;
+  const isScene = mediaType === 'scene';
+  const src = isScene
+    ? stashImageUrl(performer.imageUrl, 300)
+    : performer.imageUrl;
+  const stashDbId = isScene ? performer.id : performer.stashDbId;
 
   return {
     personId: performer.id,
     name: performer.name,
     subName: performer.as ?? performer.disambiguation,
-    // ThePornDB performers have a page by their numeric id only
-    href:
-      mediaType === 'adultmovie' && !performer.stashDbId && !performer.tpdbId
-        ? null
-        : creditHref(
-            'performer',
-            performer.stashDbId ?? performer.tpdbId ?? performer.id
-          ),
-    image: src ? { src, type: imageType } : undefined,
+    href: stashDbId ? creditHref('performer', stashDbId) : null,
+    image: src ? { src, type: isScene ? 'stashdb' : 'tpdb' } : undefined,
   };
 };

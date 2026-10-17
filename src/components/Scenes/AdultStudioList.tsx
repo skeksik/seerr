@@ -15,7 +15,7 @@ import {
   BarsArrowDownIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/solid';
-import type { MergedStudio } from '@server/lib/mergedStudios';
+import type { SceneFilterDetails } from '@server/models/Scene';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
@@ -37,7 +37,7 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
 interface StudioPage {
   page: number;
   totalPages: number;
-  results: MergedStudio[];
+  results: SceneFilterDetails[];
 }
 
 interface AdultStudioListProps {
@@ -58,8 +58,7 @@ type StudioSort = (typeof sortOptions)[number][0];
 
 // Every StashDB studio or network, behind the rows of the same name, which
 // start out like the rows. Trending and popularity rank those of the most
-// trending or popular scenes. By name, studios take in ThePornDB's sites
-// StashDB has no studio for
+// trending or popular scenes
 const AdultStudioList = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const router = useRouter();
@@ -154,16 +153,11 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
             {studios.map((studio) => (
               <li key={`${type}-${studio.id}`}>
-                {/* ThePornDB sites StashDB has no studio for open their page */}
                 <CompanyCard
                   fullWidth
                   name={studio.name}
-                  image={
-                    studio.source === 'tpdb'
-                      ? studio.imageUrl
-                      : stashImageUrl(studio.imageUrl, 300)
-                  }
-                  imageType={studio.source === 'tpdb' ? 'tpdb' : 'stashdb'}
+                  image={stashImageUrl(studio.imageUrl, 300)}
+                  imageType="stashdb"
                   url={creditHref('studio', studio.id)}
                 />
               </li>

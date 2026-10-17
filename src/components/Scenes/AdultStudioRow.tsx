@@ -13,26 +13,18 @@ interface AdultStudioRowProps {
   // Whether the list behind the row holds more than it shows; by default
   // when there are more studios than fit
   hasMore?: boolean;
-  // StashDB studios or ThePornDB sites, for their images
-  mediaType: 'scene' | 'adultmovie';
-  // Until they load. Sites linked to a StashDB studio open its page
-  studios?: {
-    id: string | number;
-    name: string;
-    imageUrl?: string;
-    stashDbId?: string;
-  }[];
+  // StashDB studios, until they load
+  studios?: { id: string; name: string; imageUrl?: string }[];
 }
 
 // Studio cards are wide, like scene cards
 const SLIDER_LIMIT = 13;
 
-// The studio row of the Discover page, for StashDB and ThePornDB studios
+// The studio row of the Discover page, and a network's studios
 const AdultStudioRow = ({
   sliderKey,
   title,
   linkUrl,
-  mediaType,
   studios,
   hasMore = (studios?.length ?? 0) > SLIDER_LIMIT,
 }: AdultStudioRowProps) => (
@@ -53,13 +45,9 @@ const AdultStudioRow = ({
             <CompanyCard
               key={`${sliderKey}-${studio.id}`}
               name={studio.name}
-              image={
-                mediaType === 'scene'
-                  ? stashImageUrl(studio.imageUrl, 300)
-                  : studio.imageUrl
-              }
-              imageType={mediaType === 'scene' ? 'stashdb' : 'tpdb'}
-              url={creditHref('studio', studio.stashDbId ?? studio.id)}
+              image={stashImageUrl(studio.imageUrl, 300)}
+              imageType="stashdb"
+              url={creditHref('studio', studio.id)}
             />
           )),
         // Whether there are more is only known once they are in

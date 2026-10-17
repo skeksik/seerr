@@ -151,7 +151,6 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
             sliderKey={`network-studios-${data.id}`}
             title={intl.formatMessage(messages.studios)}
             linkUrl={`${creditHref('studio', data.id)}/studios`}
-            mediaType="scene"
             studios={data.studios}
           />
         )}

@@ -167,12 +167,10 @@ const ListView = ({
                 titleCard = <SceneCard scene={title} canExpand />;
                 break;
               case 'performer':
+                // Search performers are StashDB's
                 titleCard = (
                   <PersonCard
-                    {...toSliderPerformer(
-                      title.source === 'tpdb' ? 'adultmovie' : 'scene',
-                      title
-                    )}
+                    {...toSliderPerformer('scene', title)}
                     canExpand
                   />
                 );

@@ -187,18 +187,6 @@ class TpdbAPI extends ExternalAPI {
     return response.data;
   }
 
-  // Sites by name, a full page at a time
-  public async listSites(
-    page: number,
-    query?: string
-  ): Promise<TpdbPage<TpdbSiteSummary>> {
-    return this.get<TpdbPage<TpdbSiteSummary>>(
-      '/sites',
-      { params: { q: query || undefined, page, per_page: 100 } },
-      LIST_TTL
-    );
-  }
-
   // By id, uuid or slug, like performers
   public async getSite(id: number | string): Promise<TpdbSiteSummary | null> {
     try {
@@ -214,16 +202,6 @@ class TpdbAPI extends ExternalAPI {
       }
       throw e;
     }
-  }
-
-  // The sites of a network
-  public async getNetworkSites(id: number): Promise<TpdbSiteSummary[]> {
-    const response = await this.get<TpdbPage<TpdbSiteSummary>>(
-      '/sites',
-      { params: { network_id: id, per_page: 100 } },
-      DETAILS_TTL
-    );
-    return response.data.filter((site) => site.id !== id);
   }
 
   public async searchPerformers(

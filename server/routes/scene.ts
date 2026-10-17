@@ -25,7 +25,6 @@ import {
   stashDbDate,
 } from '@server/lib/adultLists';
 import { isOnWatchlist } from '@server/lib/adultMedia';
-import { mergedStudioList } from '@server/lib/mergedStudios';
 import { Permission } from '@server/lib/permissions';
 import { getSettings } from '@server/lib/settings';
 import {
@@ -462,19 +461,6 @@ sceneRoutes.get('/studios', async (req, res, next) => {
           (page - 1) * STUDIO_PAGE_SIZE,
           page * STUDIO_PAGE_SIZE
         ),
-      });
-    }
-
-    // ThePornDB sites StashDB has no studio for join the studios by name
-    if (type === 'studios' && sort === 'name' && TpdbAPI.isConfigured()) {
-      const list = mergedStudioList(api, TpdbAPI.fromSettings(), query);
-      const results = await list.page(page, STUDIO_PAGE_SIZE);
-
-      return res.status(200).json({
-        page,
-        totalPages: Math.ceil(list.total / STUDIO_PAGE_SIZE),
-        totalResults: list.total,
-        results,
       });
     }
 

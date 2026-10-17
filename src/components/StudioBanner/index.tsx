@@ -14,7 +14,9 @@ const messages = defineMessages('components.StudioBanner', {
 interface StudioBannerProps {
   href: string;
   studio: string;
-  // StashDB studio or ThePornDB site whose latest release is the backdrop
+  // StashDB studio or ThePornDB site whose latest release is the backdrop.
+  // An adult movie's studio lists its movies by its ThePornDB id, while
+  // the banner opens its StashDB page
   studioId: string | number;
   mediaType: 'scene' | 'adultmovie';
   // The title the page is about, so the banner shows a different one

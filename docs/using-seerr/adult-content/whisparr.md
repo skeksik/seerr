@@ -37,7 +37,7 @@ Go to **Settings &rarr; Services &rarr; Whisparr Settings** and add a server. Th
 
 ## Monitoring Performers and Studios
 
-Request managers see **Monitor in Whisparr** on StashDB performer and studio pages when a default Whisparr server is set up. ThePornDB performers and studios linked to StashDB ones share their page, and with it the button; see [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
+Request managers see **Monitor in Whisparr** on performer and studio pages when a default Whisparr server is set up; see [Performers and Studios](/using-seerr/adult-content#performers-and-studios).
 
 Monitoring a performer or studio makes Whisparr add every one of their scenes and download new scenes as they are released. It uses the default server's quality profile, root folder and tags. **Search for existing titles now** is off by default, because it can queue a large number of downloads at once.
 
@@ -47,4 +47,4 @@ The button shows what Whisparr monitors: **Monitored in Whisparr** for scenes an
 
 **Stop Monitoring** turns off monitoring of both scenes and movies in Whisparr. Titles that were already added stay in Whisparr.
 
-ThePornDB performers and studios without a StashDB link have no button: Whisparr follows performers and studios by their StashDB id only, and cannot add one from ThePornDB.
+Whisparr follows performers and studios by their StashDB id only, and cannot add one from ThePornDB, so a performer or studio only ThePornDB knows cannot be monitored.

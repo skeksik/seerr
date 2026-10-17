@@ -22,18 +22,12 @@ import {
   tpdbDateOperations,
 } from '@server/lib/adultLists';
 import { isOnWatchlist, mapAdultMovieList } from '@server/lib/adultMedia';
-import logger from '@server/logger';
-import {
-  mapAdultPerformerDetails,
-  mapAdultStudioDetails,
-} from '@server/models/AdultCredit';
 import type { AdultMovieListResponse } from '@server/models/AdultMovie';
 import {
   MAX_DURATION,
   mapAdultMovieDetails,
   moviePerformers,
 } from '@server/models/AdultMovie';
-import type { SiteLink } from '@server/models/Scene';
 import { today } from '@server/utils/dateHelpers';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -405,108 +399,6 @@ adultMovieRoutes.get<{ id: string }>('/:id/similar', async (req, res, next) => {
     });
   }
 });
-
-adultMovieRoutes.get<{ type: string; id: string }>(
-  '/:type/:id',
-  async (req, res, next) => {
-    const id = Number(req.params.id);
-
-    if (
-      !Number.isInteger(id) ||
-      id <= 0 ||
-      !['studio', 'performer'].includes(req.params.type)
-    ) {
-      return next({ status: 404, message: 'Not found.' });
-    }
-
-    try {
-      const tpdb = TpdbAPI.fromSettings();
-
-      if (req.params.type === 'performer') {
-        const [performer, sites] = await Promise.all([
-          tpdb.getPerformer(id),
-          stashDbSites(),
-        ]);
-
-        if (!performer) {
-          return next({ status: 404, message: 'Not found.' });
-        }
-
-        const links = await linkedStashDbPerformers([performer]);
-        const details = mapAdultPerformerDetails(
-          performer,
-          links.get(performer._id)
-        );
-
-        return res.status(200).json({
-          ...details,
-          links: withSiteIcons(details.links, sites),
-        });
-      }
-
-      const [site, sites] = await Promise.all([
-        tpdb.getSite(id),
-        tpdb.getNetworkSites(id),
-      ]);
-
-      if (!site) {
-        return next({ status: 404, message: 'Not found.' });
-      }
-
-      // The site, its network and its sites may each have a StashDB studio
-      const links = await linkedStashDbStudios([
-        site,
-        ...(site.network ? [site.network] : []),
-        ...sites,
-      ]);
-      return res.status(200).json(mapAdultStudioDetails(site, sites, links));
-    } catch (e) {
-      return handleError(e, next, 'Unable to retrieve filter.', {
-        type: req.params.type,
-        id,
-      });
-    }
-  }
-);
-
-const siteHost = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-};
-
-// StashDB's site icons by host; links go without icons when it fails
-const stashDbSites = async (): Promise<Map<string, string>> => {
-  const icons = new Map<string, string>();
-
-  try {
-    for (const site of await StashDbAPI.fromSettings().getSites()) {
-      const host = site.icon && site.url ? siteHost(site.url) : undefined;
-      if (site.icon && host !== undefined && !icons.has(host)) {
-        icons.set(host, site.icon);
-      }
-    }
-  } catch (e) {
-    logger.debug('No StashDB site icons for ThePornDB links.', {
-      label: 'API',
-      errorMessage: e.message,
-    });
-  }
-
-  return icons;
-};
-
-// ThePornDB links carry no icons, so borrow StashDB's for the same sites
-const withSiteIcons = (
-  links: SiteLink[],
-  icons: Map<string, string>
-): SiteLink[] =>
-  links.map((link) => {
-    const icon = icons.get(siteHost(link.url));
-    return icon ? { ...link, icon } : link;
-  });
 
 adultMovieRoutes.get('/:id', async (req, res, next) => {
   const parsed = z.string().uuid().safeParse(req.params.id);
