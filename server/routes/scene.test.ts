@@ -508,9 +508,7 @@ describe('studio rankings', () => {
       'https://stashdb.test/images/a'
     );
     assert.strictEqual(res.body.totalPages, 1);
-    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
-      'POPULARITY',
-    ]);
+    assert.strictEqual(getSceneStudios.mock.callCount(), 1);
   });
 
   it('no longer lists by trending', async () => {
@@ -545,29 +543,7 @@ describe('studio rankings', () => {
       res.body.results.map((studio: { id: string }) => studio.id),
       ['n']
     );
-    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
-      'POPULARITY',
-    ]);
-  });
-
-  it('ranks the rows by trending scenes', async () => {
-    const getSceneStudios = mock.method(
-      StashDbAPI.prototype,
-      'getSceneStudios',
-      async () => studios
-    );
-    const agent = await loginAs('admin@seerr.dev');
-
-    const res = await agent.get('/scene/trending-studios?type=networks');
-
-    assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(
-      res.body.map((studio: { id: string }) => studio.id),
-      ['n']
-    );
-    assert.deepStrictEqual(getSceneStudios.mock.calls[0].arguments, [
-      'TRENDING',
-    ]);
+    assert.strictEqual(getSceneStudios.mock.callCount(), 1);
   });
 });
 

@@ -2,19 +2,23 @@ import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
 import type { SceneFilterDetails } from '@server/models/Scene';
 import useSWR from 'swr';
 
+// A row holds this many of the list's first page
+const ROW_SIZE = 20;
+
 interface AdultStudioSliderProps {
   // Studios, or the networks above them
   type: 'studios' | 'networks';
   title: string;
 }
 
-// Studios behind the currently trending scenes, linking to their pages
+// The first of the studios behind the most popular scenes, as the Studios
+// and Networks lists start out, linking to their pages
 const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
-  const { data, error } = useSWR<SceneFilterDetails[]>(
-    `/api/v1/scene/trending-studios?type=${type}`
+  const { data, error } = useSWR<{ results: SceneFilterDetails[] }>(
+    `/api/v1/scene/studios?type=${type}&sortBy=popularity.desc&page=1`
   );
 
-  if (error || data?.length === 0) {
+  if (error || data?.results.length === 0) {
     return null;
   }
 
@@ -22,10 +26,10 @@ const AdultStudioSlider = ({ type, title }: AdultStudioSliderProps) => {
     <AdultStudioRow
       sliderKey={`adult-${type}`}
       title={title}
-      // Every studio or network, beyond the trending ones
+      // Every studio or network, beyond the first
       linkUrl={`/discover/scenes/${type}`}
       hasMore
-      studios={data}
+      studios={data?.results.slice(0, ROW_SIZE)}
     />
   );
 };

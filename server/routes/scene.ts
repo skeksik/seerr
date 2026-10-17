@@ -369,26 +369,6 @@ sceneRoutes.get('/search', async (req, res, next) => {
   }
 });
 
-const TRENDING_STUDIO_LIMIT = 20;
-
-// The Studios and Networks rows: studios (or their networks) ranked by how
-// many trending scenes they have; stash-box cannot sort studios on that
-sceneRoutes.get('/trending-studios', async (req, res, next) => {
-  const type = req.query.type === 'networks' ? 'networks' : 'studios';
-
-  try {
-    const studios = await StashDbAPI.fromSettings().getSceneStudios('TRENDING');
-
-    return res
-      .status(200)
-      .json(rankStudios(studios, type).slice(0, TRENDING_STUDIO_LIMIT));
-  } catch (e) {
-    return handleError(e, next, 'Unable to retrieve trending studios.', {
-      type,
-    });
-  }
-});
-
 // StashDB's sites with their icons, for links from anywhere
 sceneRoutes.get('/sites', async (req, res, next) => {
   try {
@@ -445,7 +425,7 @@ sceneRoutes.get('/studios', async (req, res, next) => {
 
     // Ranked like the rows, by the most popular scenes instead
     if (field === 'popularity') {
-      const rank = rankStudios(await api.getSceneStudios('POPULARITY'), type);
+      const rank = rankStudios(await api.getSceneStudios(), type);
       const ranked = (direction === 'asc' ? rank.reverse() : rank).filter(
         (studio) =>
           !query || studio.name.toLowerCase().includes(query.toLowerCase())

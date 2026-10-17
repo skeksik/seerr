@@ -99,14 +99,14 @@ export const sliderTitles = defineMessages('components.Discover', {
   adultNetworksEdit: 'Networks (Adult)',
   newAdultMovies: 'New Adult Movies',
   upcomingAdultMovies: 'Upcoming Adult Movies',
-  sceneTag: 'Scene Tag',
-  scenePerformer: 'Scene Performer',
-  sceneStudio: 'Scene Studio',
-  sceneSearch: 'Scene Search',
-  adultMovieTag: 'Adult Movie Tag',
-  adultMoviePerformer: 'Adult Movie Performer',
-  adultMovieStudio: 'Adult Movie Studio',
-  adultMovieSearch: 'Adult Movie Search',
+  sceneTag: 'StashDB Scene Tag',
+  scenePerformer: 'StashDB Scene Performer',
+  sceneStudio: 'StashDB Scene Studio',
+  sceneSearch: 'StashDB Scene Search',
+  adultMovieTag: 'TPDB Adult Movie Tag',
+  adultMoviePerformer: 'TPDB Adult Movie Performer',
+  adultMovieStudio: 'TPDB Adult Movie Studio',
+  adultMovieSearch: 'TPDB Adult Movie Search',
 });
 
 // ThePornDB cannot name a tag by id, so an Adult Movie Tag row keeps each

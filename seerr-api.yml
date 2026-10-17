@@ -8316,28 +8316,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StashDbLookup'
-  /scene/trending-studios:
-    get:
-      summary: Trending StashDB studios or networks
-      description: Studios, or the networks at the top of their tree, ranked by how many of the top trending scenes they have.
-      tags:
-        - scenes
-      parameters:
-        - in: query
-          name: type
-          schema:
-            type: string
-            enum: [studios, networks]
-            default: studios
-      responses:
-        '200':
-          description: Studios
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SceneFilterDetails'
   /scene/studios:
     get:
       summary: List StashDB studios or networks
