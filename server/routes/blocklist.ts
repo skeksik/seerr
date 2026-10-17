@@ -11,6 +11,7 @@ import { Blocklist } from '@server/entity/Blocklist';
 import Media from '@server/entity/Media';
 import type { BlocklistResultsResponse } from '@server/interfaces/api/blocklistInterfaces';
 import { canViewAdult } from '@server/lib/adult';
+import { withBlocklistedTagNames } from '@server/lib/adultBlocklistedTags';
 import { lookupAdultTitle } from '@server/lib/adultMedia';
 import { Permission } from '@server/lib/permissions';
 import logger from '@server/logger';
@@ -96,7 +97,7 @@ blocklistRoutes.get(
           results: itemsCount,
           page: Math.ceil(skip / take) + 1,
         },
-        results: blocklistedItems,
+        results: blocklistedItems.map(withBlocklistedTagNames),
       } as BlocklistResultsResponse);
     } catch (error) {
       logger.error('Something went wrong while retrieving blocklisted items', {
@@ -132,7 +133,7 @@ blocklistRoutes.get(
         where: itemWhere(req.params.id, mediaType),
       });
 
-      return res.status(200).send(blocklistItem);
+      return res.status(200).send(withBlocklistedTagNames(blocklistItem));
     } catch (e) {
       if (e instanceof EntityNotFoundError) {
         return next({

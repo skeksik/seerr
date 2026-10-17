@@ -1,4 +1,5 @@
 import BlocklistedTagsSelector from '@app/components/BlocklistedTagsSelector';
+import AdultBlocklistedTagsSelector from '@app/components/BlocklistedTagsSelector/AdultBlocklistedTagsSelector';
 import Button from '@app/components/Common/Button';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import PageTitle from '@app/components/Common/PageTitle';
@@ -48,6 +49,12 @@ const messages = defineMessages('components.Settings.SettingsMain', {
   blocklistedTags: 'Blocklist Content with Tags',
   blocklistedTagsTip:
     'Automatically add content with tags to the blocklist using the "Process Blocklisted Tags" job',
+  blocklistedSceneTags: 'Blocklist Scenes with StashDB Tags',
+  blocklistedSceneTagsTip:
+    'Automatically add scenes with these StashDB tags to the blocklist using the "Process Blocklisted Tags" job',
+  blocklistedAdultMovieTags: 'Blocklist Adult Movies with ThePornDB Tags',
+  blocklistedAdultMovieTagsTip:
+    'Automatically add adult movies with these ThePornDB tags to the blocklist using the "Process Blocklisted Tags" job',
   blocklistedTagsLimit: 'Limit Content Blocklisted per Tag',
   blocklistedTagsLimitTip:
     'The "Process Blocklisted Tags" job will blocklist this many pages into each sort. Larger numbers will create a more accurate blocklist, but use more space.',
@@ -184,6 +191,11 @@ const SettingsMain = () => {
             blocklistLanguage: data?.blocklistLanguage || '',
             blocklistedTags: data?.blocklistedTags,
             blocklistedTagsLimit: data?.blocklistedTagsLimit || 50,
+            blocklistedSceneTags: data?.blocklistedSceneTags ?? '',
+            blocklistedSceneTagNames: data?.blocklistedSceneTagNames ?? '',
+            blocklistedAdultMovieTags: data?.blocklistedAdultMovieTags ?? '',
+            blocklistedAdultMovieTagNames:
+              data?.blocklistedAdultMovieTagNames ?? '',
             partialRequestsEnabled: data?.partialRequestsEnabled,
             enableSpecialEpisodes: data?.enableSpecialEpisodes,
             cacheImages: data?.cacheImages,
@@ -209,6 +221,11 @@ const SettingsMain = () => {
                 blocklistLanguage: values.blocklistLanguage,
                 blocklistedTags: values.blocklistedTags,
                 blocklistedTagsLimit: values.blocklistedTagsLimit,
+                blocklistedSceneTags: values.blocklistedSceneTags,
+                blocklistedSceneTagNames: values.blocklistedSceneTagNames,
+                blocklistedAdultMovieTags: values.blocklistedAdultMovieTags,
+                blocklistedAdultMovieTagNames:
+                  values.blocklistedAdultMovieTagNames,
                 partialRequestsEnabled: values.partialRequestsEnabled,
                 enableSpecialEpisodes: values.enableSpecialEpisodes,
                 cacheImages: values.cacheImages,
@@ -475,6 +492,51 @@ const SettingsMain = () => {
                     </div>
                   </div>
                 </div>
+                {/* Their tags are looked up once adult content is saved on */}
+                {!safeMode && data?.enableAdult && (
+                  <>
+                    <div className="form-row">
+                      <label
+                        htmlFor="blocklistedSceneTags"
+                        className="text-label"
+                      >
+                        <span>
+                          {intl.formatMessage(messages.blocklistedSceneTags)}
+                        </span>
+                        <span className="label-tip">
+                          {intl.formatMessage(messages.blocklistedSceneTagsTip)}
+                        </span>
+                      </label>
+                      <div className="form-input-area">
+                        <div className="form-input-field relative z-[9]">
+                          <AdultBlocklistedTagsSelector mediaType="scene" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <label
+                        htmlFor="blocklistedAdultMovieTags"
+                        className="text-label"
+                      >
+                        <span>
+                          {intl.formatMessage(
+                            messages.blocklistedAdultMovieTags
+                          )}
+                        </span>
+                        <span className="label-tip">
+                          {intl.formatMessage(
+                            messages.blocklistedAdultMovieTagsTip
+                          )}
+                        </span>
+                      </label>
+                      <div className="form-input-area">
+                        <div className="form-input-field relative z-[8]">
+                          <AdultBlocklistedTagsSelector mediaType="adultmovie" />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div className="form-row">
                   <label htmlFor="blocklistedTagsLimit" className="text-label">
                     <span className="mr-2">

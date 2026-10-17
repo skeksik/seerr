@@ -183,6 +183,14 @@ export interface MainSettings {
   blocklistLanguage: string;
   blocklistedTags: string;
   blocklistedTagsLimit: number;
+  // StashDB tag UUIDs and ThePornDB tag ids, comma separated like
+  // blocklistedTags, with their names joined by | in the same order, as
+  // ThePornDB cannot look a tag up by id. Optional so settings files from
+  // before them still type-check
+  blocklistedSceneTags?: string;
+  blocklistedSceneTagNames?: string;
+  blocklistedAdultMovieTags?: string;
+  blocklistedAdultMovieTagNames?: string;
   mediaServerType: number;
   partialRequestsEnabled: boolean;
   enableSpecialEpisodes: boolean;
@@ -473,6 +481,10 @@ class Settings {
         blocklistLanguage: '',
         blocklistedTags: '',
         blocklistedTagsLimit: 50,
+        blocklistedSceneTags: '',
+        blocklistedSceneTagNames: '',
+        blocklistedAdultMovieTags: '',
+        blocklistedAdultMovieTagNames: '',
         mediaServerType: MediaServerType.NOT_CONFIGURED,
         partialRequestsEnabled: true,
         enableSpecialEpisodes: false,
