@@ -101,6 +101,50 @@ describe('classifyScene', () => {
     );
   });
 
+  it('reads the cast from act tags', () => {
+    const named = (
+      genders: StashDbGender[],
+      names: string[],
+      tags: string[] = []
+    ) => ({
+      ...scene(genders, tags),
+      tags: [
+        ...tags.map((id) => ({ id })),
+        ...names.map((name, i) => ({ id: `t${i}`, name })),
+      ],
+    });
+
+    // A woman with an unlisted man
+    assert.deepStrictEqual(
+      classifyScene(named(['FEMALE'], ['Blowjob', 'Cumshot']), tagIds),
+      ['straight']
+    );
+    assert.deepStrictEqual(
+      classifyScene(named(['FEMALE'], ['F on F']), tagIds),
+      ['lesbian']
+    );
+    assert.deepStrictEqual(
+      classifyScene(named(['FEMALE', 'FEMALE'], ['Strap-on']), tagIds),
+      ['lesbian']
+    );
+    assert.deepStrictEqual(
+      classifyScene(named(['MALE'], ['Pussy Licking']), tagIds),
+      ['straight']
+    );
+    // A trans woman's blowjob needs no man
+    assert.deepStrictEqual(
+      classifyScene(
+        named(['FEMALE', 'TRANSGENDER_FEMALE'], ['Blowjob', 'Facial']),
+        tagIds
+      ),
+      ['trans']
+    );
+    assert.deepStrictEqual(
+      classifyScene(named(['FEMALE'], ['Deepthroat'], ['trans']), tagIds),
+      ['trans']
+    );
+  });
+
   it('fills in the cast from group tags', () => {
     const withGroups = {
       ...tagIds,
@@ -169,9 +213,119 @@ describe('tagHint', () => {
     assert.deepStrictEqual(tagHint('Long Hair (Female)')?.cast?.female, 1);
     assert.deepStrictEqual(tagHint('Step Brother')?.cast?.male, 1);
     assert.deepStrictEqual(tagHint('Trans Woman'), { trans: true });
-    assert.deepStrictEqual(tagHint('Big Tits')?.cast?.female, 1);
-    assert.deepStrictEqual(tagHint('Big Dick')?.cast?.male, 1);
-    assert.strictEqual(tagHint('Strap-On Cock'), undefined);
+    assert.deepStrictEqual(tagHint('Big Tits')?.implied?.female, 1);
+    assert.deepStrictEqual(tagHint('Big Dick')?.implied?.male, 1);
+    // A woman wears it, and no man needs to be there
+    assert.deepStrictEqual(tagHint('Strap-On Cock'), {
+      implied: { male: 0, female: 1, trans: 0 },
+    });
+    assert.deepStrictEqual(tagHint('Brother Sister Fuck')?.cast, {
+      male: 1,
+      female: 1,
+      trans: 0,
+    });
+    assert.strictEqual(tagHint('Porn For Women'), undefined);
+    // Not trans
+    assert.strictEqual(tagHint('Transparent Clothing'), undefined);
+  });
+
+  it('reads the cast from gender pairs', () => {
+    const cast = (name: string) => tagHint(name)?.cast;
+    assert.deepStrictEqual(cast('F on M'), { male: 1, female: 1, trans: 0 });
+    assert.deepStrictEqual(cast('M on F'), { male: 1, female: 1, trans: 0 });
+    assert.deepStrictEqual(cast('F on F'), { male: 0, female: 2, trans: 0 });
+    assert.deepStrictEqual(cast('M on M'), { male: 2, female: 0, trans: 0 });
+    assert.deepStrictEqual(cast('Rimming - F On M'), {
+      male: 1,
+      female: 1,
+      trans: 0,
+    });
+    assert.deepStrictEqual(cast('Sex Toy Play - F On F'), {
+      male: 0,
+      female: 2,
+      trans: 0,
+    });
+    assert.deepStrictEqual(cast('Male Fucks Male'), {
+      male: 2,
+      female: 0,
+      trans: 0,
+    });
+    assert.deepStrictEqual(cast('Girl-Girl Doggy Style'), {
+      male: 0,
+      female: 2,
+      trans: 0,
+    });
+    assert.deepStrictEqual(cast('Kissing - FF'), {
+      male: 0,
+      female: 2,
+      trans: 0,
+    });
+    assert.deepStrictEqual(cast('Older Woman / Younger Woman'), {
+      male: 0,
+      female: 2,
+      trans: 0,
+    });
+    assert.deepStrictEqual(tagHint('Cum on Face'), tagHint('Facial'));
+  });
+
+  it('reads who acts need', () => {
+    const implied = (name: string) => tagHint(name)?.implied;
+    const man = { male: 1, female: 0, trans: 0 };
+    const woman = { male: 0, female: 1, trans: 0 };
+    const both = { male: 1, female: 1, trans: 0 };
+
+    for (const name of [
+      'Blowjob',
+      'Handjob',
+      'Deepthroat',
+      'Cumshot',
+      'Facial',
+      'Cum in Mouth',
+      'Creampie',
+      'Footjob',
+      'Bukkake',
+      'Face Fuck',
+      'Throat Fucking',
+      'Ball Sucking',
+      'Pearl Necklace',
+      'Glory Hole',
+      'Uncircumcised',
+    ]) {
+      assert.deepStrictEqual(implied(name), man, name);
+    }
+    for (const name of [
+      'Strap-on',
+      'Scissoring',
+      'Tribbing',
+      'Squirting',
+      'Squirting Facial',
+      'Clit Play',
+      'Lactation',
+    ]) {
+      assert.deepStrictEqual(implied(name), woman, name);
+    }
+    for (const name of ['Titjob', 'Titty Fuck', 'Cum on Tits', 'Pegging']) {
+      assert.deepStrictEqual(implied(name), both, name);
+    }
+    // Pussy names a woman outright
+    assert.deepStrictEqual(tagHint('Cum on Pussy'), {
+      cast: woman,
+      implied: man,
+    });
+    // Toys, fakes, the viewer and orgasms in general
+    for (const name of [
+      'Dildo Blowjob',
+      'Strap-on Blowjob',
+      'Toy Sucking',
+      'Fake Cum',
+      'No Cumshot',
+      'Begging to Cum',
+      'Cum Eating Instruction',
+      'Small Penis Humiliation',
+    ]) {
+      assert.strictEqual(implied(name)?.male ?? 0, 0, name);
+    }
+    assert.strictEqual(implied('Male Squirting'), undefined);
   });
 
   it('reads the performer behind the camera from point of view tags', () => {
@@ -188,6 +342,21 @@ describe('tagHint', () => {
 });
 
 describe('classifyMovie', () => {
+  it('reads the cast from ThePornDB act tags', () => {
+    assert.deepStrictEqual(
+      classifyMovie(movie(['Female'], ['Gangbang - M On F'])),
+      ['straight']
+    );
+    assert.deepStrictEqual(
+      classifyMovie(movie([], ['Sex Toy Play - F On F'])),
+      ['lesbian']
+    );
+    assert.deepStrictEqual(
+      classifyMovie(movie(['Female', 'Female'], ['Handjob'])),
+      ['straight']
+    );
+  });
+
   it('reads ThePornDB tags, alone or in parentheses', () => {
     assert.deepStrictEqual(classifyMovie(movie([], ['Twosome (Gay)'])), [
       'gay',

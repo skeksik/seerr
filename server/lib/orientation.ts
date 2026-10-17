@@ -51,34 +51,88 @@ interface Cast {
 }
 
 // What a tag's name says about a title: who is in it, as in "Threesome
-// (BGG)" (B for boys, G for girls, T for trans), or whom it is for, as in
-// "Foursome (Lesbian)"
+// (BGG)" (B for boys, G for girls, T for trans) or "Rimming - F On M", or
+// whom it is for, as in "Foursome (Lesbian)"
 interface TagHint {
   cast?: Cast;
   orientation?: Orientation;
-  // Body tags, like "Big Tits" or "Big Dick", which trans and futanari
-  // performers share, so they only count without either in the title
-  body?: true;
+  // Who body and act tags imply, like "Big Tits" or "Strap-On" a woman and
+  // "Big Dick" or "Blowjob" a man. Trans and futanari performers have
+  // either, so these only count without either in the title
+  implied?: Cast;
   // Tags naming trans performers, which say nothing of the cast's count
   trans?: true;
 }
 
-const TRANS_WORDS = /trans|shemale|t-?girl|ladyboy|futa/i;
+const castOf = (female: number, male: number, trans = 0): Cast => ({
+  male,
+  female,
+  trans,
+});
+
+// Not "Transparent" or "Transformation"
+const TRANS_WORDS =
+  /trans(?!parent|port|formation|lucent|fer)|shemale|t-?girl|ladyboy|futa/i;
+// Tags for an audience, not about the cast
+const AUDIENCE_WORDS = /\b(for|with) women\b|\bfemale (directed|friendly)\b/i;
 const FEMALE_WORDS =
-  /\b(woman|women|girl|girls|milf|wife|girlfriend|step ?(sister|mom|mother|daughter)|vaginal|pussy|cunnilingus)\b|\(female\)/i;
+  /\b(woman|women|girl|girls|lady|ladies|female|milf|wife|housewife|hotwife|girlfriend|cougar|actress|waitress|stewardess|masseuse|dominatrix|mistress|schoolgirl|nun|bride|bridesmaid|femdom|femsub|lezdom|(step ?)?(sister|mom|mother|daughter|aunt|niece|grandmother|granddaughter)|vaginal|pussy|cunnilingus)\b|\(female\)/i;
 const MALE_WORDS =
-  /\b(man|men|husband|boyfriend|step ?(brother|dad|father|son))\b|\(male\)/i;
-const BREAST_WORDS = /\b(tits|titties|titty|boobs|breasts)\b/i;
-const PENIS_WORDS = /\b(dicks?|cocks?|penis)\b/i;
+  /\b(man|men|guy|guys|boy|boys|male|husband|boyfriend|dilf|maledom|malesub|twink|stud|cuckold(ing)?|(step ?)?(brother|dad|daddy|father|son|uncle|grandpa|nephew))\b|\(male\)/i;
+const BREAST_WORDS = /\b(tits?|titties|titty|boobs?|breasts?)\b/i;
+const PENIS_WORDS =
+  /\b(dicks?|cocks?|penis|penises|balls|bbc|bwc|(un)?circumcised)\b/i;
+// Acts that need a woman: a strap-on is worn by one, a titjob needs her
+// breasts, and squirting, tribbing and a clit are hers
+const FEMALE_ACTS =
+  /\b(strap-?ons?|pegg(ing|ed)|titjobs?|tit ?fuck(s|ing)?|(?<!(male|anal) )squirt(s|ing)?|tribbing|tribadism|scissoring|clit|labia|queef(ing)?|lactation|breast milk|pregnant)\b/i;
+// A squirting dildo is a toy
+const NOT_FEMALE_ACTS = /\b(dildos?|toys?)\b/i;
+// Acts that need a man, like "Blowjob", "Facial" or "Cum in Mouth"
+const MALE_ACTS =
+  /\b((blow|hand|foot|tit|titty|thigh|butt|armpit|hair|shoe|sock|glove|boot|panty|calf|leg) ?jobs?|blowbangs?|deep ?throat(ing)?|cum ?shots?|cum|creampies?|facials?|bukkake|pearl necklace|money shot|(face|throat|titty|tit) ?fuck(s|ing)?|spit ?roast|ball (sucking|licking|play|worship|kicking|stretching|tie|bondage|slap\w*)|tea ?bagging|glory ?holes?|pull out|precum|(?<!reverse )pegg(ing|ed)|finishing the job)\b/i;
+// Toys and fakes, like "Dildo Blowjob", "Fake Cum" or "No Cumshot", leave
+// the man out, a squirting facial is hers, a lone "to cum" is anyone's
+// orgasm, and instructions and humiliation are often for the viewer alone
+const NOT_MALE_ACTS =
+  /\b(strap-?ons?|dildos?|toys?|vibrators?|machines?|fake|implied|simulated|no|squirt(s|ing)?|to cum|facial hair|ben wa balls|instructions?|countdown|humiliation|encouragement)\b/i;
+// Gender pairs, as in "Rimming - F On M", "Male Fucks Male", "Girl-Girl
+// Doggy Style" or "Older Woman / Younger Woman", or letters, as in
+// "Kissing - FF"
+const PAIR =
+  /(?:^|[\s(])([MFT]|male|female|boy|girl|guy|man|woman) (?:on|fucks) ([MFT]|male|female|boy|girl|guy|man|woman)\b|\b(boy|girl)-(boy|girl)\b|\b(man|woman) \/ \w+ (man|woman)\b/i;
+const PAIR_LETTERS = /\s-\s([MFT]{2,})$/;
+
+const pairGender = (word: string): keyof Cast => {
+  const value = word.toLowerCase();
+  if (value === 't') {
+    return 'trans';
+  }
+  return ['f', 'female', 'girl', 'woman'].includes(value) ? 'female' : 'male';
+};
+
+const pairCast = (name: string): Cast | undefined => {
+  const letters = name.match(PAIR_LETTERS)?.[1];
+  const pair = name.match(PAIR);
+  const words = letters
+    ? letters.split('')
+    : (pair?.slice(1).filter((word): word is string => !!word) ?? []);
+  if (!words.length) {
+    return undefined;
+  }
+  const cast = castOf(0, 0);
+  for (const word of words) {
+    cast[pairGender(word)] += 1;
+  }
+  return cast;
+};
 
 export const tagHint = (name: string): TagHint | undefined => {
   const group = name.match(/\(([BGT]{2,})\)\s*$/);
   if (group) {
     const letters = group[1];
     const count = (letter: string) => letters.split(letter).length - 1;
-    return {
-      cast: { male: count('B'), female: count('G'), trans: count('T') },
-    };
+    return { cast: castOf(count('G'), count('B'), count('T')) };
   }
   // Point of view tags stand for the performer behind the camera, who is
   // rarely listed: a woman for "Female - POV" and "Pussy Licking - POV", a
@@ -93,10 +147,10 @@ export const tagHint = (name: string): TagHint | undefined => {
     return {
       cast:
         subject === 'female' || subject === 'pussy licking'
-          ? { male: 0, female: 1, trans: 0 }
+          ? castOf(1, 0)
           : subject === 'trans'
-            ? { male: 0, female: 0, trans: 1 }
-            : { male: 1, female: 0, trans: 0 },
+            ? castOf(0, 0, 1)
+            : castOf(0, 1),
     };
   }
   const audience = name.match(/\((Lesbian|Gay|Straight|Trans|Mixed)\)\s*$/i);
@@ -109,26 +163,42 @@ export const tagHint = (name: string): TagHint | undefined => {
           : (value as 'lesbian' | 'gay' | 'straight' | 'trans'),
     };
   }
+  // Pairs name everyone, trans performers too, as in "Sex Toy Play - M On F"
+  const pair = pairCast(name);
+  if (pair) {
+    return { cast: pair };
+  }
   // Tags about someone's looks or role name their gender, like "Asian
   // Woman", "Long Hair (Female)" or "Step Brother", for performers the
   // cast lists without one; trans tags are left to the cast
   if (TRANS_WORDS.test(name)) {
     return { trans: true };
   }
-  if (FEMALE_WORDS.test(name)) {
-    return { cast: { male: 0, female: 1, trans: 0 } };
+  if (AUDIENCE_WORDS.test(name)) {
+    return undefined;
   }
-  if (MALE_WORDS.test(name)) {
-    return { cast: { male: 1, female: 0, trans: 0 } };
+  const female = FEMALE_WORDS.test(name);
+  const male = MALE_WORDS.test(name);
+  // Body and act tags, like "Big Tits", "Strap-On" or "Cum on Pussy", say
+  // who else is there
+  const impliedFemale =
+    !female &&
+    (BREAST_WORDS.test(name) ||
+      (FEMALE_ACTS.test(name) && !NOT_FEMALE_ACTS.test(name)));
+  const impliedMale =
+    !male &&
+    (PENIS_WORDS.test(name) || MALE_ACTS.test(name)) &&
+    !NOT_MALE_ACTS.test(name);
+
+  if (!female && !male && !impliedFemale && !impliedMale) {
+    return undefined;
   }
-  if (BREAST_WORDS.test(name)) {
-    return { cast: { male: 0, female: 1, trans: 0 }, body: true };
-  }
-  // Strap-ons are worn in lesbian titles too
-  if (PENIS_WORDS.test(name) && !/strap/i.test(name)) {
-    return { cast: { male: 1, female: 0, trans: 0 }, body: true };
-  }
-  return undefined;
+  return {
+    ...(female || male ? { cast: castOf(+female, +male) } : {}),
+    ...(impliedFemale || impliedMale
+      ? { implied: castOf(+impliedFemale, +impliedMale) }
+      : {}),
+  };
 };
 
 // Without orientation tags, the cast tells: any trans performer makes it
@@ -194,20 +264,19 @@ const classify = (
     (hint.cast?.trans ?? 0) > 0 ||
     hint.orientation === 'trans' ||
     hint.orientation === 'futa';
-  const bodyCounts =
+  const impliedCounts =
     listed.trans === 0 &&
     !fromTags.has('trans') &&
     !fromTags.has('futa') &&
     !hints.some(hasTrans);
 
   for (const hint of hints) {
-    if (hint.body && !bodyCounts) {
-      continue;
-    }
-    if (hint.cast) {
-      cast.female = Math.max(cast.female, hint.cast.female);
-      cast.male = Math.max(cast.male, hint.cast.male);
-      cast.trans = Math.max(cast.trans, hint.cast.trans);
+    for (const add of [hint.cast, impliedCounts ? hint.implied : undefined]) {
+      if (add) {
+        cast.female = Math.max(cast.female, add.female);
+        cast.male = Math.max(cast.male, add.male);
+        cast.trans = Math.max(cast.trans, add.trans);
+      }
     }
     if (hint.orientation) {
       fromTags.add(hint.orientation);
