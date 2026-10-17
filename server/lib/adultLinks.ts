@@ -294,3 +294,39 @@ export const tpdbSiteFor = async (
         return !owner || owner === studio.id ? site : null;
       });
 };
+
+// Studios of a network read for the network's own ThePornDB site
+const NETWORK_SAMPLE = 6;
+
+// The ThePornDB network of a StashDB network that links none itself, like
+// Vixen Media Group: the one its studios' sites mostly belong to, so its
+// page has the movies of all of them
+export const tpdbNetworkFor = async (
+  studio: StashDbStudio,
+  stashDb: StashDbAPI
+): Promise<TpdbSiteSummary | null> => {
+  const children = (studio.child_studios ?? []).slice(0, NETWORK_SAMPLE);
+
+  if (!TpdbAPI.isConfigured() || children.length === 0) {
+    return null;
+  }
+
+  return cached(`link:network:${studio.id}`, async () => {
+    const sites = await Promise.all(
+      children.map(async (child) => {
+        const found = await stashDb.getStudio(child.id).catch(() => null);
+        return found ? tpdbSiteFor(found).catch(() => null) : null;
+      })
+    );
+    const counts = new Map<number, number>();
+    for (const site of sites) {
+      const network = site?.network?.id ?? site?.network_id ?? site?.parent_id;
+      if (network && network !== site?.id) {
+        counts.set(network, (counts.get(network) ?? 0) + 1);
+      }
+    }
+    const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+
+    return best ? TpdbAPI.fromSettings().getSite(best[0]) : null;
+  });
+};

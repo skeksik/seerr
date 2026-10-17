@@ -98,7 +98,7 @@ export interface AdultTitle {
   onUserWatchlist?: boolean;
   // Scenes play on Stash
   playUrl?: string;
-  // A video file, opened in a new tab like a movie's trailer
+  // A video file, played in a new tab like a movie's trailer
   trailerUrl?: string;
   stashDbUrl?: string;
   tpdbUrl?: string;
@@ -213,7 +213,8 @@ const AdultTitleDetails = ({
   if (data.trailerUrl) {
     mediaLinks.push({
       text: intl.formatMessage(messages.watchtrailer),
-      url: data.trailerUrl,
+      // Played on a page of ours, as studios' CDNs send them as downloads
+      url: `/${data.mediaType}/${data.id}/trailer`,
       svg: <FilmIcon />,
     });
   }

@@ -8,6 +8,7 @@ import type { User } from '@server/entity/User';
 import {
   linkedStashDbPerformers,
   linkedStashDbStudios,
+  tpdbNetworkFor,
   tpdbPerformerFor,
   tpdbSiteFor,
 } from '@server/lib/adultLinks';
@@ -396,7 +397,11 @@ adultMovieRoutes.get<{ type: string; id: string }>(
           : null;
       } else {
         const studio = await stashDb.getStudio(id.data);
-        const found = studio && (await tpdbSiteFor(studio));
+        // A network linking no site of its own has its studios' network
+        const found =
+          studio &&
+          ((await tpdbSiteFor(studio)) ??
+            (await tpdbNetworkFor(studio, stashDb)));
         match = found
           ? {
               id: found.id,
