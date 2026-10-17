@@ -40,6 +40,8 @@ before(() => {
 
 setupTestDb();
 
+let tmdbGet: ReturnType<typeof mock.method>;
+
 beforeEach(() => {
   const settings = getSettings();
   settings.main.enableAdult = true;
@@ -50,7 +52,7 @@ beforeEach(() => {
     apiKey: 'key',
   };
   // TMDB's multi search
-  mock.method(
+  tmdbGet = mock.method(
     ExternalAPI.prototype as unknown as { get: () => Promise<unknown> },
     'get',
     async () => ({
@@ -93,6 +95,13 @@ async function loginAs(email: string, permissions?: number) {
   return agent;
 }
 
+// Whether TMDB's multi search was asked for adult titles
+const tmdbIncludedAdult = () =>
+  (
+    tmdbGet.mock.calls.find((call) => call.arguments[0] === '/search/multi')
+      ?.arguments[1] as { params?: { include_adult?: boolean } } | undefined
+  )?.params?.include_adult;
+
 describe('GET /search', () => {
   it('adds StashDB performers and ThePornDB movies', async () => {
     const agent = await loginAs('admin@seerr.dev');
@@ -110,6 +119,7 @@ describe('GET /search', () => {
       name: 'Molly Little',
     });
     assert.strictEqual(res.body.totalPages, 4);
+    assert.strictEqual(tmdbIncludedAdult(), true);
   });
 
   it('leaves adult results out for users without adult access', async () => {
@@ -119,6 +129,7 @@ describe('GET /search', () => {
 
     assert.strictEqual(res.status, 200);
     assert.deepStrictEqual(res.body.results, []);
+    assert.strictEqual(tmdbIncludedAdult(), false);
   });
 
   it('keeps TMDB results when an adult source fails', async () => {

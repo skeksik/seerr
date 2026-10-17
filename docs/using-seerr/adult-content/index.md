@@ -38,7 +38,7 @@ The release date compares as equal, greater, greater or equal, less, or less or 
 
 Both also leave out studios, performers and tags picked under **Exclude**. Filters always add up: a title needs all of the picked performers, all of the picked tags, and the studio. Studios are either-or: a title needs one of them, not all. ThePornDB filters by one studio at a time. Suggestions are whatever StashDB finds for the typed text (ThePornDB, for its tags), whatever else is picked, so the same names show under a field and its **Exclude** twin; the **Adult Movies** studios and performers are only the ones linked to ThePornDB. Filters that leave nothing, like a studio, performer or tag both picked and excluded, show no results.
 
-Search shows matching scenes in a row above the regular results. Adult movies and StashDB performers join the regular results.
+Search shows matching scenes in a row above the regular results. Adult movies and StashDB performers join the regular results. TMDB's own adult titles show among the regular movies, as they would with TMDB's adult filter on; they are ordinary movies, requested through Radarr.
 
 Scene and adult movie cards work like movie cards: hover one for its details and the **Request**, watchlist and blocklist buttons. Scenes and adult movies can be added to the watchlist and the blocklist from their cards and pages, and show up on the Watchlist and Blocklist pages for users with the **Adult Content** permission.
 

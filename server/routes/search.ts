@@ -103,6 +103,8 @@ searchRoutes.get('/', async (req, res, next) => {
         tmdb.searchMulti({
           query: queryString,
           page: Number(req.query.page),
+          // Adult TMDB titles, for those who may see adult content
+          includeAdult: canViewAdult(req.user),
           language: (req.query.language as string) ?? req.locale,
         }),
         searchAdult(queryString, Number(req.query.page) || 1, req.user),
