@@ -8167,7 +8167,7 @@ paths:
                 created_at.desc,
                 created_at.asc,
               ]
-            default: trending.desc
+            default: popularity.desc
         - in: query
           name: studio
           description: Comma-separated StashDB studio ids (any may match)
@@ -8289,10 +8289,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StashDbLookup'
-  /scene/trending-studios:
+  /scene/popular-studios:
     get:
-      summary: Trending StashDB studios or networks
-      description: Studios, or the networks at the top of their tree, ranked by how many of the top trending scenes they have.
+      summary: Popular StashDB studios or networks
+      description: Studios, or the networks at the top of their tree, ranked by how many of the most popular scenes they have.
       tags:
         - scenes
       parameters:
@@ -8314,7 +8314,7 @@ paths:
   /scene/studios:
     get:
       summary: List StashDB studios or networks
-      description: Studios without studios under them, or the networks that have some, by name, newest first, or ranked by how many of the top trending or popular scenes they have.
+      description: Studios without studios under them, or the networks that have some, ranked by how many of the most popular scenes they have, by name, or newest first.
       tags:
         - scenes
       parameters:
@@ -8336,15 +8336,14 @@ paths:
             type: string
             enum:
               [
+                popularity.desc,
+                popularity.asc,
                 name.asc,
                 name.desc,
                 created_at.desc,
                 created_at.asc,
-                trending.desc,
-                popularity.desc,
-                popularity.asc,
               ]
-            default: name.asc
+            default: popularity.desc
         - in: query
           name: query
           description: Part of the studio name

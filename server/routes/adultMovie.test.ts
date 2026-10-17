@@ -904,10 +904,10 @@ describe('linking StashDB and ThePornDB', () => {
         new Map([
           [
             GAL_STASHDB,
-            // Smallest first: the widest is picked, like everywhere else
+            // The first is picked, like everywhere else
             [
-              { url: 'https://stashdb.test/images/gal-small', width: 300 },
-              { url: 'https://stashdb.test/images/gal', width: 1200 },
+              { url: 'https://stashdb.test/images/gal' },
+              { url: 'https://stashdb.test/images/gal-other' },
             ],
           ],
         ])

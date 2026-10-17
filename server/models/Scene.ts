@@ -129,9 +129,10 @@ const mapUrls = (urls: StashDbUrl[]): SiteLink[] =>
     icon: site.icon || undefined,
   }));
 
-// stash-box lists images largest first, but nothing guarantees it
+// stash-box lists the primary image first, for performers, studios and
+// scene stills alike
 export const pickImage = (images: StashDbImage[]): string | undefined =>
-  [...images].sort((a, b) => b.width - a.width)[0]?.url;
+  images[0]?.url;
 
 const mapStudio = (
   studio?: StashDbStudioSummary | null

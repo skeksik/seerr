@@ -71,14 +71,22 @@ const logoFor = (link: ProfileLink): [Logo, string?] | undefined => {
     : undefined;
 };
 
-// The TMDB and IMDb logos of a person page, for StashDB performers and
-// studios and their many profile links, and for the links of title pages
-const AdultProfileLinks = ({
-  links,
-  className = 'gap-x-4 gap-y-2',
-  align = 'responsive',
-  textSites = [],
-}: AdultProfileLinksProps) => {
+// A link with what it shows as: StashDB's icon for the site, else a logo of
+// ours, else its name
+export interface ShownLink extends ProfileLink {
+  Logo?: Logo;
+  size?: string;
+}
+
+const isIcon = (link: ShownLink): boolean => !!link.icon || !!link.Logo;
+
+// The links without duplicates, in order, each resolved to an icon, a logo or
+// its name; shown holds the first two kinds, named the rest. Title pages
+// split them between the facts table and the link block
+export const useLinkKinds = (
+  links: ProfileLink[],
+  textSites: string[] = []
+): { links: ShownLink[]; shown: ShownLink[]; named: ShownLink[] } => {
   const seen = new Set<string>();
   const unique = links.filter(({ url }) => {
     const key = url.replace(/\/+$/, '').toLowerCase();
@@ -91,53 +99,66 @@ const AdultProfileLinks = ({
   );
 
   // StashDB's icon for the site first, then a logo of ours
-  const shown = unique.flatMap((link) => {
+  const resolved = unique.map((link): ShownLink => {
     if (isText(link)) {
-      return [];
+      return { ...link, icon: undefined };
     }
     const icon = link.icon ?? siteIcon(link.url);
     const logo = icon ? undefined : logoFor(link);
-    return icon || logo
-      ? [{ ...link, icon, Logo: logo?.[0], size: logo?.[1] }]
-      : [];
+    return { ...link, icon, Logo: logo?.[0], size: logo?.[1] };
   });
-  // Sites with neither are listed by name, so they stay apart
-  const named = unique.filter(
-    (link) => !shown.some(({ url }) => url === link.url)
-  );
+
+  return {
+    links: resolved,
+    shown: resolved.filter(isIcon),
+    named: resolved.filter((link) => !isIcon(link)),
+  };
+};
+
+// The TMDB and IMDb logos of a person page, for StashDB performers and
+// studios and their many profile links, and for the links of title pages.
+// Links keep their order, so StashDB's can come first, by name
+const AdultProfileLinks = ({
+  links,
+  className = 'gap-x-4 gap-y-2',
+  align = 'responsive',
+  textSites = [],
+}: AdultProfileLinksProps) => {
+  const { links: resolved } = useLinkKinds(links, textSites);
 
   return (
     <div
       className={`flex flex-wrap items-center ${alignments[align]} ${className}`}
     >
-      {shown.map(({ url, site, icon, Logo, size }) => (
-        <Tooltip key={url} content={site}>
+      {resolved.map(({ url, site, icon, Logo, size }) =>
+        icon || Logo ? (
+          <Tooltip key={url} content={site}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={site}
+              className="flex h-6 items-center text-white opacity-50 transition duration-300 hover:opacity-100"
+            >
+              {icon ? (
+                <SiteIcon icon={icon} />
+              ) : (
+                Logo && <Logo className={size ?? 'h-5 w-5 fill-current'} />
+              )}
+            </a>
+          </Tooltip>
+        ) : (
           <a
+            key={url}
             href={url}
             target="_blank"
             rel="noreferrer"
-            aria-label={site}
-            className="flex h-6 items-center text-white opacity-50 transition duration-300 hover:opacity-100"
+            className="text-sm font-semibold text-white opacity-50 transition duration-300 hover:opacity-100"
           >
-            {icon ? (
-              <SiteIcon icon={icon} />
-            ) : (
-              Logo && <Logo className={size ?? 'h-5 w-5 fill-current'} />
-            )}
+            {site}
           </a>
-        </Tooltip>
-      ))}
-      {named.map(({ url, site }) => (
-        <a
-          key={url}
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-semibold text-white opacity-50 transition duration-300 hover:opacity-100"
-        >
-          {site}
-        </a>
-      ))}
+        )
+      )}
     </div>
   );
 };

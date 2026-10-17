@@ -25,13 +25,12 @@ const messages = defineMessages('components.Scenes.AdultStudioList', {
   studios: 'Studios',
   networks: 'Networks',
   search: 'Search by name',
-  sortTrending: 'Trending',
   sortPopularityDesc: 'Popularity Descending',
   sortPopularityAsc: 'Popularity Ascending',
   sortAddedDesc: 'Date Added Descending',
   sortAddedAsc: 'Date Added Ascending',
-  sortTitleAsc: 'Title (A-Z) Ascending',
-  sortTitleDesc: 'Title (Z-A) Descending',
+  sortNameAsc: 'Name (A-Z) Ascending',
+  sortNameDesc: 'Name (Z-A) Descending',
 });
 
 interface StudioPage {
@@ -44,21 +43,20 @@ interface AdultStudioListProps {
   type: 'studios' | 'networks';
 }
 
+// The first is the default
 const sortOptions = [
-  ['trending.desc', messages.sortTrending],
   ['popularity.desc', messages.sortPopularityDesc],
   ['popularity.asc', messages.sortPopularityAsc],
   ['created_at.desc', messages.sortAddedDesc],
   ['created_at.asc', messages.sortAddedAsc],
-  ['name.asc', messages.sortTitleAsc],
-  ['name.desc', messages.sortTitleDesc],
+  ['name.asc', messages.sortNameAsc],
+  ['name.desc', messages.sortNameDesc],
 ] as const;
 
 type StudioSort = (typeof sortOptions)[number][0];
 
 // Every StashDB studio or network, behind the rows of the same name, which
-// start out like the rows. Trending and popularity rank those of the most
-// trending or popular scenes
+// start out like the rows: popularity ranks those of the most popular scenes
 const AdultStudioList = ({ type }: AdultStudioListProps) => {
   const intl = useIntl();
   const router = useRouter();
@@ -68,13 +66,13 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
     typeof router.query.query === 'string' ? router.query.query : '';
   const sortBy: StudioSort =
     sortOptions.find(([value]) => value === router.query.sortBy)?.[0] ??
-    'trending.desc';
+    sortOptions[0][0];
   const [search, debouncedSearch, setSearch] = useDebouncedState(query);
   // The URL keeps its values as given, so both go in encoded
   const setParams = (params: { query: string; sortBy: StudioSort }) =>
     batchUpdate({
       query: params.query ? encodeURIComponent(params.query) : undefined,
-      sortBy: params.sortBy === 'trending.desc' ? undefined : params.sortBy,
+      sortBy: params.sortBy === sortOptions[0][0] ? undefined : params.sortBy,
     });
 
   useEffect(() => {

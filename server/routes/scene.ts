@@ -100,7 +100,7 @@ type SceneFilters = z.infer<typeof sceneFilters> & { anyPerformer?: boolean };
 
 const discoverQuery = sceneFilters.extend({
   page: pageParam,
-  sortBy: z.enum(sortValues).default('trending.desc'),
+  sortBy: z.enum(sortValues).default('popularity.desc'),
 });
 
 const sceneId = z.string().uuid();
@@ -369,20 +369,23 @@ sceneRoutes.get('/search', async (req, res, next) => {
   }
 });
 
-const TRENDING_STUDIO_LIMIT = 20;
+const POPULAR_STUDIO_LIMIT = 20;
 
-// Studios (or their networks) ranked by how many trending scenes they have
-sceneRoutes.get('/trending-studios', async (req, res, next) => {
+// Studios (or their networks) ranked by how many of the most popular scenes
+// they have; stash-box cannot sort studios on that
+const popularStudios = async (api: StashDbAPI, type: 'studios' | 'networks') =>
+  rankStudios(await api.getSceneStudios(), type);
+
+// The Studios and Networks rows
+sceneRoutes.get('/popular-studios', async (req, res, next) => {
   const type = req.query.type === 'networks' ? 'networks' : 'studios';
 
   try {
-    const studios = await StashDbAPI.fromSettings().getSceneStudios('TRENDING');
+    const studios = await popularStudios(StashDbAPI.fromSettings(), type);
 
-    return res
-      .status(200)
-      .json(rankStudios(studios, type).slice(0, TRENDING_STUDIO_LIMIT));
+    return res.status(200).json(studios.slice(0, POPULAR_STUDIO_LIMIT));
   } catch (e) {
-    return handleError(e, next, 'Unable to retrieve trending studios.', {
+    return handleError(e, next, 'Unable to retrieve popular studios.', {
       type,
     });
   }
@@ -412,15 +415,14 @@ const studioListQuery = z.object({
   page: pageParam,
   sortBy: z
     .enum([
+      'popularity.desc',
+      'popularity.asc',
       'name.asc',
       'name.desc',
       'created_at.desc',
       'created_at.asc',
-      'trending.desc',
-      'popularity.desc',
-      'popularity.asc',
     ])
-    .default('name.asc'),
+    .default('popularity.desc'),
   query: z.string().trim().optional(),
 });
 
@@ -443,13 +445,8 @@ sceneRoutes.get('/studios', async (req, res, next) => {
   try {
     const api = StashDbAPI.fromSettings();
 
-    if (field === 'trending' || field === 'popularity') {
-      const rank = rankStudios(
-        await api.getSceneStudios(
-          field === 'trending' ? 'TRENDING' : 'POPULARITY'
-        ),
-        type
-      );
+    if (field === 'popularity') {
+      const rank = await popularStudios(api, type);
       const ranked = (direction === 'asc' ? rank.reverse() : rank).filter(
         (studio) =>
           !query || studio.name.toLowerCase().includes(query.toLowerCase())

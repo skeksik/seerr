@@ -417,7 +417,7 @@ const Discover = () => {
                 sliderKey="trending-scenes"
                 title={intl.formatMessage(sliderTitles.trendingScenes)}
                 url="/api/v1/scene/discover?sortBy=trending.desc&page=1"
-                linkUrl="/discover/scenes?sortBy=trending.desc"
+                linkUrl="/discover/scenes/trending"
               />
             );
             break;

@@ -20,8 +20,8 @@ import cacheManager from '@server/lib/cache';
 import { getSettings } from '@server/lib/settings';
 import { pickImage } from '@server/models/Scene';
 
-// pickImage only reads the url and width
-const IMAGE_FIELDS = 'url width';
+// pickImage only reads the url
+const IMAGE_FIELDS = 'url';
 
 const SCENE_SUMMARY_FIELDS = `
   id
@@ -573,12 +573,10 @@ class StashDbAPI extends ExternalAPI {
     return data.queryStudios;
   }
 
-  // The studios of the most trending or popular scenes, one per scene, for
-  // ranking studios; stash-box cannot sort studios on either. The Studios
-  // and Networks rows ask for the same ranking at once, and share it
-  public async getSceneStudios(
-    sort: 'TRENDING' | 'POPULARITY'
-  ): Promise<StashDbSceneStudio[]> {
+  // The studios of the most popular scenes, one per scene, for ranking
+  // studios; stash-box cannot sort studios on that. The Studios and
+  // Networks rows ask for the same ranking at once, and share it
+  public async getSceneStudios(): Promise<StashDbSceneStudio[]> {
     const studio = `id name images { ${IMAGE_FIELDS} }`;
     const data = await this.query<{
       queryScenes: { scenes: { studio?: StashDbSceneStudio | null }[] };
@@ -590,7 +588,7 @@ class StashDbAPI extends ExternalAPI {
       }`,
       {
         input: {
-          sort,
+          sort: 'POPULARITY',
           direction: 'DESC',
           per_page: RANKED_SCENES,
         },

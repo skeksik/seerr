@@ -107,6 +107,7 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
         imageType="stashdb"
         imageUrl={stashImageUrl(data.imageUrl, 600)}
         backdrops={backdrops}
+        // StashDB first, then ThePornDB, then the rest as StashDB lists them
         links={[
           { url: data.stashDbUrl, site: 'StashDB' },
           // The linked ThePornDB profile, unless StashDB lists it already

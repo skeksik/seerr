@@ -108,7 +108,7 @@ describe('StashDbAPI', () => {
   });
 
   it('reads the images of several performers in one request', async () => {
-    const images = [{ url: 'https://stashdb.test/images/a', width: 300 }];
+    const images = [{ url: 'https://stashdb.test/images/a' }];
     const api = new TestStashDbAPI([
       { data: { p0: { id: 'a', images }, p1: null } },
     ]);

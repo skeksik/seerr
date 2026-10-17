@@ -6,12 +6,10 @@ export interface StashDbGraphqlResponse<T> {
   errors?: { message: string; path?: string[] }[];
 }
 
-// Only the url and width are asked for
+// Only the url is asked for
 export interface StashDbImage {
   id?: string;
   url: string;
-  width: number;
-  height?: number;
 }
 
 export interface StashDbUrl {

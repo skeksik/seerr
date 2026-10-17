@@ -4,7 +4,9 @@ import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
 import AdultManageButton from '@app/components/AdultMediaActions/AdultManageButton';
 import type { ProfileLink } from '@app/components/AdultProfileLinks';
-import AdultProfileLinks from '@app/components/AdultProfileLinks';
+import AdultProfileLinks, {
+  useLinkKinds,
+} from '@app/components/AdultProfileLinks';
 import type { SliderPerformer } from '@app/components/Common/adultRoutes';
 import ButtonWithDropdown from '@app/components/Common/ButtonWithDropdown';
 import CachedImage from '@app/components/Common/CachedImage';
@@ -137,6 +139,9 @@ const AdultTitleDetails = ({
   const [showRequest4kModal, setShowRequest4kModal] = useState(false);
   const { hasPermission } = useUser();
   const settings = useSettings();
+  // The title's links with an icon or a logo join the link block at the
+  // bottom; the others are listed by name in the Links row
+  const { shown: iconLinks, named: namedLinks } = useLinkKinds(data.links);
 
   // The studio's page, or the network's when the studio alone has none
   const banner = data.studio?.href
@@ -487,24 +492,25 @@ const AdultTitleDetails = ({
                 </span>
               </div>
             )}
-            {/* Laid out like a movie's Currently Streaming On */}
-            {data.links.length > 0 && (
-              <div className="media-fact flex-col gap-1">
+            {/* Sites without an icon, by name; the others join the block below */}
+            {namedLinks.length > 0 && (
+              <div className="media-fact">
                 <span>{intl.formatMessage(messages.links)}</span>
                 <span className="media-fact-value">
                   <AdultProfileLinks
-                    links={data.links}
-                    align="start"
-                    className="gap-x-5 gap-y-2"
+                    links={namedLinks}
+                    align="end"
+                    className="gap-x-4 gap-y-1"
                   />
                 </span>
               </div>
             )}
             <div className="media-fact">
               <AdultLinkBlock
-                stashUrl={data.playUrl}
                 stashDbUrl={data.stashDbUrl}
+                stashUrl={data.playUrl}
                 tpdbUrl={data.tpdbUrl}
+                links={iconLinks}
               />
             </div>
           </div>

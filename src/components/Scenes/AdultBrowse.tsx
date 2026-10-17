@@ -29,7 +29,6 @@ import { useIntl } from 'react-intl';
 const messages = defineMessages('components.Scenes.AdultBrowse', {
   sortPopularityDesc: 'Popularity Descending',
   sortPopularityAsc: 'Popularity Ascending',
-  sortTrending: 'Trending',
   sortDateDesc: 'Release Date Descending',
   sortDateAsc: 'Release Date Ascending',
   sortAddedDesc: 'Date Added Descending',
@@ -53,13 +52,13 @@ interface BrowseConfig {
 }
 
 const browseConfigs: Record<AdultFilterKind, BrowseConfig> = {
-  // Like the Movies and Series tabs, with StashDB's trending order besides
+  // Like the Movies and Series tabs; StashDB's trending order has a page of
+  // its own, as TMDB's does
   scene: {
     endpoint: '/api/v1/scene/discover',
     sortOptions: [
       ['popularity.desc', messages.sortPopularityDesc],
       ['popularity.asc', messages.sortPopularityAsc],
-      ['trending.desc', messages.sortTrending],
       ['release_date.desc', messages.sortDateDesc],
       ['release_date.asc', messages.sortDateAsc],
       ['created_at.desc', messages.sortAddedDesc],
