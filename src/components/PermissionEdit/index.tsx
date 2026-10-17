@@ -103,10 +103,10 @@ export const messages = defineMessages('components.PermissionEdit', {
     'Grant automatic approval for non-4K adult movie requests.',
   autorequestScenes: 'Auto-Request Scenes',
   autorequestScenesDescription:
-    'Grant permission to automatically submit requests for non-4K scenes added to the watchlist.',
+    "Grant permission to automatically submit requests for non-4K scenes via Plex Watchlist. Scenes can't be on the Plex Watchlist, so this has no effect yet.",
   autorequestAdultMovies: 'Auto-Request Adult Movies',
   autorequestAdultMoviesDescription:
-    'Grant permission to automatically submit requests for non-4K adult movies added to the watchlist.',
+    "Grant permission to automatically submit requests for non-4K adult movies via Plex Watchlist. Adult movies can't be on the Plex Watchlist, so this has no effect yet.",
   request4kScenes: 'Request 4K Scenes',
   request4kScenesDescription:
     'Grant permission to submit requests for 4K scenes.',

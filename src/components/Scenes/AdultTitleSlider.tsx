@@ -7,6 +7,7 @@ import { isTitleShown } from '@app/hooks/useDiscover';
 import useSettings from '@app/hooks/useSettings';
 import { Permission, useUser } from '@app/hooks/useUser';
 import { stashImageUrl } from '@app/utils/stashImage';
+import { MediaStatus } from '@server/constants/media';
 import type {
   AdultMovieListResponse,
   AdultMovieResult,
@@ -25,6 +26,8 @@ export interface AdultTitleSliderProps {
   linkUrl?: string;
   // Told whether the row has titles, once it knows
   onSettled?: (empty: boolean) => void;
+  // Off for search results, which show everything like the movie ones
+  applyHideSettings?: boolean;
 }
 
 // Landscape scene cards are wider, so fewer make a row as long as the
@@ -51,6 +54,7 @@ const AdultTitleSlider = ({
   url,
   linkUrl,
   onSettled,
+  applyHideSettings = true,
 }: AdultTitleSliderProps) => {
   const settings = useSettings();
   const { hasPermission } = useUser();
@@ -68,15 +72,24 @@ const AdultTitleSlider = ({
     { initialSize: 1, revalidateFirstPage: false }
   );
 
-  // Like MediaSlider, the hide settings apply to the row
+  // Like MediaSlider, the hide settings apply to the row, and only users
+  // who can see the blocklist see blocklisted titles
+  const canSeeBlocklist = hasPermission(
+    [Permission.MANAGE_BLOCKLIST, Permission.VIEW_BLOCKLIST],
+    { type: 'or' }
+  );
   const results = (data ?? [])
     .flatMap((page) => page.results as (SceneResult | AdultMovieResult)[])
     .filter(
       isTitleShown(settings.currentSettings, {
-        hideAvailable: true,
-        hideBlocklisted: hasPermission(Permission.MANAGE_BLOCKLIST),
-        hideRequested: true,
+        hideAvailable: applyHideSettings,
+        hideBlocklisted: applyHideSettings,
+        hideRequested: applyHideSettings,
       })
+    )
+    .filter(
+      (result) =>
+        canSeeBlocklist || result.mediaInfo?.status !== MediaStatus.BLOCKLISTED
     );
   const lastPage = data?.[data.length - 1];
   const readAll =

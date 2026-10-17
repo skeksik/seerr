@@ -238,6 +238,10 @@ describe('GET /adultmovie/discover', () => {
       '/adultmovie/discover?studio=37335&studioExclude=37335',
       // Every movie with ThePornDB's Lesbian tag is lesbian, which is hidden
       '/adultmovie/discover?tags=8&orientation=straight',
+      // Only lesbian movies show, and those tagged Lesbian are excluded
+      '/adultmovie/discover?orientation=lesbian&tagsExclude=8',
+      '/adultmovie/discover?orientation=lesbian&tags=70&tagsExclude=8',
+      '/adultmovie/discover?orientation=lesbian,gay&tagsExclude=8,1065',
     ]) {
       const res = await agent.get(url);
 

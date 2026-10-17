@@ -77,6 +77,46 @@ describe('planOrientationTags', () => {
     assert.deepStrictEqual(plan.tagIds, []);
   });
 
+  it('finds nothing when the orientation tags asked for are excluded', () => {
+    for (const [orientation, picked, excluded] of [
+      ['lesbian', [], [8]],
+      ['lesbian', [70], [8]],
+      ['lesbian,gay', [], [8, 1065]],
+    ] as const) {
+      const plan = planOrientationTags(
+        undefined,
+        { orientation, picked: [...picked], excluded: [...excluded] },
+        ids
+      );
+
+      assert.strictEqual(plan.empty, true, `${orientation} ${excluded}`);
+    }
+  });
+
+  it('asks for the shown orientations that are not excluded', () => {
+    const plan = planOrientationTags(
+      undefined,
+      { orientation: 'lesbian,gay', picked: [], excluded: [8] },
+      ids
+    );
+
+    assert.deepStrictEqual(plan.tagIds, [1065]);
+    assert.strictEqual(plan.narrowed, true);
+    assert.strictEqual(plan.empty, false);
+  });
+
+  it('filters for unidentified titles when the orientation tags are excluded', () => {
+    const plan = planOrientationTags(
+      undefined,
+      { orientation: 'lesbian,unidentified', picked: [], excluded: [8] },
+      ids
+    );
+
+    assert.strictEqual(plan.empty, false);
+    assert.strictEqual(plan.narrowed, false);
+    assert.deepStrictEqual(plan.tagIds, []);
+  });
+
   it('finds nothing when a picked tag stands for a hidden orientation', () => {
     const plan = planOrientationTags(
       undefined,

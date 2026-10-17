@@ -2,11 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 
 import StashDbAPI from '@server/api/stashdb';
-import {
-  MediaRequestStatus,
-  MediaStatus,
-  MediaType,
-} from '@server/constants/media';
+import { MediaStatus, MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
 import { MediaRequest } from '@server/entity/MediaRequest';
@@ -23,7 +19,6 @@ import authRoutes from './auth';
 import watchlistRoutes from './watchlist';
 
 const SCENE_ID = '01a138c1-a8cf-74b2-a8bb-e617e9c6f20f';
-const OTHER_ID = '6f1b8f3e-2c4d-4b7a-9a51-2d1e5c7a9b10';
 
 let app: Express;
 
@@ -58,7 +53,6 @@ beforeEach(() => {
   settings.main.enableAdult = true;
   settings.main.localLogin = true;
   settings.stashdb = { endpoint: 'https://stashdb.test/graphql', apiKey: 'k' };
-  mock.method(MediaRequest, 'sendNotification', async () => undefined);
   mock.method(StashDbAPI.prototype, 'getScene', async (id: string) => ({
     id,
     title: 'Scene',
@@ -99,11 +93,12 @@ const requestsFor = (stashId: string) =>
     where: { media: { stashId } },
   });
 
-describe('POST /watchlist auto-requests', () => {
-  it('requests scenes for users with Auto-Request Scenes', async () => {
+// Like for movies, only the Plex watchlist sync requests titles
+describe('POST /watchlist', () => {
+  it('never requests scenes, even with Auto-Request', async () => {
     const { agent } = await loginAs(
       addPermissions(
-        Permission.REQUEST | Permission.ADULT,
+        Permission.REQUEST | Permission.ADULT | Permission.AUTO_REQUEST,
         Permission.AUTO_REQUEST_SCENE
       )
     );
@@ -113,52 +108,12 @@ describe('POST /watchlist auto-requests', () => {
       .send({ mediaType: 'scene', externalId: SCENE_ID });
 
     assert.strictEqual(res.status, 201);
-    assert.strictEqual(res.body.media.status, MediaStatus.PENDING);
-    const [created] = await requestsFor(SCENE_ID);
-    assert.strictEqual(created.isAutoRequest, true);
-    assert.strictEqual(created.is4k, false);
-    assert.strictEqual(created.type, MediaType.SCENE);
-    assert.strictEqual(created.status, MediaRequestStatus.PENDING);
-  });
-
-  it('only adds to the watchlist without an Auto-Request permission', async () => {
-    const { agent } = await loginAs(
-      addPermissions(
-        Permission.REQUEST | Permission.ADULT,
-        Permission.AUTO_REQUEST_ADULT_MOVIE
-      )
-    );
-
-    const res = await agent
-      .post('/watchlist')
-      .send({ mediaType: 'scene', externalId: SCENE_ID });
-
-    assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.body.externalId, SCENE_ID);
+    assert.strictEqual(res.body.media.status, MediaStatus.UNKNOWN);
     assert.deepStrictEqual(await requestsFor(SCENE_ID), []);
   });
 
-  it('still adds to the watchlist when the request fails', async () => {
-    const { agent, user } = await loginAs(
-      Permission.REQUEST | Permission.AUTO_REQUEST | Permission.ADULT
-    );
-    user.sceneQuotaLimit = 1;
-    await getRepository(User).save(user);
-
-    const first = await agent
-      .post('/watchlist')
-      .send({ mediaType: 'scene', externalId: SCENE_ID });
-    const second = await agent
-      .post('/watchlist')
-      .send({ mediaType: 'scene', externalId: OTHER_ID });
-
-    assert.strictEqual(first.status, 201);
-    assert.strictEqual(second.status, 201);
-    assert.strictEqual((await requestsFor(SCENE_ID)).length, 1);
-    // Over the quota
-    assert.deepStrictEqual(await requestsFor(OTHER_ID), []);
-  });
-
-  it('leaves titles alone that are already requested', async () => {
+  it('keeps the status of titles already in the library', async () => {
     const { agent } = await loginAs(
       Permission.REQUEST | Permission.AUTO_REQUEST | Permission.ADULT
     );
@@ -176,6 +131,7 @@ describe('POST /watchlist auto-requests', () => {
       .send({ mediaType: 'scene', externalId: SCENE_ID });
 
     assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.body.media.status, MediaStatus.AVAILABLE);
     assert.deepStrictEqual(await requestsFor(SCENE_ID), []);
   });
 });

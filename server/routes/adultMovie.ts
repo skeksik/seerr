@@ -157,7 +157,11 @@ const planMovies = (
   const { hidden, tagIds, anyTag, narrowed, empty, identified } =
     planOrientationTags(
       user,
-      { orientation: filters.orientation, picked: filters.tags ?? [] },
+      {
+        orientation: filters.orientation,
+        picked: filters.tags ?? [],
+        excluded: filters.tagsExclude,
+      },
       TPDB_ORIENTATION_TAG_IDS,
       narrow
     );

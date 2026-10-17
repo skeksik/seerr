@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 
-import { isTmdbMedia, MediaType } from '@server/constants/media';
+import {
+  isTmdbMedia,
+  MediaRequestStatus,
+  MediaStatus,
+  MediaType,
+} from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
+import { MediaRequest } from '@server/entity/MediaRequest';
+import { User } from '@server/entity/User';
+import { getSettings } from '@server/lib/settings';
 import { setupTestDb } from '@server/test/db';
 import { getMediaPath, requireTmdbId } from '@server/utils/mediaIds';
 
@@ -52,6 +60,57 @@ describe('Scene media', () => {
       await Media.getAdultMedia(MediaType.SCENE, SCENE_ID),
       undefined
     );
+  });
+});
+
+// Lists hide requested scenes and adult movies by it, like movies
+describe('Adult media active requests', () => {
+  const OTHER_ID = '01a138c1-a8cf-74b2-a8bb-e617e9c6f20f';
+
+  afterEach(() => {
+    getSettings().main.hideRequested = false;
+  });
+
+  const saveRequested = async (stashId: string, status: MediaRequestStatus) => {
+    const media = await getRepository(Media).save(
+      new Media({
+        mediaType: MediaType.SCENE,
+        stashId,
+        tmdbId: null,
+        status: MediaStatus.PENDING,
+      })
+    );
+    const user = await getRepository(User).findOneOrFail({
+      where: { email: 'demo@seerr.dev' },
+    });
+    await getRepository(MediaRequest).save(
+      new MediaRequest({
+        type: MediaType.SCENE,
+        status,
+        media,
+        requestedBy: user,
+      })
+    );
+  };
+
+  it('marks scenes with a pending or approved request', async () => {
+    getSettings().main.hideRequested = true;
+    await saveRequested(SCENE_ID, MediaRequestStatus.PENDING);
+    await saveRequested(OTHER_ID, MediaRequestStatus.DECLINED);
+
+    const media = await Media.getRelatedScenes([SCENE_ID, OTHER_ID]);
+    const byId = new Map(media.map((m) => [m.stashId, m]));
+
+    assert.strictEqual(byId.get(SCENE_ID)?.hasActiveRequest, true);
+    assert.strictEqual(byId.get(OTHER_ID)?.hasActiveRequest, false);
+  });
+
+  it('skips the lookup while requested media is not hidden', async () => {
+    await saveRequested(SCENE_ID, MediaRequestStatus.PENDING);
+
+    const [media] = await Media.getRelatedScenes([SCENE_ID]);
+
+    assert.strictEqual(media.hasActiveRequest, undefined);
   });
 });
 

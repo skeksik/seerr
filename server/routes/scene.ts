@@ -305,7 +305,11 @@ const planScenes = (
   const { hidden, tagIds, anyTag, hiddenTagIds, narrowed, empty, identified } =
     planOrientationTags(
       user,
-      { orientation: filters.orientation, picked: filters.tags ?? [] },
+      {
+        orientation: filters.orientation,
+        picked: filters.tags ?? [],
+        excluded: filters.tagsExclude,
+      },
       orientationTags.orientations,
       narrow
     );

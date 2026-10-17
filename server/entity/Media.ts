@@ -68,29 +68,8 @@ class Media {
         items.some((i) => i.tmdbId === m.tmdbId && i.mediaType === m.mediaType)
       );
 
-      if (
-        includeActiveRequest &&
-        getSettings().main.hideRequested &&
-        relatedMedia.length > 0
-      ) {
-        const activeRequestMediaIds = await mediaRepository
-          .createQueryBuilder('media')
-          .select('media.id', 'id')
-          .distinct(true)
-          .innerJoin('media.requests', 'request')
-          .where('media.id IN (:...mediaIds)', {
-            mediaIds: relatedMedia.map((m) => m.id),
-          })
-          .andWhere('request.status IN (:...statuses)', {
-            statuses: [MediaRequestStatus.PENDING, MediaRequestStatus.APPROVED],
-          })
-          .getRawMany<{ id: number }>();
-
-        const activeIds = new Set(activeRequestMediaIds.map((row) => row.id));
-
-        relatedMedia.forEach((m) => {
-          m.hasActiveRequest = activeIds.has(m.id);
-        });
+      if (includeActiveRequest) {
+        await this.markActiveRequests(relatedMedia);
       }
 
       return relatedMedia;
@@ -98,6 +77,32 @@ class Media {
       logger.error(e.message);
       return [];
     }
+  }
+
+  // Sets hasActiveRequest, which lists need to hide requested titles
+  private static async markActiveRequests(media: Media[]): Promise<void> {
+    if (!getSettings().main.hideRequested || media.length === 0) {
+      return;
+    }
+
+    const activeRequestMediaIds = await getRepository(Media)
+      .createQueryBuilder('media')
+      .select('media.id', 'id')
+      .distinct(true)
+      .innerJoin('media.requests', 'request')
+      .where('media.id IN (:...mediaIds)', {
+        mediaIds: media.map((m) => m.id),
+      })
+      .andWhere('request.status IN (:...statuses)', {
+        statuses: [MediaRequestStatus.PENDING, MediaRequestStatus.APPROVED],
+      })
+      .getRawMany<{ id: number }>();
+
+    const activeIds = new Set(activeRequestMediaIds.map((row) => row.id));
+
+    media.forEach((m) => {
+      m.hasActiveRequest = activeIds.has(m.id);
+    });
   }
 
   public static async getMedia(
@@ -120,6 +125,7 @@ class Media {
   }
 
   // Scenes and adult movies by external id, with the viewer's watchlist entry
+  // and whether they are requested
   private static async getRelatedAdultMedia(
     mediaType: AdultMediaType,
     ids: string[],
@@ -132,7 +138,7 @@ class Media {
     const idField = adultIdField(mediaType);
 
     try {
-      return await getRepository(Media)
+      const media = await getRepository(Media)
         .createQueryBuilder('media')
         .leftJoinAndSelect(
           'media.watchlists',
@@ -143,6 +149,10 @@ class Media {
         .where(`media.${idField} IN (:...ids)`, { ids })
         .andWhere('media.mediaType = :mediaType', { mediaType })
         .getMany();
+
+      // Like the movie lists, for hiding requested titles
+      await this.markActiveRequests(media);
+      return media;
     } catch (e) {
       logger.error(e.message);
       return [];
