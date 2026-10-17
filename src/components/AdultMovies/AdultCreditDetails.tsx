@@ -1,24 +1,18 @@
 import withAdultGate from '@app/components/Common/AdultGate';
 import LoadingSpinner from '@app/components/Common/LoadingSpinner';
 import {
-  creditBrowseHref,
   creditHref,
   creditTitlesUrl,
 } from '@app/components/Common/adultRoutes';
 import AdultCreditHeader, {
   personAttributes,
 } from '@app/components/Scenes/AdultCreditHeader';
-import type { CreditView } from '@app/components/Scenes/AdultCreditView';
 import {
   CreditTitles,
   CreditViewPicker,
   useCreditView,
 } from '@app/components/Scenes/AdultCreditView';
 import AdultStudioRow from '@app/components/Scenes/AdultStudioRow';
-import AdultTitleSlider from '@app/components/Scenes/AdultTitleSlider';
-import NoResults from '@app/components/Scenes/NoResults';
-import useEmptyRows from '@app/components/Scenes/useEmptyRows';
-import globalMessages from '@app/i18n/globalMessages';
 import ErrorPage from '@app/pages/_error';
 import defineMessages from '@app/utils/defineMessages';
 import type {
@@ -55,31 +49,18 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
     id ? `/api/v1/adultmovie/${type}/${id}` : null
   );
   const stashDbId = data?.stashDbId;
-  // The slider's own request, so both share it; a linked page's StashDB page
-  // shows the same list
+  // The grid's first page, so both share it
   const moviesUrl = creditTitlesUrl('adultmovie', type, id);
-  const { allEmpty: allRowsEmpty, report: reportRow } = useEmptyRows([
-    'movies',
-  ]);
   const { data: movies } = useSWR<AdultMovieListResponse>(
     id ? moviesUrl : null
   );
-  const views: CreditView[] = ['all', 'adultmovies'];
-  const { view, setView } = useCreditView(views);
+  const [view, setView] = useCreditView();
 
-  // Keeping the view, which the StashDB page has too
-  const wantedView = router.query.type;
   useEffect(() => {
     if (stashDbId) {
-      router.replace(
-        `${creditHref(type, stashDbId)}${
-          typeof wantedView === 'string'
-            ? `?${new URLSearchParams({ type: wantedView })}`
-            : ''
-        }`
-      );
+      router.replace(creditHref(type, stashDbId));
     }
-  }, [router, type, stashDbId, wantedView]);
+  }, [router, type, stashDbId]);
 
   // Backdrops from the first movies listed, like the StashDB pages
   const backdrops = useMemo(
@@ -137,37 +118,22 @@ const AdultCreditDetails = ({ type }: AdultCreditDetailsProps) => {
         }
         aliases={isPerformer(data) ? data.aliases : []}
         bio={isPerformer(data) ? data.bio : undefined}
-        picker={
-          <CreditViewPicker views={views} view={view} onChange={setView} />
-        }
+        picker={<CreditViewPicker view={view} onChange={setView} />}
       />
       {/* Above the backdrop carousel, which spans the top of the page */}
       <div className="relative z-10">
-        {view === 'adultmovies' ? (
-          <CreditTitles mediaType="adultmovie" type={type} id={data.id} />
-        ) : (
-          <>
-            {hasStudios && (
-              <AdultStudioRow
-                sliderKey={`tpdb-sites-${data.id}`}
-                title={intl.formatMessage(messages.sites)}
-                linkUrl={`${creditHref('studio', data.id)}/studios`}
-                mediaType="adultmovie"
-                studios={data.sites}
-              />
-            )}
-            {/* Their titles open the tab filtered to them, which sorts */}
-            <AdultTitleSlider
-              mediaType="adultmovie"
-              sliderKey={`adult-${type}-${data.id}`}
-              title={intl.formatMessage(globalMessages.adultMovies)}
-              url={moviesUrl}
-              linkUrl={creditBrowseHref('adultmovie', type, data.id)}
-              onSettled={(empty) => reportRow('movies', empty)}
-            />
-            {allRowsEmpty && !hasStudios && <NoResults />}
-          </>
+        {/* A network's sites show whatever the view */}
+        {hasStudios && (
+          <AdultStudioRow
+            sliderKey={`tpdb-sites-${data.id}`}
+            title={intl.formatMessage(messages.sites)}
+            linkUrl={`${creditHref('studio', data.id)}/studios`}
+            mediaType="adultmovie"
+            studios={data.sites}
+          />
         )}
+        {/* ThePornDB has no scenes, so Scenes stays empty */}
+        <CreditTitles view={view} movies={{ type, id: data.id }} />
       </div>
     </>
   );

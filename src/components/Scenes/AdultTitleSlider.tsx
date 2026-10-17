@@ -13,7 +13,7 @@ import type {
   AdultMovieResult,
 } from '@server/models/AdultMovie';
 import type { SceneListResponse, SceneResult } from '@server/models/Scene';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import useSWRInfinite from 'swr/infinite';
 
 export interface AdultTitleSliderProps {
@@ -24,8 +24,6 @@ export interface AdultTitleSliderProps {
   // are read while the row isn't full
   url: string;
   linkUrl?: string;
-  // Told whether the row has titles, once it knows
-  onSettled?: (empty: boolean) => void;
   // Off for search results, which show everything like the movie ones
   applyHideSettings?: boolean;
 }
@@ -53,7 +51,6 @@ const AdultTitleSlider = ({
   title,
   url,
   linkUrl,
-  onSettled,
   applyHideSettings = true,
 }: AdultTitleSliderProps) => {
   const settings = useSettings();
@@ -113,13 +110,6 @@ const AdultTitleSlider = ({
 
   const settled = !!error || (!reading && !wantsMore);
   const isEmpty = !!error || results.length === 0;
-  const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
-  useEffect(() => {
-    if (settled) {
-      onSettledRef.current?.(isEmpty);
-    }
-  }, [settled, isEmpty]);
 
   if (settled && isEmpty) {
     return null;
