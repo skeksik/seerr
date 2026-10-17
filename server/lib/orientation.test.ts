@@ -368,6 +368,72 @@ describe('classifyMovie', () => {
     ]);
   });
 
+  it('reads bisexual tags however they are spelled', () => {
+    // ThePornDB's "Bi Connections 2", whose cast it lists as four women
+    assert.deepStrictEqual(
+      classifyMovie(
+        movie(
+          ['Female', 'Female', 'female', 'female'],
+          ['Bi Sexual', 'HD Available', 'Threesome']
+        )
+      ),
+      ['bisexual']
+    );
+    for (const name of [
+      'Bisexual',
+      'Bi Sexual',
+      'Bi-Sexual',
+      'Bisex',
+      'Bisexualmen',
+      'Bisexualhusband',
+      'Bisexualgangbang',
+      'Bi Sexual Guys',
+      'Bi Sexual Blow Jobs',
+      'Bi Guys',
+      'Bi Male',
+      'Bi MMF',
+      'Bimmf',
+      'Bicouple',
+      'Bi Orgy',
+      'Bi Curious',
+      'Bi-Curious',
+      'Threesome (Bisexual)',
+    ]) {
+      assert.deepStrictEqual(
+        classifyMovie(movie([], [name])),
+        ['bisexual'],
+        name
+      );
+      assert.deepStrictEqual(tagHint(name), { orientation: 'bisexual' }, name);
+    }
+    // Themes urging someone, often the viewer, and words that only start
+    // like it
+    for (const name of [
+      'Forced Bi',
+      'Forced Bisexual',
+      'Coercedbi',
+      'Imposed Bi',
+      'Make Me Bi',
+      'Bisexual Encouragement',
+      'Bisexualencouragement',
+      'Biencouragement',
+      'Bi Joi',
+      'Bihumiliation',
+      'Bisexual Training',
+      'Bi Girls',
+      'Biracial',
+      'Bi-Racial',
+      'Bikini',
+      'Big Tits',
+      'High Bitrate',
+    ]) {
+      assert.ok(
+        !classifyMovie(movie(['Female', 'Male'], [name])).includes('bisexual'),
+        name
+      );
+    }
+  });
+
   it('counts the man behind a point of view camera', () => {
     // A lone woman would suit lesbian too
     assert.deepStrictEqual(classifyMovie(movie(['Female'], ['Male - POV'])), [

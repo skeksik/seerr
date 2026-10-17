@@ -103,6 +103,20 @@ const PAIR =
   /(?:^|[\s(])([MFT]|male|female|boy|girl|guy|man|woman) (?:on|fucks) ([MFT]|male|female|boy|girl|guy|man|woman)\b|\b(boy|girl)-(boy|girl)\b|\b(man|woman) \/ \w+ (man|woman)\b/i;
 const PAIR_LETTERS = /\s-\s([MFT]{2,})$/;
 
+// Bisexual tags come spelled many ways, like "Bisexual", "Bi Sexual",
+// "Bi-Sexual", "Bisex", "Bi Guys", "Bi MMF", "Bimmf" or "Bi Curious", and
+// not "Biracial" or "Lesbi Sex"
+const BISEXUAL_WORDS =
+  /(?<!les)bi[ -]?sex|\bbi\b(?!-(racial|lingual))|\bbi(mmf|mfm|mmmf|couples?|curious|guys?|males?|men|orgy)\b/i;
+// Themes where someone, often the viewer, is urged to act bisexually, like
+// "Forced Bi", "Make Me Bi", "Bisexual Encouragement" or "Bi JOI", and bi
+// women, which say nothing of the men acting together
+const NOT_BISEXUAL =
+  /forced|coerced|imposed|encourag|humiliat|training|instruction|make me|\bjoi\b|\bbi ?(girls?|wom[ae]n|females?|lesbians?)\b/i;
+
+export const isBisexualTag = (name: string): boolean =>
+  BISEXUAL_WORDS.test(name) && !NOT_BISEXUAL.test(name);
+
 const pairGender = (word: string): keyof Cast => {
   const value = word.toLowerCase();
   if (value === 't') {
@@ -162,6 +176,9 @@ export const tagHint = (name: string): TagHint | undefined => {
           ? 'straight'
           : (value as 'lesbian' | 'gay' | 'straight' | 'trans'),
     };
+  }
+  if (isBisexualTag(name)) {
+    return { orientation: 'bisexual' };
   }
   // Pairs name everyone, trans performers too, as in "Sex Toy Play - M On F"
   const pair = pairCast(name);
@@ -326,15 +343,23 @@ export const classifyScene = (
   );
 };
 
-// ThePornDB tags name orientations alone or as in "Twosome (Lesbian)"
-const TPDB_TAG_PATTERNS: [Orientation, RegExp][] = [
-  ['straight', /\(straight\)/i],
-  ['lesbian', /^lesbian$|\(lesbian\)/i],
-  ['bisexual', /^bisexual$|\(bisexual\)/i],
-  ['gay', /^gay$|\(gay\)/i],
-  ['trans', /^(trans|transgender|solo trans)$|\(trans(-\w+)?\)/i],
-  ['futa', /^futanari$/i],
-];
+// ThePornDB tags name orientations alone or as in "Twosome (Lesbian)", and
+// bisexual many ways
+const TPDB_TAG_PATTERNS: [Orientation, RegExp | ((name: string) => boolean)][] =
+  [
+    ['straight', /\(straight\)/i],
+    ['lesbian', /^lesbian$|\(lesbian\)/i],
+    ['bisexual', isBisexualTag],
+    ['gay', /^gay$|\(gay\)/i],
+    ['trans', /^(trans|transgender|solo trans)$|\(trans(-\w+)?\)/i],
+    ['futa', /^futanari$/i],
+  ];
+
+const matches = (
+  pattern: RegExp | ((name: string) => boolean),
+  name: string
+): boolean =>
+  typeof pattern === 'function' ? pattern(name) : pattern.test(name);
 
 // ThePornDB's own orientation tags, for asking for them
 export const TPDB_ORIENTATION_TAG_IDS: Partial<Record<Orientation, number>> = {
@@ -347,7 +372,7 @@ export const TPDB_ORIENTATION_TAG_IDS: Partial<Record<Orientation, number>> = {
 
 export const classifyMovie = (movie: TpdbMovie): Orientation[] => {
   const tagged = TPDB_TAG_PATTERNS.flatMap(([orientation, pattern]) =>
-    movie.tags?.some((tag) => pattern.test(tag.name)) ? [orientation] : []
+    movie.tags?.some((tag) => matches(pattern, tag.name)) ? [orientation] : []
   );
   const cast = countCast(
     (movie.performers ?? []).map(
