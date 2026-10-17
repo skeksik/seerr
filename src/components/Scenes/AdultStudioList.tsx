@@ -115,7 +115,8 @@ const AdultStudioList = ({ type }: AdultStudioListProps) => {
             </span>
             <input
               type="search"
-              className="rounded-r-only"
+              // Inputs keep their own width in a flex row unless told to grow
+              className="rounded-r-only flex-1"
               placeholder={intl.formatMessage(messages.search)}
               value={search}
               onChange={(e) => setSearch(e.target.value)}

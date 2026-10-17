@@ -329,8 +329,9 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       }));
     };
 
-  // Scenes first, then adult movies; the adult movie studios and performers
-  // are StashDB's linked to ThePornDB, its tags ThePornDB's own
+  // Each kind of row for scenes, then for adult movies; the adult movie
+  // studios and performers are StashDB's linked to ThePornDB, its tags
+  // ThePornDB's own
   const adultOptions: CreateOption[] = [
     {
       type: DiscoverSliderType.SCENE_TAG,
@@ -338,31 +339,6 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       dataUrl: '/api/v1/scene/discover',
       params: 'tags=$value&sortBy=release_date.desc',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
-      mediaType: 'scene',
-    },
-    {
-      type: DiscoverSliderType.SCENE_PERFORMER,
-      title: intl.formatMessage(sliderTitles.scenePerformer),
-      dataUrl: '/api/v1/scene/discover',
-      params: 'performer=$value&sortBy=release_date.desc',
-      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
-      mediaType: 'scene',
-    },
-    {
-      type: DiscoverSliderType.SCENE_STUDIO,
-      title: intl.formatMessage(sliderTitles.sceneStudio),
-      dataUrl: '/api/v1/scene/discover',
-      params: 'studio=$value&sortBy=release_date.desc',
-      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
-      mediaType: 'scene',
-    },
-    {
-      type: DiscoverSliderType.SCENE_SEARCH,
-      title: intl.formatMessage(sliderTitles.sceneSearch),
-      dataUrl: '/api/v1/scene/search',
-      params: 'query=$value',
-      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
-      dataPlaceholderText: intl.formatMessage(messages.providescenesearch),
       mediaType: 'scene',
     },
     {
@@ -374,6 +350,14 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       mediaType: 'adultmovie',
     },
     {
+      type: DiscoverSliderType.SCENE_PERFORMER,
+      title: intl.formatMessage(sliderTitles.scenePerformer),
+      dataUrl: '/api/v1/scene/discover',
+      params: 'performer=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'scene',
+    },
+    {
       type: DiscoverSliderType.ADULT_MOVIE_PERFORMER,
       title: intl.formatMessage(sliderTitles.adultMoviePerformer),
       dataUrl: '/api/v1/adultmovie/discover',
@@ -382,12 +366,29 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       mediaType: 'adultmovie',
     },
     {
+      type: DiscoverSliderType.SCENE_STUDIO,
+      title: intl.formatMessage(sliderTitles.sceneStudio),
+      dataUrl: '/api/v1/scene/discover',
+      params: 'studio=$value&sortBy=release_date.desc',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      mediaType: 'scene',
+    },
+    {
       type: DiscoverSliderType.ADULT_MOVIE_STUDIO,
       title: intl.formatMessage(sliderTitles.adultMovieStudio),
       dataUrl: '/api/v1/adultmovie/discover',
       params: 'studio=$value&sortBy=release_date.desc',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
       mediaType: 'adultmovie',
+    },
+    {
+      type: DiscoverSliderType.SCENE_SEARCH,
+      title: intl.formatMessage(sliderTitles.sceneSearch),
+      dataUrl: '/api/v1/scene/search',
+      params: 'query=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      dataPlaceholderText: intl.formatMessage(messages.providescenesearch),
+      mediaType: 'scene',
     },
     {
       type: DiscoverSliderType.ADULT_MOVIE_SEARCH,

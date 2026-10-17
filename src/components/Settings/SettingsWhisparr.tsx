@@ -18,7 +18,7 @@ import useSWR from 'swr';
 const messages = defineMessages('components.Settings.SettingsWhisparr', {
   whisparrsettings: 'Whisparr Settings',
   whisparrDescription:
-    'Configure your Whisparr v3 server(s) below. Scene requests and adult movie requests are sent to Whisparr. Mark one server as default to process them.',
+    'Configure your Whisparr server(s) below. You can connect multiple Whisparr servers, but only two of them can be marked as defaults (one non-4K and one 4K). Administrators are able to override the server used to process new requests prior to approval.',
   addwhisparr: 'Add Whisparr Server',
   noDefaultServer:
     'At least one Whisparr server must be marked as default in order for scene and adult movie requests to be processed.',

@@ -167,6 +167,10 @@ const MobileMenu = ({
     },
   ];
 
+  // The bar holds four links, or five with the Scenes and Adult Movies tabs
+  // among them, so both get a place; the rest open from the last button
+  const barSize = canViewAdult ? 5 : 4;
+
   const filteredLinks = menuLinks.filter(
     (link) =>
       (!link.requiresAdult || canViewAdult) &&
@@ -252,7 +256,10 @@ const MobileMenu = ({
       <div className="padding-bottom-safe border-t border-gray-600 bg-gray-800/90 backdrop-blur">
         <div className="flex h-full items-center justify-between px-6 py-4 text-gray-100">
           {filteredLinks
-            .slice(0, filteredLinks.length === 5 ? 5 : 4)
+            .slice(
+              0,
+              filteredLinks.length === barSize + 1 ? barSize + 1 : barSize
+            )
             .map((link) => {
               const isActive =
                 router.pathname.match(link.activeRegExp) && !isOpen;
@@ -292,7 +299,7 @@ const MobileMenu = ({
                 </Link>
               );
             })}
-          {filteredLinks.length > 4 && filteredLinks.length !== 5 && (
+          {filteredLinks.length > barSize + 1 && (
             <button
               className={`flex flex-col items-center space-y-1 ${
                 isOpen ? 'text-indigo-500' : ''
