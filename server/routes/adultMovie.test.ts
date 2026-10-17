@@ -690,11 +690,6 @@ describe('linking StashDB and ThePornDB', () => {
         images: [],
         urls: [],
       }));
-      const searchSites = mock.method(
-        TpdbAPI.prototype,
-        'searchSites',
-        async () => [brazzers]
-      );
       const agent = await loginAs('admin@seerr.dev');
 
       const res = await agent.get(
@@ -702,7 +697,6 @@ describe('linking StashDB and ThePornDB', () => {
       );
 
       assert.strictEqual(res.status, 404);
-      assert.strictEqual(searchSites.mock.callCount(), 0);
     });
   });
 

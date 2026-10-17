@@ -178,15 +178,6 @@ class TpdbAPI extends ExternalAPI {
     return response.data ?? [];
   }
 
-  public async searchSites(query: string): Promise<TpdbSiteSummary[]> {
-    const response = await this.get<TpdbPage<TpdbSiteSummary>>(
-      '/sites',
-      { params: { q: query, per_page: 25 } },
-      DETAILS_TTL
-    );
-    return response.data;
-  }
-
   // By id, uuid or slug, like performers
   public async getSite(id: number | string): Promise<TpdbSiteSummary | null> {
     try {
