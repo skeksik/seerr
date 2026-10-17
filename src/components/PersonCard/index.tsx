@@ -88,14 +88,36 @@ const PersonCard = ({
     </div>
   );
 
-  if (href === null) {
+  // Cards without a page hover like the others, but keep the arrow cursor
+  const linked = href !== null;
+  const hoverHandlers = {
+    onMouseEnter: () => setHovered(true),
+    // A card that loads under the cursor gets no mouseenter
+    onMouseMove: () => {
+      if (!isHovered) {
+        setHovered(true);
+      }
+    },
+    onMouseLeave: () => setHovered(false),
+  };
+  const card = (
+    <div
+      className={`relative ${width} transform-gpu ${
+        linked ? 'cursor-pointer' : 'cursor-default'
+      } rounded-xl text-white shadow ring-1 transition duration-150 ease-in-out ${
+        isHovered
+          ? 'scale-105 bg-gray-700 ring-gray-500'
+          : 'scale-100 bg-gray-800 ring-gray-700'
+      }`}
+    >
+      {renderBody(isHovered)}
+    </div>
+  );
+
+  if (!linked) {
     return (
-      <div className={width}>
-        <div
-          className={`relative ${width} rounded-xl bg-gray-800 text-white shadow ring-1 ring-gray-700`}
-        >
-          {renderBody(false)}
-        </div>
+      <div className={width} {...hoverHandlers}>
+        {card}
       </div>
     );
   }
@@ -104,16 +126,7 @@ const PersonCard = ({
     <Link
       href={href ?? `/person/${personId}`}
       className={`group ${width}`}
-      onMouseEnter={() => {
-        setHovered(true);
-      }}
-      // A card that loads under the cursor gets no mouseenter
-      onMouseMove={() => {
-        if (!isHovered) {
-          setHovered(true);
-        }
-      }}
-      onMouseLeave={() => setHovered(false)}
+      {...hoverHandlers}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           setHovered(true);
@@ -122,15 +135,7 @@ const PersonCard = ({
       role="link"
       tabIndex={0}
     >
-      <div
-        className={`relative ${width} transform-gpu cursor-pointer rounded-xl text-white shadow ring-1 transition duration-150 ease-in-out ${
-          isHovered
-            ? 'scale-105 bg-gray-700 ring-gray-500'
-            : 'scale-100 bg-gray-800 ring-gray-700'
-        }`}
-      >
-        {renderBody(isHovered)}
-      </div>
+      {card}
     </Link>
   );
 };

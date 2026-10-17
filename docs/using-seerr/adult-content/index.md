@@ -91,6 +91,7 @@ Scene and adult movie pages are laid out like movie pages:
 - The links at the bottom of the facts table open the title on Stash, StashDB, ThePornDB or the studio's site. Sites StashDB has an icon for show it alone, named on hover.
 - Adult movie pages add a **Scenes** row: the StashDB scenes the movie is cut into, found by the file fingerprints and studio pages ThePornDB keeps for its scenes.
 - Status badges open the **Manage** panel. Once a title is available, users who can create issues get the **Report an Issue** button. Issues for scenes and adult movies work like movie issues, and only users with adult access see them.
+- Directors show under the overview, with a **View Full Crew** link to the **Full Crew** page (`/scene/<id>/crew` or `/adultmovie/<id>/crew`). Neither StashDB nor ThePornDB has crew profiles, so crew cards, like cast members without a profile, link nowhere.
 
 ### Requesting Scenes and Adult Movies
 

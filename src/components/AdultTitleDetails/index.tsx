@@ -1,3 +1,4 @@
+import FullCrewLink from '@app/components/AdultCrew/FullCrewLink';
 import AdultLinkBlock from '@app/components/AdultLinkBlock';
 import AdultMediaActions from '@app/components/AdultMediaActions';
 import AdultIssueButton from '@app/components/AdultMediaActions/AdultIssueButton';
@@ -381,14 +382,19 @@ const AdultTitleDetails = ({
             {data.overview || intl.formatMessage(messages.overviewunavailable)}
           </p>
           {data.directors.length > 0 && (
-            <ul className="media-crew">
-              {data.directors.map((director) => (
-                <li key={`director-${director}`}>
-                  <span>{intl.formatMessage(messages.director)}</span>
-                  <span className="font-normal text-gray-400">{director}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="media-crew">
+                {data.directors.map((director) => (
+                  <li key={`director-${director}`}>
+                    <span>{intl.formatMessage(messages.director)}</span>
+                    <span className="font-normal text-gray-400">
+                      {director}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <FullCrewLink mediaType={data.mediaType} id={data.id} />
+            </>
           )}
           {data.tags.length > 0 && (
             <div className="mt-6">
