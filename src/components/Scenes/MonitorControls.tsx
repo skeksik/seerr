@@ -1,3 +1,4 @@
+import Badge from '@app/components/Common/Badge';
 import Button from '@app/components/Common/Button';
 import Modal from '@app/components/Common/Modal';
 import useToasts from '@app/hooks/useToasts';
@@ -9,7 +10,10 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from '@heroicons/react/24/solid';
-import type { WhisparrMonitorStatus } from '@server/models/Scene';
+import type {
+  SceneChildStudio,
+  WhisparrMonitorStatus,
+} from '@server/models/Scene';
 import axios from 'axios';
 import { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -20,65 +24,164 @@ const messages = defineMessages('components.Scenes.MonitorControls', {
   monitored: 'Monitored in Whisparr',
   scenesMonitored: 'Scenes Monitored',
   moviesMonitored: 'Movies Monitored',
-  monitorMovies: 'Monitor Movies',
-  monitorScenes: 'Monitor Scenes',
   unmonitor: 'Stop Monitoring',
+  save: 'Save',
   monitorTitle: 'Monitor {name}',
-  monitorAll:
-    'Whisparr will add every scene and movie {type, select, performer {with} other {from}} {name} and download new ones as they are released.',
-  monitorMaybeMovies:
-    "Whisparr will add every scene {type, select, performer {with} other {from}} {name} and download new ones as they are released. It adds their movies too if StashDB links {name} to Whisparr's movie metadata source.",
-  monitorScenesOnly:
-    "Whisparr will add every scene {type, select, performer {with} other {from}} {name} and download new ones as they are released. It cannot add their movies, as StashDB does not link {name} to Whisparr's movie metadata source.",
+  intro:
+    'Whisparr adds every scene and movie {type, select, performer {with} other {from}} {name} it monitors here, and picks new ones up as they are released.',
+  monitorScenes: 'Monitor scenes',
+  monitorMovies: 'Monitor movies',
+  moviesUnavailable:
+    "Whisparr finds movies by the ThePornDB link on the StashDB profile, which {name}'s does not have.",
+  moviesUnavailableNetwork:
+    "Whisparr finds movies by the ThePornDB link on a studio's StashDB profile. Neither {name} nor any studio picked below has one.",
+  monitorNewItems: 'Monitor new items',
+  monitorNewItemsTip:
+    'New scenes and movies are added monitored and downloaded as they are released; unchecked, Whisparr adds them unmonitored.',
+  studios: 'Studios',
+  studiosTip:
+    'Whisparr follows studios rather than networks, so the options above apply to {name} and to each studio picked here.',
+  selectAll: 'Select all',
+  selectNone: 'None',
+  tpdbLinked: 'ThePornDB',
   searchExisting: 'Search for existing titles now',
   searchExistingTip:
     'Starts a search for every scene and movie that is not downloaded yet. This can queue a lot of downloads.',
   monitorSuccess: 'Whisparr is now monitoring <strong>{name}</strong>.',
   unmonitorSuccess: 'Whisparr stopped monitoring <strong>{name}</strong>.',
+  studiosFailed:
+    'Whisparr could not update {count, plural, one {# studio} other {# studios}}.',
   monitorError: 'Something went wrong while updating Whisparr.',
 });
+
+export interface MonitorStudioStatus {
+  id: string;
+  monitored: boolean;
+  moviesMonitored: boolean;
+}
+
+type MonitorResponse = WhisparrMonitorStatus & {
+  studios?: MonitorStudioStatus[];
+  failed?: string[];
+};
 
 interface MonitorControlsProps {
   type: 'performer' | 'studio';
   id: string;
   name: string;
   status: WhisparrMonitorStatus;
-  // Whether StashDB links them to ThePornDB, which Whisparr's movies take,
-  // for the confirmation before Whisparr follows them
-  moviesLinked?: boolean;
-  onChange: (status: WhisparrMonitorStatus) => void;
+  // Whether StashDB links them to ThePornDB, which Whisparr needs to find
+  // their movies
+  tpdbLinked: boolean;
+  // A network's studios, which Whisparr follows in its place
+  studios?: SceneChildStudio[];
+  onChange: (
+    status: WhisparrMonitorStatus,
+    studios?: MonitorStudioStatus[]
+  ) => void;
 }
 
-// Whisparr monitoring of a StashDB performer or studio: their scenes, and their
-// movies where Whisparr can add them
+const isMonitored = (status?: {
+  monitored: boolean;
+  moviesMonitored: boolean;
+}) => !!status && (status.monitored || status.moviesMonitored);
+
+interface OptionProps {
+  id: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+  label: string;
+  tip?: string;
+}
+
+const Option = ({
+  id,
+  checked,
+  disabled,
+  onChange,
+  label,
+  tip,
+}: OptionProps) => (
+  <div className="flex items-start space-x-3">
+    <input
+      id={id}
+      type="checkbox"
+      className="mt-1"
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+    />
+    <label htmlFor={id} className={disabled ? 'opacity-60' : ''}>
+      <span className="text-white">{label}</span>
+      {tip && <span className="block text-sm text-gray-400">{tip}</span>}
+    </label>
+  </div>
+);
+
+// Whisparr monitoring of a StashDB performer or studio: their scenes, their
+// movies where Whisparr can add them, and new releases; for a network, of
+// the studios under it too
 const MonitorControls = ({
   type,
   id,
   name,
   status,
-  moviesLinked,
+  tpdbLinked,
+  studios = [],
   onChange,
 }: MonitorControlsProps) => {
   const intl = useIntl();
   const { addToast } = useToasts();
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
+  const [scenes, setScenes] = useState(false);
+  const [movies, setMovies] = useState(false);
+  const [newItems, setNewItems] = useState(true);
   const [search, setSearch] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState(false);
-  const anyMonitored = status.monitored || status.moviesMonitored;
+  const isNetwork = type === 'studio' && studios.length > 0;
+  const anyMonitored = isMonitored(status);
   // Scenes, and movies unless Whisparr cannot add them
   const fullyMonitored =
     status.monitored &&
     (status.moviesMonitored || status.moviesAvailable !== true);
-  // Whisparr's word once it follows them; until then, a missing link
-  // settles it, as Whisparr cannot find the movies without one
-  const moviesAvailable =
-    status.moviesAvailable ?? (moviesLinked === false ? false : undefined);
-  const description =
-    moviesAvailable === true
-      ? messages.monitorAll
-      : moviesAvailable === false
-        ? messages.monitorScenesOnly
-        : messages.monitorMaybeMovies;
+  // Whisparr reads the link from the StashDB profile, so without one on
+  // the entity or a picked studio there are no movies to monitor
+  const moviesPossible =
+    tpdbLinked ||
+    studios.some((studio) => picked.has(studio.id) && studio.tpdbLinked);
+  // Whether the dialog has anything to stop
+  const anyPickedMonitored =
+    anyMonitored ||
+    studios.some(
+      (studio) => picked.has(studio.id) && isMonitored(studio.whisparr)
+    );
+
+  // Starts from what Whisparr monitors now, the studios it follows picked
+  const openDialog = () => {
+    setScenes(status.monitored);
+    setMovies(status.moviesMonitored);
+    setNewItems(status.monitorNewItems);
+    setSearch(status.searchOnAdd);
+    setPicked(
+      new Set(
+        studios
+          .filter((studio) => isMonitored(studio.whisparr))
+          .map((studio) => studio.id)
+      )
+    );
+    setShowDialog(true);
+  };
+
+  const togglePicked = (studioId: string) =>
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(studioId)) {
+        next.add(studioId);
+      }
+      return next;
+    });
 
   // Every label the button can show takes the same cell, the others kept
   // invisible, so it keeps one width whatever it says and doesn't slip from
@@ -115,23 +218,40 @@ const MonitorControls = ({
     </span>
   );
 
-  const update = async (monitored: boolean) => {
+  const update = async (options: {
+    scenes: boolean;
+    movies: boolean;
+    search: boolean;
+  }) => {
     setIsUpdating(true);
 
     try {
-      const { data } = await axios.post<WhisparrMonitorStatus>(
+      const { data } = await axios.post<MonitorResponse>(
         `/api/v1/scene/${type}/${id}/monitor`,
-        { monitored, search: monitored && search }
+        {
+          ...options,
+          monitorNewItems: newItems,
+          ...(isNetwork && { studios: [...picked] }),
+        }
       );
-      onChange(data);
-      setShowConfirm(false);
+      const { studios: applied, failed, ...next } = data;
+      onChange(next, applied);
+      setShowDialog(false);
       addToast(
         intl.formatMessage(
-          monitored ? messages.monitorSuccess : messages.unmonitorSuccess,
+          options.scenes || options.movies
+            ? messages.monitorSuccess
+            : messages.unmonitorSuccess,
           { name, strong: (msg: React.ReactNode) => <strong>{msg}</strong> }
         ),
         { appearance: 'success', autoDismiss: true }
       );
+      if (failed?.length) {
+        addToast(
+          intl.formatMessage(messages.studiosFailed, { count: failed.length }),
+          { appearance: 'error', autoDismiss: true }
+        );
+      }
     } catch {
       addToast(intl.formatMessage(messages.monitorError), {
         appearance: 'error',
@@ -147,7 +267,7 @@ const MonitorControls = ({
       {/* A fragment, as a wrapper would join the button row and shift it */}
       <Transition
         as={Fragment}
-        show={showConfirm}
+        show={showDialog}
         enter="transition-opacity duration-300"
         enterFrom="opacity-0"
         enterTo="opacity-100"
@@ -157,32 +277,114 @@ const MonitorControls = ({
       >
         <Modal
           title={intl.formatMessage(messages.monitorTitle, { name })}
-          onCancel={() => setShowConfirm(false)}
-          onOk={() => update(true)}
-          okText={intl.formatMessage(messages.monitor)}
+          onCancel={() => setShowDialog(false)}
+          onOk={() =>
+            update({ scenes, movies: movies && moviesPossible, search })
+          }
+          okText={intl.formatMessage(messages.save)}
           okButtonType="primary"
           okDisabled={isUpdating}
+          onSecondary={
+            anyPickedMonitored
+              ? () => update({ scenes: false, movies: false, search: false })
+              : undefined
+          }
+          secondaryText={intl.formatMessage(messages.unmonitor)}
+          secondaryButtonType="danger"
+          secondaryDisabled={isUpdating}
           backgroundClickable
         >
           <p className="text-gray-300">
-            {intl.formatMessage(description, { type, name })}
+            {intl.formatMessage(messages.intro, { type, name })}
           </p>
-          <div className="mt-4 flex items-start space-x-3">
-            <input
-              id="searchExisting"
-              type="checkbox"
-              className="mt-1"
-              checked={search}
-              onChange={() => setSearch((s) => !s)}
+          <div className="mt-4 space-y-3">
+            <Option
+              id="monitorScenes"
+              checked={scenes}
+              onChange={() => setScenes((on) => !on)}
+              label={intl.formatMessage(messages.monitorScenes)}
             />
-            <label htmlFor="searchExisting">
-              <span className="text-white">
-                {intl.formatMessage(messages.searchExisting)}
-              </span>
-              <span className="block text-sm text-gray-400">
-                {intl.formatMessage(messages.searchExistingTip)}
-              </span>
-            </label>
+            <Option
+              id="monitorMovies"
+              checked={movies && moviesPossible}
+              disabled={!moviesPossible}
+              onChange={() => setMovies((on) => !on)}
+              label={intl.formatMessage(messages.monitorMovies)}
+              tip={
+                moviesPossible
+                  ? undefined
+                  : intl.formatMessage(
+                      isNetwork
+                        ? messages.moviesUnavailableNetwork
+                        : messages.moviesUnavailable,
+                      { name }
+                    )
+              }
+            />
+            <Option
+              id="monitorNewItems"
+              checked={newItems}
+              onChange={() => setNewItems((on) => !on)}
+              label={intl.formatMessage(messages.monitorNewItems)}
+              tip={intl.formatMessage(messages.monitorNewItemsTip)}
+            />
+            {isNetwork && (
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-white">
+                    {intl.formatMessage(messages.studios)}
+                  </span>
+                  <span className="space-x-2 text-sm">
+                    <button
+                      type="button"
+                      className="text-indigo-400 hover:text-indigo-300"
+                      onClick={() =>
+                        setPicked(new Set(studios.map((studio) => studio.id)))
+                      }
+                    >
+                      {intl.formatMessage(messages.selectAll)}
+                    </button>
+                    <span className="text-gray-500">/</span>
+                    <button
+                      type="button"
+                      className="text-indigo-400 hover:text-indigo-300"
+                      onClick={() => setPicked(new Set())}
+                    >
+                      {intl.formatMessage(messages.selectNone)}
+                    </button>
+                  </span>
+                </div>
+                <p className="text-sm text-gray-400">
+                  {intl.formatMessage(messages.studiosTip, { name })}
+                </p>
+                <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-md border border-gray-700 bg-gray-900 p-2">
+                  {studios.map((studio) => (
+                    <li key={studio.id}>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={picked.has(studio.id)}
+                          onChange={() => togglePicked(studio.id)}
+                        />
+                        <span className="text-white">{studio.name}</span>
+                        {studio.tpdbLinked && (
+                          <Badge badgeType="dark">
+                            {intl.formatMessage(messages.tpdbLinked)}
+                          </Badge>
+                        )}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <Option
+              id="searchExisting"
+              checked={search}
+              onChange={() => setSearch((on) => !on)}
+              label={intl.formatMessage(messages.searchExisting)}
+              tip={intl.formatMessage(messages.searchExistingTip)}
+            />
           </div>
         </Modal>
       </Transition>
@@ -196,7 +398,7 @@ const MonitorControls = ({
         <Button
           buttonType="success"
           disabled={isUpdating}
-          onClick={() => update(false)}
+          onClick={openDialog}
           className="group"
           title={intl.formatMessage(messages.unmonitor)}
         >
@@ -212,28 +414,9 @@ const MonitorControls = ({
           )}
         </Button>
       ) : (
-        <Button
-          buttonType="primary"
-          disabled={isUpdating}
-          onClick={() => setShowConfirm(true)}
-        >
+        <Button buttonType="primary" disabled={isUpdating} onClick={openDialog}>
           <EyeIcon />
           {stateLabel(messages.monitor, false)}
-        </Button>
-      )}
-      {/* Monitoring completes the half Whisparr does not monitor yet */}
-      {anyMonitored && !fullyMonitored && (
-        <Button
-          buttonType="primary"
-          disabled={isUpdating}
-          onClick={() => setShowConfirm(true)}
-        >
-          <EyeIcon />
-          <span>
-            {intl.formatMessage(
-              status.monitored ? messages.monitorMovies : messages.monitorScenes
-            )}
-          </span>
         </Button>
       )}
     </>

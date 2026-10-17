@@ -2453,8 +2453,32 @@ components:
       properties:
         monitored:
           type: boolean
+          description: Whether Whisparr monitors their scenes
+        moviesMonitored:
+          type: boolean
+          description: Whether Whisparr monitors their movies
+        moviesAvailable:
+          type: boolean
+          description: Whether Whisparr can monitor their movies, which takes a StashDB link to its movie metadata source. Absent until Whisparr follows them.
+        monitorNewItems:
+          type: boolean
+          description: Whether Whisparr adds their new releases monitored; true until Whisparr follows them
+        searchOnAdd:
+          type: boolean
+          description: Whether Whisparr searches for the titles it adds of them
         serviceUrl:
           type: string
+    WhisparrStudioStatus:
+      type: object
+      description: What Whisparr monitors of a network's studio
+      properties:
+        id:
+          type: string
+          format: uuid
+        monitored:
+          type: boolean
+        moviesMonitored:
+          type: boolean
     SceneCreditLinks:
       type: object
       properties:
@@ -2476,6 +2500,9 @@ components:
                 description: The site's icon on StashDB
         stashDbUrl:
           type: string
+        tpdbLinked:
+          type: boolean
+          description: Whether the StashDB profile links ThePornDB, which Whisparr needs to monitor their movies
         whisparr:
           $ref: '#/components/schemas/WhisparrMonitorStatus'
     ScenePerformerDetails:
@@ -2513,9 +2540,23 @@ components:
                   type: string
             studios:
               type: array
-              description: The studios under this network
+              description: The studios under this network, which Whisparr follows in its place
               items:
-                $ref: '#/components/schemas/SceneFilterDetails'
+                allOf:
+                  - $ref: '#/components/schemas/SceneFilterDetails'
+                  - type: object
+                    properties:
+                      tpdbLinked:
+                        type: boolean
+                        description: Whether its StashDB profile links ThePornDB
+                      whisparr:
+                        type: object
+                        description: What Whisparr monitors of it; for request managers, when Whisparr answered
+                        properties:
+                          monitored:
+                            type: boolean
+                          moviesMonitored:
+                            type: boolean
     SceneList:
       type: object
       properties:
@@ -8442,7 +8483,9 @@ paths:
     post:
       summary: Monitor a performer or studio in Whisparr
       description: |
-        Adds or updates the performer or studio on the default Whisparr server. Monitoring makes Whisparr add all of their scenes, and search for them when `search` is set. Requires the `MANAGE_REQUESTS` permission.
+        Sets what the default Whisparr server monitors of the performer or studio: their scenes, their movies (where their StashDB profile links Whisparr's movie metadata source) and whether new releases are added monitored. Adds them to Whisparr when it does not follow them yet and anything is on; with scenes and movies both off, Whisparr stops monitoring them. `search` makes Whisparr search for the titles it adds.
+
+        Whisparr lists scenes under the studio that released them, so a network holds none; `studios` applies the same options to the given studios of the network, which must be its child studios on StashDB. Requires the `MANAGE_REQUESTS` permission.
       tags:
         - scenes
       parameters:
@@ -8464,20 +8507,51 @@ paths:
             schema:
               type: object
               required:
-                - monitored
+                - scenes
+                - movies
               properties:
-                monitored:
+                scenes:
                   type: boolean
+                  description: Monitor their scenes
+                movies:
+                  type: boolean
+                  description: Monitor their movies; ignored where Whisparr cannot find them
+                monitorNewItems:
+                  type: boolean
+                  default: true
+                  description: Add new releases monitored, or unmonitored
                 search:
                   type: boolean
                   default: false
+                studios:
+                  type: array
+                  description: Studios of this network to apply the same to, by StashDB id. Studios only.
+                  items:
+                    type: string
+                    format: uuid
       responses:
         '200':
-          description: Monitoring status
+          description: Monitoring status of the performer or studio, with each studio applied
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WhisparrMonitorStatus'
+                allOf:
+                  - $ref: '#/components/schemas/WhisparrMonitorStatus'
+                  - type: object
+                    properties:
+                      studios:
+                        type: array
+                        description: The studios applied, when any were given
+                        items:
+                          $ref: '#/components/schemas/WhisparrStudioStatus'
+                      failed:
+                        type: array
+                        description: The studios Whisparr could not update
+                        items:
+                          type: string
+                          format: uuid
+        '400':
+          description: A studio that is not under this network, or studios given for a performer
   /scene/tag/{tagId}:
     get:
       summary: Get StashDB tag

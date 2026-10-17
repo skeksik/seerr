@@ -165,16 +165,23 @@ describe('WhisparrAPI lookupScene', () => {
   });
 });
 
-describe('WhisparrAPI setCreditMonitored', () => {
+describe('WhisparrAPI applyCreditMonitoring', () => {
   afterEach(() => {
     mock.restoreAll();
     cacheManager.getCache('whisparr').flush();
   });
 
-  const monitorOptions = {
+  const serverOptions = {
     qualityProfileId: 4,
     rootFolderPath: '/data/xxx',
     tags: [2],
+  };
+
+  const monitorOptions = {
+    ...serverOptions,
+    scenes: true,
+    movies: true,
+    monitorNewItems: true,
     searchOnAdd: false,
   };
 
@@ -185,6 +192,7 @@ describe('WhisparrAPI setCreditMonitored', () => {
     moviesMonitored: false,
     tmdbId: 0,
     tpdbId: null,
+    whisparrMonitorNewItems: true,
     qualityProfileId: 1,
     rootFolderPath: '/data/old',
     searchOnAdd: false,
@@ -255,12 +263,10 @@ describe('WhisparrAPI setCreditMonitored', () => {
       data: { ...added, moviesMonitored: true },
     }));
 
-    const result = await whisparr.setCreditMonitored(
-      'performer',
-      STASH_ID,
-      true,
-      monitorOptions
-    );
+    const result = await whisparr.applyCreditMonitoring('performer', STASH_ID, {
+      ...monitorOptions,
+      monitorNewItems: false,
+    });
 
     assert.strictEqual(result?.id, 3);
     assert.strictEqual(result?.moviesMonitored, true);
@@ -270,7 +276,9 @@ describe('WhisparrAPI setCreditMonitored', () => {
         foreignId: STASH_ID,
         monitored: true,
         moviesMonitored: false,
-        ...monitorOptions,
+        whisparrMonitorNewItems: false,
+        searchOnAdd: false,
+        ...serverOptions,
       },
     ]);
     assert.deepStrictEqual(put.mock.calls[0].arguments, [
@@ -301,7 +309,7 @@ describe('WhisparrAPI setCreditMonitored', () => {
       data: { ...added, moviesMonitored: true },
     }));
 
-    await whisparr.setCreditMonitored('studio', STASH_ID, true, monitorOptions);
+    await whisparr.applyCreditMonitoring('studio', STASH_ID, monitorOptions);
 
     const polls = get.mock.calls.filter(
       (call) => call.arguments[0] === '/command'
@@ -319,10 +327,9 @@ describe('WhisparrAPI setCreditMonitored', () => {
     }));
     const put = mock.method(getAxios(whisparr), 'put', async () => ({}));
 
-    const result = await whisparr.setCreditMonitored(
+    const result = await whisparr.applyCreditMonitoring(
       'performer',
       STASH_ID,
-      true,
       monitorOptions
     );
 
@@ -331,9 +338,29 @@ describe('WhisparrAPI setCreditMonitored', () => {
     assert.strictEqual(put.mock.callCount(), 0);
   });
 
+  it('leaves the movies of a linked performer off when not asked for them', async () => {
+    const whisparr = buildWhisparr();
+    const added = credit({ id: 3, monitored: true, tpdbId: 'tpdb' });
+    const get = mockGets(whisparr, { credits: [null] });
+    mock.method(getAxios(whisparr), 'post', async () => ({ data: added }));
+    const put = mock.method(getAxios(whisparr), 'put', async () => ({}));
+
+    const result = await whisparr.applyCreditMonitoring('performer', STASH_ID, {
+      ...monitorOptions,
+      movies: false,
+    });
+
+    assert.strictEqual(result?.moviesMonitored, false);
+    assert.strictEqual(put.mock.callCount(), 0);
+    // Nor is the metadata source needed
+    assert.ok(
+      !get.mock.calls.some((call) => call.arguments[0] === '/config/host')
+    );
+  });
+
   it('updates followed studios with their movies and refreshes them', async () => {
     const whisparr = buildWhisparr();
-    const existing = credit({ tmdbId: 97187 });
+    const existing = credit({ tmdbId: 97187, whisparrMonitorNewItems: false });
     mockGets(whisparr, { credits: [existing], source: 'tmdb' });
     const put = mock.method(getAxios(whisparr), 'put', async () => ({
       data: { ...existing, monitored: true, moviesMonitored: true },
@@ -342,7 +369,7 @@ describe('WhisparrAPI setCreditMonitored', () => {
       data: {},
     }));
 
-    await whisparr.setCreditMonitored('studio', STASH_ID, true, {
+    await whisparr.applyCreditMonitoring('studio', STASH_ID, {
       ...monitorOptions,
       searchOnAdd: true,
     });
@@ -352,12 +379,39 @@ describe('WhisparrAPI setCreditMonitored', () => {
       ...existing,
       monitored: true,
       moviesMonitored: true,
+      whisparrMonitorNewItems: true,
       searchOnAdd: true,
     });
     assert.deepStrictEqual(post.mock.calls[0].arguments, [
       '/command',
       { name: 'RefreshStudios', studioIds: [7] },
     ]);
+  });
+
+  it('turns new items off for a followed studio, keeping the rest', async () => {
+    const whisparr = buildWhisparr();
+    const existing = credit({
+      monitored: true,
+      moviesMonitored: true,
+      tpdbId: 'tpdb',
+      searchOnAdd: true,
+    });
+    mockGets(whisparr, { credits: [existing] });
+    const put = mock.method(getAxios(whisparr), 'put', async () => ({
+      data: { ...existing, whisparrMonitorNewItems: false },
+    }));
+    mock.method(getAxios(whisparr), 'post', async () => ({ data: {} }));
+
+    await whisparr.applyCreditMonitoring('studio', STASH_ID, {
+      ...monitorOptions,
+      monitorNewItems: false,
+      searchOnAdd: true,
+    });
+
+    assert.deepStrictEqual(put.mock.calls[0].arguments[1], {
+      ...existing,
+      whisparrMonitorNewItems: false,
+    });
   });
 
   it('monitors scenes only when the movie metadata source is unknown', async () => {
@@ -369,7 +423,7 @@ describe('WhisparrAPI setCreditMonitored', () => {
     }));
     mock.method(getAxios(whisparr), 'post', async () => ({ data: {} }));
 
-    await whisparr.setCreditMonitored('studio', STASH_ID, true, monitorOptions);
+    await whisparr.applyCreditMonitoring('studio', STASH_ID, monitorOptions);
 
     const body = put.mock.calls[0].arguments[1] as WhisparrCredit;
     assert.strictEqual(body.monitored, true);
@@ -382,6 +436,7 @@ describe('WhisparrAPI setCreditMonitored', () => {
       monitored: true,
       moviesMonitored: true,
       tpdbId: 'tpdb',
+      searchOnAdd: true,
     });
     const get = mockGets(whisparr, { credits: [existing] });
     const put = mock.method(getAxios(whisparr), 'put', async () => ({
@@ -391,14 +446,14 @@ describe('WhisparrAPI setCreditMonitored', () => {
       data: {},
     }));
 
-    const result = await whisparr.setCreditMonitored(
-      'performer',
-      STASH_ID,
-      false,
-      monitorOptions
-    );
+    const result = await whisparr.applyCreditMonitoring('performer', STASH_ID, {
+      ...monitorOptions,
+      scenes: false,
+      movies: false,
+    });
 
     assert.strictEqual(result?.moviesMonitored, false);
+    // searchOnAdd is left as it was
     assert.deepStrictEqual(put.mock.calls[0].arguments[1], {
       ...existing,
       monitored: false,
@@ -417,15 +472,57 @@ describe('WhisparrAPI setCreditMonitored', () => {
       data: {},
     }));
 
-    const result = await whisparr.setCreditMonitored(
-      'performer',
-      STASH_ID,
-      false,
-      monitorOptions
-    );
+    const result = await whisparr.applyCreditMonitoring('performer', STASH_ID, {
+      ...monitorOptions,
+      scenes: false,
+      movies: false,
+    });
 
     assert.strictEqual(result, null);
     assert.strictEqual(post.mock.callCount(), 0);
+  });
+});
+
+describe('WhisparrAPI listCredits', () => {
+  afterEach(() => {
+    mock.restoreAll();
+    cacheManager.getCache('whisparr').flush();
+  });
+
+  it('lists every studio once a minute, until one is changed', async () => {
+    const whisparr = buildWhisparr();
+    const get = mock.method(getAxios(whisparr), 'get', async (url: string) => {
+      if (url === '/studio') {
+        return { data: [{ id: 1, foreignId: STASH_ID, monitored: true }] };
+      }
+      return { data: { id: 1, foreignId: STASH_ID, monitored: true } };
+    });
+    mock.method(getAxios(whisparr), 'put', async () => ({ data: {} }));
+    mock.method(getAxios(whisparr), 'post', async () => ({ data: {} }));
+
+    await whisparr.listCredits('studio');
+    const studios = await whisparr.listCredits('studio');
+    assert.strictEqual(studios.length, 1);
+    assert.strictEqual(
+      get.mock.calls.filter((call) => call.arguments[0] === '/studio').length,
+      1
+    );
+
+    await whisparr.applyCreditMonitoring('studio', STASH_ID, {
+      scenes: false,
+      movies: false,
+      monitorNewItems: true,
+      searchOnAdd: false,
+      qualityProfileId: 1,
+      rootFolderPath: '/data',
+      tags: [],
+    });
+    await whisparr.listCredits('studio');
+
+    assert.strictEqual(
+      get.mock.calls.filter((call) => call.arguments[0] === '/studio').length,
+      2
+    );
   });
 });
 

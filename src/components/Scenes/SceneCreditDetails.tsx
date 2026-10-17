@@ -92,12 +92,14 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
 
   const hasStudios = !isPerformer(data) && data.studios.length > 0;
   // Linked another way, Whisparr monitors their scenes only, unless it
-  // says otherwise once it follows them
+  // says otherwise once it follows them. A network's monitoring goes by its
+  // studios' links, which the monitor dialog shows
   const scenesOnly =
     !!data.whisparr &&
+    !data.tpdbLinked &&
     data.whisparr.moviesAvailable !== true &&
     !!tpdbMatch &&
-    tpdbMatch.via !== 'stashdb';
+    !hasStudios;
 
   return (
     <>
@@ -152,8 +154,35 @@ const SceneCreditDetails = ({ type }: SceneCreditDetailsProps) => {
               id={data.id}
               name={data.name}
               status={data.whisparr}
-              moviesLinked={tpdbMatch && tpdbMatch.via === 'stashdb'}
-              onChange={(whisparr) => mutate({ ...data, whisparr }, false)}
+              tpdbLinked={data.tpdbLinked}
+              studios={isPerformer(data) ? undefined : data.studios}
+              onChange={(whisparr, studios) =>
+                mutate(
+                  isPerformer(data)
+                    ? { ...data, whisparr }
+                    : {
+                        ...data,
+                        whisparr,
+                        // What Whisparr now monitors of the studios applied,
+                        // so the dialog reopens on it
+                        studios: data.studios.map((studio) => {
+                          const applied = studios?.find(
+                            ({ id }) => id === studio.id
+                          );
+                          return applied
+                            ? {
+                                ...studio,
+                                whisparr: {
+                                  monitored: applied.monitored,
+                                  moviesMonitored: applied.moviesMonitored,
+                                },
+                              }
+                            : studio;
+                        }),
+                      },
+                  false
+                )
+              }
             />
           )
         }

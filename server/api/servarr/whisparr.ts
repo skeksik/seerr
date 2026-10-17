@@ -59,6 +59,8 @@ export interface WhisparrCredit {
   // its movie metadata source
   tmdbId?: number;
   tpdbId?: string | null;
+  // Whether their new releases are added monitored, or unmonitored
+  whisparrMonitorNewItems: boolean;
   qualityProfileId: number;
   rootFolderPath?: string | null;
   searchOnAdd: boolean;
@@ -74,11 +76,16 @@ interface WhisparrCommand {
   body?: { performerIds?: number[]; studioIds?: number[] };
 }
 
+// What to monitor of a performer or studio, and the server settings their
+// titles take when Whisparr first follows them
 export interface WhisparrMonitorOptions {
+  scenes: boolean;
+  movies: boolean;
+  monitorNewItems: boolean;
+  searchOnAdd: boolean;
   qualityProfileId: number;
   rootFolderPath: string;
   tags: number[];
-  searchOnAdd: boolean;
 }
 
 interface WhisparrPage {
@@ -92,6 +99,10 @@ const SCAN_PAGE_SIZE = 1000;
 
 // The metadata source rarely changes and is read on every credit page
 const METADATA_SOURCE_TTL = 300;
+
+// A network's page reads what Whisparr monitors of each of its studios from
+// the full list, a few hundred entries
+const CREDIT_LIST_TTL = 60;
 
 const refreshCommand = (type: WhisparrCreditType) =>
   type === 'performer'
@@ -362,24 +373,43 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
     }
   }
 
-  // Monitoring a performer or studio makes Whisparr add all of their scenes,
-  // and their movies where it can, and search for them when searchOnAdd is
-  // set. Unmonitoring turns off both.
-  public async setCreditMonitored(
+  // Every performer or studio Whisparr follows, in one call
+  public async listCredits(
+    type: WhisparrCreditType
+  ): Promise<WhisparrCredit[]> {
+    try {
+      return await this.get<WhisparrCredit[]>(
+        `/${type}`,
+        undefined,
+        CREDIT_LIST_TTL
+      );
+    } catch (e) {
+      throw new Error(
+        `[Whisparr] Failed to retrieve the ${type} list: ${e.message}`,
+        { cause: e }
+      );
+    }
+  }
+
+  // Sets what Whisparr monitors of a performer or studio: their scenes,
+  // their movies where it can add them, and whether new releases come
+  // monitored. Adds them when Whisparr does not follow them yet and anything
+  // is turned on; with everything off, there is nothing to add.
+  public async applyCreditMonitoring(
     type: WhisparrCreditType,
     foreignId: string,
-    monitored: boolean,
     options: WhisparrMonitorOptions
   ): Promise<WhisparrCredit | null> {
     const existing = await this.getCredit(type, foreignId);
+    const anyOn = options.scenes || options.movies;
 
-    if (!existing && !monitored) {
+    if (!existing && !anyOn) {
       return null;
     }
 
     let source: WhisparrMovieMetadataSource = 'none';
 
-    if (monitored) {
+    if (options.movies) {
       try {
         source = await this.getMovieMetadataSource();
       } catch (e) {
@@ -389,28 +419,37 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
       }
     }
 
+    // The list a network's page reads would show the old state until it
+    // expires
+    this.removeCache(`/${type}`);
+
     try {
       if (!existing) {
         return await this.addCredit(type, foreignId, source, options);
       }
 
       const credit = await this.updateCredit(type, existing, {
-        monitored,
+        monitored: options.scenes,
         moviesMonitored:
-          monitored && WhisparrAPI.canMonitorMovies(existing, source),
-        searchOnAdd: monitored ? options.searchOnAdd : existing.searchOnAdd,
+          options.movies && WhisparrAPI.canMonitorMovies(existing, source),
+        whisparrMonitorNewItems: options.monitorNewItems,
+        searchOnAdd: anyOn ? options.searchOnAdd : existing.searchOnAdd,
         rootFolderPath: existing.rootFolderPath || options.rootFolderPath,
       });
 
       // Whisparr only syncs scenes and movies on add or on its scheduled
       // refresh
-      if (monitored) {
+      if (anyOn) {
         await this.refreshCredit(type, existing.id);
       }
 
       logger.info(
-        `[Whisparr] ${monitored ? 'Monitored' : 'Unmonitored'} ${type} ${foreignId}`,
-        { moviesMonitored: credit.moviesMonitored }
+        `[Whisparr] ${anyOn ? 'Monitored' : 'Unmonitored'} ${type} ${foreignId}`,
+        {
+          monitored: credit.monitored,
+          moviesMonitored: credit.moviesMonitored,
+          monitorNewItems: credit.whisparrMonitorNewItems,
+        }
       );
       return credit;
     } catch (e) {
@@ -430,13 +469,23 @@ class WhisparrAPI extends ServarrBase<{ movieId: number }> {
   ): Promise<WhisparrCredit> {
     const { data: added } = await this.axios.post<WhisparrCredit>(`/${type}`, {
       foreignId,
-      monitored: true,
+      monitored: options.scenes,
       moviesMonitored: false,
-      ...options,
+      whisparrMonitorNewItems: options.monitorNewItems,
+      searchOnAdd: options.searchOnAdd,
+      qualityProfileId: options.qualityProfileId,
+      rootFolderPath: options.rootFolderPath,
+      tags: options.tags,
     });
-    logger.info(`[Whisparr] Added and monitored ${type} ${foreignId}`);
+    logger.info(`[Whisparr] Added ${type} ${foreignId}`, {
+      monitored: options.scenes,
+    });
 
-    if (!added?.id || !WhisparrAPI.canMonitorMovies(added, source)) {
+    if (
+      !options.movies ||
+      !added?.id ||
+      !WhisparrAPI.canMonitorMovies(added, source)
+    ) {
       return added;
     }
 

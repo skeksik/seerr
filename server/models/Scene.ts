@@ -81,7 +81,25 @@ export interface WhisparrMonitorStatus {
   // Whether Whisparr can monitor their movies, which takes a StashDB link to
   // its movie metadata source; unknown until Whisparr follows them
   moviesAvailable?: boolean;
+  // Whether new releases are added monitored; on until Whisparr follows them
+  monitorNewItems: boolean;
+  // Whether Whisparr searches for what it adds of them
+  searchOnAdd: boolean;
   serviceUrl: string;
+}
+
+// What Whisparr monitors of a network's studio
+export type WhisparrChildStatus = Pick<
+  WhisparrMonitorStatus,
+  'monitored' | 'moviesMonitored'
+>;
+
+// A network's studio, which Whisparr follows in the network's place
+export interface SceneChildStudio extends SceneFilterDetails {
+  // Whether its StashDB profile links ThePornDB, which Whisparr's movies take
+  tpdbLinked: boolean;
+  // Present with the network's own whisparr status, when Whisparr answered
+  whisparr?: WhisparrChildStatus;
 }
 
 export interface ScenePerformerDetails extends SceneFilterDetails {
@@ -95,6 +113,8 @@ export interface ScenePerformerDetails extends SceneFilterDetails {
   sceneCount: number;
   urls: SiteLink[];
   stashDbUrl: string;
+  // Whether the StashDB profile links ThePornDB, which Whisparr's movies take
+  tpdbLinked: boolean;
   whisparr?: WhisparrMonitorStatus;
 }
 
@@ -102,9 +122,10 @@ export interface SceneStudioDetails extends SceneFilterDetails {
   aliases: string[];
   parent?: { id: string; name: string };
   // A network's studios, by name
-  studios: SceneFilterDetails[];
+  studios: SceneChildStudio[];
   urls: SiteLink[];
   stashDbUrl: string;
+  tpdbLinked: boolean;
   whisparr?: WhisparrMonitorStatus;
 }
 
@@ -190,9 +211,12 @@ export const mapSceneDetails = (
   stashDbUrl: `${stashDbOrigin}/scenes/${scene.id}`,
 });
 
+// The links are read by the caller, whose link helpers this module cannot
+// import without a cycle
 export const mapPerformerDetails = (
   performer: StashDbPerformer,
-  stashDbOrigin: string
+  stashDbOrigin: string,
+  tpdbLinked: boolean
 ): ScenePerformerDetails => ({
   id: performer.id,
   name: performer.disambiguation
@@ -209,11 +233,17 @@ export const mapPerformerDetails = (
   sceneCount: performer.scene_count,
   urls: mapUrls(performer.urls),
   stashDbUrl: `${stashDbOrigin}/performers/${performer.id}`,
+  tpdbLinked,
 });
 
+// Takes which studios link ThePornDB, the network's own and each of its
+// studios' by id, and what Whisparr monitors of the studios when known
 export const mapStudioDetails = (
   studio: StashDbStudio,
-  stashDbOrigin: string
+  stashDbOrigin: string,
+  tpdbLinked: boolean,
+  studioLinks: Map<string, boolean>,
+  studioStatus?: Map<string, WhisparrChildStatus>
 ): SceneStudioDetails => ({
   id: studio.id,
   name: studio.name,
@@ -225,10 +255,19 @@ export const mapStudioDetails = (
       id: child.id,
       name: child.name,
       imageUrl: pickImage(child.images),
+      tpdbLinked: studioLinks.get(child.id) ?? false,
+      // Followed by none when the list came back without them
+      whisparr:
+        studioStatus &&
+        (studioStatus.get(child.id) ?? {
+          monitored: false,
+          moviesMonitored: false,
+        }),
     }))
     .sort((a, b) => a.name.localeCompare(b.name)),
   urls: mapUrls(studio.urls),
   stashDbUrl: `${stashDbOrigin}/studios/${studio.id}`,
+  tpdbLinked,
 });
 
 // Studios or networks by how many of the given scenes they have, most

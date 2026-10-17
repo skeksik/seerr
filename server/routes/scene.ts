@@ -1,6 +1,7 @@
 import type {
   WhisparrCredit,
   WhisparrCreditType,
+  WhisparrMonitorOptions,
 } from '@server/api/servarr/whisparr';
 import WhisparrAPI from '@server/api/servarr/whisparr';
 import type { StashDbSceneQuery } from '@server/api/stashdb';
@@ -14,6 +15,7 @@ import TpdbAPI from '@server/api/tpdb';
 import { MediaType } from '@server/constants/media';
 import Media from '@server/entity/Media';
 import type { User } from '@server/entity/User';
+import { tpdbProfileIds } from '@server/lib/adultLinks';
 import {
   handleError,
   lookupQuery,
@@ -38,6 +40,7 @@ import type {
   SceneListResponse,
   ScenePerformerDetails,
   SceneStudioDetails,
+  WhisparrChildStatus,
   WhisparrMonitorStatus,
 } from '@server/models/Scene';
 import {
@@ -106,9 +109,46 @@ const discoverQuery = sceneFilters.extend({
 const sceneId = z.string().uuid();
 
 const monitorBody = z.object({
-  monitored: z.boolean(),
+  scenes: z.boolean(),
+  movies: z.boolean(),
+  monitorNewItems: z.boolean().default(true),
   search: z.boolean().default(false),
+  // A network's studios to apply the same to: Whisparr lists scenes under
+  // the studio that released them, so a followed network holds none
+  studios: z.array(z.string().uuid()).max(500).optional(),
 });
+
+// Whisparr queues a refresh per studio applied, so a network's studios go a
+// few at a time
+const MONITOR_CONCURRENCY = 2;
+
+const mapWithConcurrency = async <T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> => {
+  const results = new Array<R>(items.length);
+  let next = 0;
+
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      results[i] = await fn(items[i]);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, worker)
+  );
+
+  return results;
+};
+
+// Whether StashDB links a profile to ThePornDB, by its links
+const linksTpdb = (urls: string[], type: WhisparrCreditType): boolean =>
+  tpdbProfileIds(
+    urls.map((url) => ({ url, site: { name: '' } })),
+    type
+  ).length > 0;
 
 const stashDbOrigin = () => new URL(getSettings().stashdb.endpoint).origin;
 
@@ -144,9 +184,15 @@ const monitorStatus = async (
     monitored: !!credit?.monitored,
     moviesMonitored: !!credit?.moviesMonitored,
     moviesAvailable,
+    // New releases come monitored unless Whisparr was told otherwise
+    monitorNewItems: credit?.whisparrMonitorNewItems ?? true,
+    searchOnAdd: !!credit?.searchOnAdd,
     serviceUrl: whisparrServiceUrl(whisparr.server, `/${type}/${foreignId}`),
   };
 };
+
+const canManageMonitoring = (req: Request) =>
+  !!req.user?.hasPermission(Permission.MANAGE_REQUESTS);
 
 // Monitoring is a request manager tool; a Whisparr outage only hides it
 const getMonitorStatus = async (
@@ -156,7 +202,7 @@ const getMonitorStatus = async (
 ): Promise<WhisparrMonitorStatus | undefined> => {
   const whisparr = whisparrClient();
 
-  if (!whisparr || !req.user?.hasPermission(Permission.MANAGE_REQUESTS)) {
+  if (!whisparr || !canManageMonitoring(req)) {
     return undefined;
   }
 
@@ -168,6 +214,37 @@ const getMonitorStatus = async (
       label: 'API',
       type,
       foreignId,
+      errorMessage: e.message,
+    });
+    return undefined;
+  }
+};
+
+// What Whisparr monitors of a network's studios, from its studio list, under
+// the same gate; a studio Whisparr does not follow is left out
+const getStudioStatuses = async (
+  req: Request
+): Promise<Map<string, WhisparrChildStatus> | undefined> => {
+  const whisparr = whisparrClient();
+
+  if (!whisparr || !canManageMonitoring(req)) {
+    return undefined;
+  }
+
+  try {
+    const credits = await whisparr.api.listCredits('studio');
+    return new Map(
+      credits.map((credit) => [
+        credit.foreignId,
+        {
+          monitored: credit.monitored,
+          moviesMonitored: credit.moviesMonitored,
+        },
+      ])
+    );
+  } catch (e) {
+    logger.debug('Unable to retrieve the Whisparr studio list', {
+      label: 'API',
       errorMessage: e.message,
     });
     return undefined;
@@ -732,8 +809,29 @@ sceneRoutes.get<{ type: string; id: string }>(
           stashDb.getStudio(parsed.data),
           getMonitorStatus(req, 'studio', parsed.data),
         ]);
+        const children = (studio?.child_studios ?? []).map(({ id }) => id);
+        // A network's studios are what Whisparr follows in its place, so
+        // the page says which link ThePornDB and which it monitors
+        const [urls, statuses] = await Promise.all([
+          stashDb.studioUrls(children),
+          children.length > 0 ? getStudioStatuses(req) : undefined,
+        ]);
         details = studio && {
-          ...mapStudioDetails(studio, stashDbOrigin()),
+          ...mapStudioDetails(
+            studio,
+            stashDbOrigin(),
+            linksTpdb(
+              studio.urls.map(({ url }) => url),
+              'studio'
+            ),
+            new Map(
+              children.map((id) => [
+                id,
+                linksTpdb(urls.get(id) ?? [], 'studio'),
+              ])
+            ),
+            statuses
+          ),
           whisparr,
         };
       } else if (req.params.type === 'performer') {
@@ -742,7 +840,14 @@ sceneRoutes.get<{ type: string; id: string }>(
           getMonitorStatus(req, 'performer', parsed.data),
         ]);
         details = performer && {
-          ...mapPerformerDetails(performer, stashDbOrigin()),
+          ...mapPerformerDetails(
+            performer,
+            stashDbOrigin(),
+            linksTpdb(
+              performer.urls.map(({ url }) => url),
+              'performer'
+            )
+          ),
           whisparr,
         };
       } else {
@@ -793,23 +898,57 @@ sceneRoutes.post<{ type: string; id: string }>(
       });
     }
 
-    try {
-      const { server, api } = whisparr;
-      const credit = await api.setCreditMonitored(
-        type,
-        parsedId.data,
-        body.data.monitored,
-        {
-          qualityProfileId: server.activeProfileId,
-          rootFolderPath: server.activeDirectory,
-          tags: server.tags ?? [],
-          searchOnAdd: body.data.search && !server.preventSearch,
-        }
-      );
+    // Only a network's own studios can be applied along with it
+    let studios: string[] = [];
 
-      return res
-        .status(200)
-        .json(await monitorStatus(whisparr, type, parsedId.data, credit));
+    if (body.data.studios) {
+      if (type !== 'studio') {
+        return next({
+          status: 400,
+          message: 'Only a studio can be monitored with its studios.',
+        });
+      }
+
+      try {
+        const studio = await StashDbAPI.fromSettings().getStudio(parsedId.data);
+
+        if (!studio) {
+          return next({ status: 404, message: 'Not found.' });
+        }
+
+        const children = new Set(
+          (studio.child_studios ?? []).map(({ id }) => id)
+        );
+
+        if (body.data.studios.some((id) => !children.has(id))) {
+          return next({
+            status: 400,
+            message: 'The studios must belong to this network.',
+          });
+        }
+
+        studios = [...new Set(body.data.studios)];
+      } catch (e) {
+        return handleError(e, next, 'Unable to retrieve the studio.', {
+          id: parsedId.data,
+        });
+      }
+    }
+
+    const { server, api } = whisparr;
+    const options: WhisparrMonitorOptions = {
+      scenes: body.data.scenes,
+      movies: body.data.movies,
+      monitorNewItems: body.data.monitorNewItems,
+      searchOnAdd: body.data.search && !server.preventSearch,
+      qualityProfileId: server.activeProfileId,
+      rootFolderPath: server.activeDirectory,
+      tags: server.tags ?? [],
+    };
+    let credit: WhisparrCredit | null;
+
+    try {
+      credit = await api.applyCreditMonitoring(type, parsedId.data, options);
     } catch (e) {
       logger.error('Unable to update Whisparr monitoring', {
         label: 'API',
@@ -819,6 +958,41 @@ sceneRoutes.post<{ type: string; id: string }>(
       });
       return next({ status: 500, message: 'Unable to update Whisparr.' });
     }
+
+    // One studio Whisparr refuses does not stop the rest; it is reported
+    const applied = await mapWithConcurrency(
+      studios,
+      MONITOR_CONCURRENCY,
+      async (id) => {
+        try {
+          const child = await api.applyCreditMonitoring('studio', id, options);
+          return {
+            id,
+            monitored: !!child?.monitored,
+            moviesMonitored: !!child?.moviesMonitored,
+          };
+        } catch (e) {
+          logger.warn('Unable to update Whisparr monitoring of a studio', {
+            label: 'API',
+            foreignId: id,
+            network: parsedId.data,
+            errorMessage: e.message,
+          });
+          return { id, failed: true as const };
+        }
+      }
+    );
+    const failed = applied.flatMap((result) =>
+      'failed' in result ? [result.id] : []
+    );
+
+    return res.status(200).json({
+      ...(await monitorStatus(whisparr, type, parsedId.data, credit)),
+      ...(body.data.studios && {
+        studios: applied.filter((result) => !('failed' in result)),
+        ...(failed.length > 0 && { failed }),
+      }),
+    });
   }
 );
 
